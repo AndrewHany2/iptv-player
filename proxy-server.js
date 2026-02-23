@@ -4,7 +4,7 @@ const https = require("https");
 const { URL } = require("url");
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
 
 // Enable CORS for all routes
 app.use((req, res, next) => {
@@ -33,7 +33,6 @@ app.get("/proxy", async (req, res) => {
   try {
     // Decode the URL
     const decodedUrl = decodeURIComponent(targetUrl);
-    console.log("Proxying request to:", decodedUrl);
 
     // Parse URL
     const urlObj = new URL(decodedUrl);
@@ -60,7 +59,6 @@ app.get("/proxy", async (req, res) => {
     // Add Range header if present (for video seeking)
     if (req.headers.range) {
       options.headers["Range"] = req.headers.range;
-      console.log("Range request:", req.headers.range);
     }
 
     // Make request with redirect handling
@@ -93,13 +91,6 @@ app.get("/proxy", async (req, res) => {
           if (response.headers[header]) {
             res.setHeader(header, response.headers[header]);
           }
-        });
-
-        // Log response info
-        console.log("Response:", {
-          status: response.statusCode,
-          contentType: response.headers["content-type"],
-          contentLength: response.headers["content-length"],
         });
 
         // Handle m3u8 playlist - rewrite URLs to go through proxy
@@ -163,11 +154,6 @@ function makeRequestWithRedirect(
       response.statusCode < 400 &&
       response.headers.location
     ) {
-      console.log(
-        `Redirect ${response.statusCode} to:`,
-        response.headers.location,
-      );
-
       // Parse redirect URL
       let redirectUrl;
       if (response.headers.location.startsWith("http")) {
@@ -259,9 +245,5 @@ app.get("/health", (req, res) => {
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`IPTV Proxy Server running on http://localhost:${PORT}`);
-  console.log(
-    `Proxy endpoint: http://localhost:${PORT}/proxy?url=<encoded_url>`,
-  );
-  console.log(`Health check: http://localhost:${PORT}/health`);
+  // Server started
 });

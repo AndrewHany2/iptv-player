@@ -209,8 +209,6 @@ const ContentBrowser = () => {
         await loadSeriesEpisodes(item);
         break;
       default:
-        // eslint-disable-next-line no-console
-        console.warn(`Unknown content type: ${contentType}`);
     }
   };
 
