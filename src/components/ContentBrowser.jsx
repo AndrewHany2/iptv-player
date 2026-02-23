@@ -213,6 +213,22 @@ const ContentBrowser = () => {
   };
 
   /**
+   * Helper function to extract episode number from title
+   */
+  const getEpisodeNumber = (episode) => {
+    let episodeNum = episode.episode_num;
+    if (episode.title) {
+      // Match patterns like "S01E00", "S1E1", "E00", etc.
+      const match =
+        episode.title.match(/S\d+E(\d+)/i) || episode.title.match(/E(\d+)/i);
+      if (match && match[1]) {
+        episodeNum = match[1]; // Get the episode number (already a string with leading zeros)
+      }
+    }
+    return episodeNum;
+  };
+
+  /**
    * Play series episode in VLC
    */
   const handleEpisodeClick = async (episode, seasonNum) => {
@@ -224,7 +240,8 @@ const ContentBrowser = () => {
       episode.id,
       episode.container_extension || "mp4",
     );
-    const episodeName = `${currentSeries.name} - S${seasonNum}E${episode.episode_num}`;
+    const episodeNum = getEpisodeNumber(episode);
+    const episodeName = `${currentSeries.name} - S${String(seasonNum).padStart(2, "0")}E${String(episodeNum).padStart(2, "0")}`;
 
     // eslint-disable-next-line no-alert, no-restricted-globals
     const shouldUseVLC = window.confirm(
@@ -244,7 +261,7 @@ const ContentBrowser = () => {
         name: episodeName,
         url: streamUrl,
         seasonNum: seasonNum,
-        episodeNum: episode.episode_num,
+        episodeNum: episodeNum,
       });
     } catch (error) {
       console.error("Error opening VLC:", error);
@@ -432,7 +449,7 @@ const ContentBrowser = () => {
                           onClick={() => handleEpisodeClick(episode, seasonNum)}
                         >
                           <div className="episode-number">
-                            E{episode.episode_num}
+                            E{getEpisodeNumber(episode)}
                           </div>
                           <div className="episode-title">
                             {episode.title || "Untitled"}
