@@ -1457,6 +1457,25 @@ body {
   transform: scale(1.1);
 }
 
+.next-episode-btn {
+  background: #0066cc;
+  border: none;
+  color: white;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  margin-right: 10px;
+  flex-shrink: 0;
+}
+
+.next-episode-btn:hover {
+  background: #0052a3;
+}
+
 .video-wrapper {
   flex: 1;
   position: relative;

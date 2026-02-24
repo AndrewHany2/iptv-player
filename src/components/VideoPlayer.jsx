@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import Hls from "hls.js";
 import { useApp } from "../context/AppContext";
+import iptvApi from "../services/iptvApi";
 
 const PROXY_BASE = "http://localhost:5000";
 
@@ -11,7 +12,7 @@ const PROXY_ROUTE = {
 };
 
 const VideoPlayer = () => {
-  const { currentVideo, closeVideo, updateWatchProgress, addToWatchHistory } =
+  const { currentVideo, closeVideo, updateWatchProgress, addToWatchHistory, playVideo } =
     useApp();
   const videoRef = useRef(null);
   const hlsRef = useRef(null);
@@ -124,11 +125,13 @@ const VideoPlayer = () => {
       video.addEventListener("loadedmetadata", onLoadedMetadata, { once: true });
     }
 
-    // Add to watch history once
-    addToWatchHistory({
-      ...currentVideo,
-      currentTime: currentVideo.startTime || 0,
-    });
+    // Only save VOD (movies/series) to watch history — not live channels
+    if (currentVideo.type !== "live") {
+      addToWatchHistory({
+        ...currentVideo,
+        currentTime: currentVideo.startTime || 0,
+      });
+    }
 
     // Cleanup on unmount or video change
     return () => {
@@ -255,6 +258,82 @@ const VideoPlayer = () => {
     return () => document.removeEventListener("keydown", handleKeyDown, true);
   }, [currentVideo, handleClose]);
 
+  // Find the next episode for series content.
+  // Looks up the current episode by id (streamId) within seriesSeasons,
+  // then returns the next one in the same season or the first of the next season.
+  const getNextEpisode = useCallback(() => {
+    if (
+      !currentVideo ||
+      currentVideo.type !== "series" ||
+      !currentVideo.seriesSeasons
+    )
+      return null;
+
+    const { seriesSeasons, seasonNum } = currentVideo;
+    const seasonKeys = Object.keys(seriesSeasons)
+      .map(Number)
+      .sort((a, b) => a - b);
+
+    const sortedEpisodes = (sNum) =>
+      [...(seriesSeasons[String(sNum)] || [])].sort(
+        (a, b) => Number(a.episode_num) - Number(b.episode_num),
+      );
+
+    const currentSeasonEps = sortedEpisodes(seasonNum);
+    const currentIdx = currentSeasonEps.findIndex(
+      (ep) => String(ep.id) === String(currentVideo.streamId),
+    );
+
+    // Next episode in same season
+    if (currentIdx !== -1 && currentIdx < currentSeasonEps.length - 1) {
+      return {
+        episode: currentSeasonEps[currentIdx + 1],
+        seasonNum: String(seasonNum),
+      };
+    }
+
+    // First episode of next season
+    const currentSeasonNumIdx = seasonKeys.indexOf(Number(seasonNum));
+    if (currentSeasonNumIdx !== -1 && currentSeasonNumIdx < seasonKeys.length - 1) {
+      const nextSeasonNum = seasonKeys[currentSeasonNumIdx + 1];
+      const nextEps = sortedEpisodes(nextSeasonNum);
+      if (nextEps.length > 0) {
+        return { episode: nextEps[0], seasonNum: String(nextSeasonNum) };
+      }
+    }
+
+    return null;
+  }, [currentVideo]);
+
+  const handleNextEpisode = useCallback(() => {
+    const next = getNextEpisode();
+    if (!next) return;
+
+    const { episode, seasonNum } = next;
+    const streamUrl = iptvApi.buildStreamUrl(
+      "series",
+      episode.id,
+      episode.container_extension || "mp4",
+    );
+    const epNum = String(episode.episode_num).padStart(2, "0");
+    const sNum = String(seasonNum).padStart(2, "0");
+    const episodeName = `${currentVideo.seriesName} - S${sNum}E${epNum}`;
+
+    playVideo({
+      type: "series",
+      streamId: episode.id,
+      seriesId: currentVideo.seriesId,
+      seriesName: currentVideo.seriesName,
+      name: episodeName,
+      url: streamUrl,
+      seasonNum: seasonNum,
+      episodeNum: episode.episode_num,
+      seriesSeasons: currentVideo.seriesSeasons,
+    });
+  }, [getNextEpisode, currentVideo, playVideo]);
+
+  const nextEpisode = getNextEpisode();
+
   if (!currentVideo) return null;
 
   return (
@@ -262,6 +341,16 @@ const VideoPlayer = () => {
       <div className="video-player-container">
         <div className="video-player-header">
           <span className="video-title">{currentVideo.name}</span>
+          {nextEpisode && (
+            <button
+              type="button"
+              className="next-episode-btn"
+              onClick={handleNextEpisode}
+              title={`Next: S${String(nextEpisode.seasonNum).padStart(2, "0")}E${String(nextEpisode.episode.episode_num).padStart(2, "0")} – ${nextEpisode.episode.title || ""}`}
+            >
+              Next ▶
+            </button>
+          )}
           <button
             type="button"
             className="close-button"

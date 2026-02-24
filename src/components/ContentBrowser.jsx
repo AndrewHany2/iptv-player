@@ -256,6 +256,7 @@ const ContentBrowser = () => {
       url: streamUrl,
       seasonNum: seasonNum,
       episodeNum: episodeNum,
+      seriesSeasons: seriesSeasons,
     });
   };
 

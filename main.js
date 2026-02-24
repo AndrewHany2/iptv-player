@@ -296,7 +296,6 @@ function createWindow() {
   // Load from Vite dev server in development, or built files in production
   if (isDev) {
     mainWindow.loadURL("http://localhost:3001");
-    mainWindow.webContents.openDevTools();
   } else {
     mainWindow.loadFile(path.join(__dirname, "dist/index.html"));
   }
