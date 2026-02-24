@@ -99,19 +99,12 @@ const SeriesContent = () => {
     const episodeNum = getEpisodeNumber(episode);
     const episodeName = `${currentSeries.name} - S${String(seasonNum).padStart(2, "0")}E${String(episodeNum).padStart(2, "0")}`;
 
-    // eslint-disable-next-line no-alert, no-restricted-globals
-    const shouldUseVLC = globalThis.confirm(
-      `Play "${episodeName}" in VLC Media Player?\n\nClick OK to open in VLC (recommended)\nClick Cancel to try browser playback`,
-    );
-
-    if (shouldUseVLC) {
-      try {
-        await globalThis.electron.openInVLC(streamUrl, { name: episodeName });
-      } catch (error) {
-        console.error("Error opening VLC:", error);
-        // eslint-disable-next-line no-alert
-        alert("Failed to open VLC. Make sure VLC is installed.");
-      }
+    try {
+      await globalThis.electron.openInVLC(streamUrl, { name: episodeName });
+    } catch (error) {
+      console.error("Error opening VLC:", error);
+      // eslint-disable-next-line no-alert
+      alert("Failed to open VLC. Make sure VLC is installed.");
     }
   };
 

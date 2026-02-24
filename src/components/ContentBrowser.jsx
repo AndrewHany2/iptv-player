@@ -120,13 +120,6 @@ const ContentBrowser = () => {
    * Play live channel in VLC
    */
   const playLiveChannel = async (item) => {
-    // eslint-disable-next-line no-alert, no-restricted-globals
-    const shouldUseVLC = window.confirm(
-      `Play "${item.name}" in VLC Media Player?\n\nClick OK to open in VLC`,
-    );
-
-    if (!shouldUseVLC) return;
-
     try {
       await window.electron.openInVLC(item.url, { name: item.name });
       addToWatchHistory({
@@ -151,13 +144,6 @@ const ContentBrowser = () => {
       item.stream_id,
       item.container_extension || "mp4",
     );
-
-    // eslint-disable-next-line no-alert, no-restricted-globals
-    const shouldUseVLC = window.confirm(
-      `Play "${item.name}" in VLC Media Player?\n\nClick OK to open in VLC`,
-    );
-
-    if (!shouldUseVLC) return;
 
     try {
       await window.electron.openInVLC(streamUrl, { name: item.name });
@@ -242,13 +228,6 @@ const ContentBrowser = () => {
     );
     const episodeNum = getEpisodeNumber(episode);
     const episodeName = `${currentSeries.name} - S${String(seasonNum).padStart(2, "0")}E${String(episodeNum).padStart(2, "0")}`;
-
-    // eslint-disable-next-line no-alert, no-restricted-globals
-    const shouldUseVLC = window.confirm(
-      `Play "${episodeName}" in VLC Media Player?\n\nClick OK to open in VLC`,
-    );
-
-    if (!shouldUseVLC) return;
 
     try {
       await window.electron.openInVLC(streamUrl, { name: episodeName });

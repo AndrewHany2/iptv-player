@@ -61,19 +61,12 @@ const MoviesContent = () => {
       movie.container_extension || "mp4",
     );
 
-    // eslint-disable-next-line no-alert, no-restricted-globals
-    const shouldUseVLC = globalThis.confirm(
-      `Play "${movie.name}" in VLC Media Player?\n\nClick OK to open in VLC (recommended)\nClick Cancel to try browser playback`,
-    );
-
-    if (shouldUseVLC) {
-      try {
-        await globalThis.electron.openInVLC(streamUrl, { name: movie.name });
-      } catch (error) {
-        console.error("Error opening VLC:", error);
-        // eslint-disable-next-line no-alert
-        alert("Failed to open VLC. Make sure VLC is installed.");
-      }
+    try {
+      await globalThis.electron.openInVLC(streamUrl, { name: movie.name });
+    } catch (error) {
+      console.error("Error opening VLC:", error);
+      // eslint-disable-next-line no-alert
+      alert("Failed to open VLC. Make sure VLC is installed.");
     }
   };
 
