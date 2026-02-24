@@ -217,6 +217,7 @@ const VideoPlayer = () => {
         case " ":
         case "k":
           e.preventDefault();
+          e.stopPropagation();
           if (video.paused) video.play();
           else video.pause();
           break;
@@ -248,8 +249,10 @@ const VideoPlayer = () => {
       }
     };
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    // Use capture phase so we intercept space BEFORE Chromium's
+    // native <video controls> handler fires, preventing double-toggle.
+    document.addEventListener("keydown", handleKeyDown, true);
+    return () => document.removeEventListener("keydown", handleKeyDown, true);
   }, [currentVideo, handleClose]);
 
   if (!currentVideo) return null;
