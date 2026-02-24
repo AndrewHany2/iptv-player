@@ -1,7 +1,21 @@
 const express = require("express");
 const http = require("http");
 const https = require("https");
+const zlib = require("zlib");
 const { URL } = require("url");
+
+// Keep-alive agents for live video streams only
+const httpKeepAliveAgent = new http.Agent({ keepAlive: true, maxSockets: 10 });
+const httpsKeepAliveAgent = new https.Agent({ keepAlive: true, maxSockets: 10 });
+
+// Default agents (no keep-alive) for API calls
+const httpAgent = new http.Agent({ keepAlive: false });
+const httpsAgent = new https.Agent({ keepAlive: false });
+
+// Detect if URL is a live video stream (not an API call)
+function isVideoStream(url) {
+  return /\/(live|movie|series)\//.test(url);
+}
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -39,21 +53,31 @@ app.get("/proxy", async (req, res) => {
     const isHttps = urlObj.protocol === "https:";
     const httpModule = isHttps ? https : http;
 
-    // Prepare request options
+    // Prepare request options - matching IPTVSmartersPro headers exactly
+    const hostHeader = urlObj.port
+      ? `${urlObj.hostname}:${urlObj.port}`
+      : urlObj.hostname;
+    const videoStream = isVideoStream(decodedUrl);
     const options = {
       hostname: urlObj.hostname,
       port: urlObj.port || (isHttps ? 443 : 80),
       path: urlObj.pathname + urlObj.search,
       method: "GET",
+      agent: videoStream
+        ? isHttps ? httpsKeepAliveAgent : httpKeepAliveAgent
+        : isHttps ? httpsAgent : httpAgent,
       headers: {
+        Host: hostHeader,
         "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) IPTVSmartersPro/1.1.1 Chrome/53.0.2785.143 Electron/1.4.16 Safari/537.36",
         Accept: "*/*",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Accept-Encoding": "identity",
-        Connection: "close",
+        "Accept-Language": "en-US",
+        // Video streams: no compression (binary data). API calls: accept gzip.
+        "Accept-Encoding": videoStream ? "identity" : "gzip, deflate",
+        Connection: "keep-alive",
+        Referer: `${urlObj.protocol}//${urlObj.host}/`,
       },
-      timeout: 30000, // 30 second timeout
+      timeout: videoStream ? 0 : 30000, // no timeout for live streams
     };
 
     // Add Range header if present (for video seeking)
@@ -70,16 +94,16 @@ app.get("/proxy", async (req, res) => {
       (err, response) => {
         if (err) {
           console.error("Proxy error:", err.message);
+          if (res.headersSent) return res.end();
           return res.status(500).json({ error: err.message });
         }
 
         // Forward status code
         res.status(response.statusCode);
 
-        // Forward relevant headers
+        // Forward relevant headers (but not content-encoding since we decompress)
         const headersToForward = [
           "content-type",
-          "content-length",
           "content-range",
           "accept-ranges",
           "cache-control",
@@ -93,42 +117,55 @@ app.get("/proxy", async (req, res) => {
           }
         });
 
+        // Decompress only for non-video (API/JSON) responses
+        const contentEncoding = response.headers["content-encoding"];
+        let responseStream = response;
+
+        if (!videoStream && contentEncoding === "gzip") {
+          responseStream = response.pipe(zlib.createGunzip());
+        } else if (!videoStream && contentEncoding === "deflate") {
+          responseStream = response.pipe(zlib.createInflate());
+        }
+
+        const safeEnd = (err) => {
+          if (err) console.error("Stream error:", err.message);
+          if (!res.headersSent) res.status(500).end();
+          else res.end();
+        };
+
         // Handle m3u8 playlist - rewrite URLs to go through proxy
+        const contentType = response.headers["content-type"] || "";
         if (
-          response.headers["content-type"]?.includes(
-            "application/vnd.apple.mpegurl",
-          ) ||
-          response.headers["content-type"]?.includes("application/x-mpegURL") ||
+          contentType.includes("application/vnd.apple.mpegurl") ||
+          contentType.includes("application/x-mpegURL") ||
           decodedUrl.includes(".m3u8")
         ) {
           let data = "";
-          response.on("data", (chunk) => {
+          responseStream.on("data", (chunk) => {
             data += chunk.toString();
           });
 
-          response.on("end", () => {
-            // Rewrite URLs in playlist to go through proxy
+          responseStream.on("end", () => {
             const rewrittenPlaylist = rewritePlaylistUrls(data, decodedUrl);
             res.send(rewrittenPlaylist);
           });
 
-          response.on("error", (err) => {
-            console.error("Stream error:", err);
-            res.status(500).end();
-          });
+          responseStream.on("error", safeEnd);
         } else {
-          // For .ts segments and other content, pipe directly
-          response.pipe(res);
+          // For video streams: pipe binary data directly, no content-length for chunked
+          if (!contentEncoding && response.headers["content-length"]) {
+            res.setHeader("content-length", response.headers["content-length"]);
+          }
 
-          response.on("error", (err) => {
-            console.error("Stream error:", err);
-            res.status(500).end();
-          });
+          responseStream.pipe(res);
+          responseStream.on("error", safeEnd);
+          res.on("close", () => response.destroy());
         }
       },
     );
   } catch (error) {
     console.error("Error:", error);
+    if (res.headersSent) return res.end();
     res.status(500).json({ error: error.message });
   }
 });
@@ -154,12 +191,10 @@ function makeRequestWithRedirect(
       response.statusCode < 400 &&
       response.headers.location
     ) {
-      // Parse redirect URL
       let redirectUrl;
       if (response.headers.location.startsWith("http")) {
         redirectUrl = response.headers.location;
       } else {
-        // Relative URL
         const baseUrl = new URL(originalUrl);
         redirectUrl = new URL(response.headers.location, baseUrl.origin).href;
       }
@@ -167,16 +202,22 @@ function makeRequestWithRedirect(
       const redirectUrlObj = new URL(redirectUrl);
       const isHttps = redirectUrlObj.protocol === "https:";
       const newHttpModule = isHttps ? https : http;
+      const newHostHeader = redirectUrlObj.port
+        ? `${redirectUrlObj.hostname}:${redirectUrlObj.port}`
+        : redirectUrlObj.hostname;
 
       const newOptions = {
         hostname: redirectUrlObj.hostname,
         port: redirectUrlObj.port || (isHttps ? 443 : 80),
         path: redirectUrlObj.pathname + redirectUrlObj.search,
         method: "GET",
-        headers: options.headers,
+        headers: {
+          ...options.headers,
+          Host: newHostHeader,
+          Referer: `${redirectUrlObj.protocol}//${redirectUrlObj.host}/`,
+        },
       };
 
-      // Follow redirect
       return makeRequestWithRedirect(
         newHttpModule,
         newOptions,
@@ -186,12 +227,16 @@ function makeRequestWithRedirect(
       );
     }
 
-    // Success - return response
     callback(null, response);
   });
 
   request.on("error", (err) => {
     callback(err);
+  });
+
+  request.on("timeout", () => {
+    request.destroy();
+    callback(new Error("Request timeout"));
   });
 
   request.end();
@@ -203,31 +248,25 @@ function rewritePlaylistUrls(playlistContent, baseUrl) {
   const baseUrlObj = new URL(baseUrl);
 
   const rewrittenLines = lines.map((line) => {
-    // Skip comments and empty lines
     if (line.startsWith("#") || line.trim() === "") {
       return line;
     }
 
-    // Check if line is a URL
     if (line.trim().length > 0) {
       let absoluteUrl;
 
       if (line.startsWith("http://") || line.startsWith("https://")) {
-        // Already absolute URL
-        absoluteUrl = line;
+        absoluteUrl = line.trim();
       } else if (line.startsWith("/")) {
-        // Absolute path
-        absoluteUrl = `${baseUrlObj.protocol}//${baseUrlObj.host}${line}`;
+        absoluteUrl = `${baseUrlObj.protocol}//${baseUrlObj.host}${line.trim()}`;
       } else {
-        // Relative path
         const basePath = baseUrlObj.pathname.substring(
           0,
           baseUrlObj.pathname.lastIndexOf("/") + 1,
         );
-        absoluteUrl = `${baseUrlObj.protocol}//${baseUrlObj.host}${basePath}${line}`;
+        absoluteUrl = `${baseUrlObj.protocol}//${baseUrlObj.host}${basePath}${line.trim()}`;
       }
 
-      // Encode and proxy the URL
       const encodedUrl = encodeURIComponent(absoluteUrl);
       return `/proxy?url=${encodedUrl}`;
     }
@@ -245,5 +284,5 @@ app.get("/health", (req, res) => {
 
 // Start server
 app.listen(PORT, () => {
-  // Server started
+  console.log(`Proxy server running on port ${PORT}`);
 });

@@ -44,6 +44,9 @@ export const AppProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // Video playback state
+  const [currentVideo, setCurrentVideo] = useState(null);
+
   // Watch history functions
   const loadWatchHistory = () => {
     try {
@@ -134,6 +137,21 @@ export const AppProvider = ({ children }) => {
     });
     setWatchHistory(updatedHistory);
     saveWatchHistory(updatedHistory);
+  };
+
+  /**
+   * Play video in native player
+   * @param {Object} video - Video to play { url, name, type, streamId, startTime, ... }
+   */
+  const playVideo = (video) => {
+    setCurrentVideo(video);
+  };
+
+  /**
+   * Close the native video player
+   */
+  const closeVideo = () => {
+    setCurrentVideo(null);
   };
 
   // Load saved data on mount
@@ -274,6 +292,11 @@ export const AppProvider = ({ children }) => {
     addToWatchHistory,
     updateWatchProgress,
     setSeriesSeasons,
+
+    // Video Playback
+    currentVideo,
+    playVideo,
+    closeVideo,
 
     // UI
     searchQuery,

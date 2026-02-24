@@ -1,70 +1,294 @@
+import { useEffect, useRef, useState, useCallback } from "react";
+import Hls from "hls.js";
 import { useApp } from "../context/AppContext";
 
-const VideoPlayer = () => {
-  const { filteredChannels, currentChannelIndex } = useApp();
+const PROXY_URL = "http://localhost:5000/proxy?url=";
 
-  const currentChannel =
-    currentChannelIndex >= 0 ? filteredChannels[currentChannelIndex] : null;
+const VideoPlayer = () => {
+  const { currentVideo, closeVideo, updateWatchProgress, addToWatchHistory } =
+    useApp();
+  const videoRef = useRef(null);
+  const hlsRef = useRef(null);
+  const progressIntervalRef = useRef(null);
+  const lastVideoUrlRef = useRef(null);
+
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Build proxied URL
+  const getProxiedUrl = useCallback((url) => {
+    return `${PROXY_URL}${encodeURIComponent(url)}`;
+  }, []);
+
+  // Stop progress tracking
+  const stopProgressTracking = useCallback(() => {
+    if (progressIntervalRef.current) {
+      clearInterval(progressIntervalRef.current);
+      progressIntervalRef.current = null;
+    }
+  }, []);
+
+  // Handle close - save progress before closing
+  const handleClose = useCallback(() => {
+    const video = videoRef.current;
+    if (video && currentVideo) {
+      updateWatchProgress(
+        currentVideo.streamId,
+        currentVideo.type,
+        video.currentTime,
+        video.duration || 0,
+      );
+    }
+    stopProgressTracking();
+    closeVideo();
+  }, [currentVideo, updateWatchProgress, stopProgressTracking, closeVideo]);
+
+  // Initialize HLS player - only when video URL changes
+  useEffect(() => {
+    if (!currentVideo || !videoRef.current) return;
+
+    // Prevent re-initialization for the same video
+    if (lastVideoUrlRef.current === currentVideo.url) return;
+    lastVideoUrlRef.current = currentVideo.url;
+
+    const video = videoRef.current;
+    const url = currentVideo.url;
+    const proxiedUrl = getProxiedUrl(url);
+    const isHls = url.includes(".m3u8") || currentVideo.type === "live";
+
+    setIsLoading(true);
+    setError(null);
+
+    // Cleanup previous HLS instance
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
+
+    const onLoadedMetadata = () => {
+      setIsLoading(false);
+      if (currentVideo.startTime && currentVideo.startTime > 0) {
+        video.currentTime = currentVideo.startTime;
+      }
+      video.play().catch(console.error);
+    };
+
+    if (isHls && Hls.isSupported()) {
+      const hls = new Hls({
+        enableWorker: true,
+        lowLatencyMode: false,
+        backBufferLength: 90,
+        maxBufferLength: 30,
+        maxMaxBufferLength: 60,
+      });
+
+      hlsRef.current = hls;
+
+      hls.loadSource(proxiedUrl);
+      hls.attachMedia(video);
+
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        setIsLoading(false);
+        if (currentVideo.startTime && currentVideo.startTime > 0) {
+          video.currentTime = currentVideo.startTime;
+        }
+        video.play().catch(console.error);
+      });
+
+      hls.on(Hls.Events.ERROR, (event, data) => {
+        if (data.fatal) {
+          setError(`Stream error: ${data.type}`);
+          setIsLoading(false);
+        }
+      });
+    } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+      video.src = proxiedUrl;
+      video.addEventListener("loadedmetadata", onLoadedMetadata, { once: true });
+    } else {
+      video.src = proxiedUrl;
+      video.addEventListener("loadedmetadata", onLoadedMetadata, { once: true });
+    }
+
+    // Add to watch history once
+    addToWatchHistory({
+      ...currentVideo,
+      currentTime: currentVideo.startTime || 0,
+    });
+
+    // Cleanup on unmount or video change
+    return () => {
+      stopProgressTracking();
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+      video.removeEventListener("loadedmetadata", onLoadedMetadata);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentVideo?.url]);
+
+  // Reset lastVideoUrlRef when player closes
+  useEffect(() => {
+    if (!currentVideo) {
+      lastVideoUrlRef.current = null;
+    }
+  }, [currentVideo]);
+
+  // Video event handlers
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !currentVideo) return;
+
+    const handlePlay = () => {
+      // Start progress tracking
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current);
+      }
+      progressIntervalRef.current = setInterval(() => {
+        if (video && !video.paused && currentVideo) {
+          updateWatchProgress(
+            currentVideo.streamId,
+            currentVideo.type,
+            video.currentTime,
+            video.duration || 0,
+          );
+        }
+      }, 10000); // Save every 10 seconds
+    };
+
+    const handlePause = () => {
+      if (currentVideo) {
+        updateWatchProgress(
+          currentVideo.streamId,
+          currentVideo.type,
+          video.currentTime,
+          video.duration || 0,
+        );
+      }
+    };
+
+    const handleError = () => {
+      setError("Failed to load video");
+      setIsLoading(false);
+    };
+
+    const handleWaiting = () => setIsLoading(true);
+    const handleCanPlay = () => setIsLoading(false);
+
+    video.addEventListener("play", handlePlay);
+    video.addEventListener("pause", handlePause);
+    video.addEventListener("error", handleError);
+    video.addEventListener("waiting", handleWaiting);
+    video.addEventListener("canplay", handleCanPlay);
+
+    return () => {
+      video.removeEventListener("play", handlePlay);
+      video.removeEventListener("pause", handlePause);
+      video.removeEventListener("error", handleError);
+      video.removeEventListener("waiting", handleWaiting);
+      video.removeEventListener("canplay", handleCanPlay);
+    };
+  }, [currentVideo, updateWatchProgress]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (!currentVideo) return;
+
+      const video = videoRef.current;
+      if (!video) return;
+
+      switch (e.key) {
+        case " ":
+        case "k":
+          e.preventDefault();
+          if (video.paused) video.play();
+          else video.pause();
+          break;
+        case "f":
+          e.preventDefault();
+          if (document.fullscreenElement) document.exitFullscreen();
+          else video.requestFullscreen();
+          break;
+        case "Escape":
+          handleClose();
+          break;
+        case "ArrowLeft":
+          e.preventDefault();
+          video.currentTime -= 10;
+          break;
+        case "ArrowRight":
+          e.preventDefault();
+          video.currentTime += 10;
+          break;
+        case "ArrowUp":
+          e.preventDefault();
+          video.volume = Math.min(1, video.volume + 0.1);
+          break;
+        case "ArrowDown":
+          e.preventDefault();
+          video.volume = Math.max(0, video.volume - 0.1);
+          break;
+        default:
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [currentVideo, handleClose]);
+
+  if (!currentVideo) return null;
 
   return (
-    <main className="player-area">
-      <div className="video-container">
-        <video
-          id="videoPlayer"
-          controls
-          autoPlay
-          preload="auto"
-          crossOrigin="anonymous"
-        >
-          Your browser does not support the video tag.
-        </video>
-
-        <div id="loadingIndicator" className="loading-indicator hidden">
-          <div className="spinner"></div>
-          <p>Loading stream...</p>
-        </div>
-
-        <div id="errorMessage" className="error-message hidden">
-          <p>❌ Failed to load stream</p>
-          <p className="error-details"></p>
-        </div>
-      </div>
-
-      <div className="player-controls">
-        <div className="now-playing">
-          <span className="label">Now Playing:</span>
-          <span className="channel-name">
-            {currentChannel ? currentChannel.name : "No channel selected"}
-          </span>
-        </div>
-        <div className="control-buttons">
+    <div className="video-player-overlay">
+      <div className="video-player-container">
+        <div className="video-player-header">
+          <span className="video-title">{currentVideo.name}</span>
           <button
             type="button"
-            className="btn-control"
-            title="Previous Channel"
+            className="close-button"
+            onClick={handleClose}
+            title="Close (Esc)"
           >
-            ⏮️
+            X
           </button>
-          <button type="button" className="btn-control" title="Play/Pause">
-            ▶️
-          </button>
-          <button type="button" className="btn-control" title="Next Channel">
-            ⏭️
-          </button>
-          <button type="button" className="btn-control" title="Fullscreen">
-            ⛶
-          </button>
-          <input
-            type="range"
-            className="volume-slider"
-            min="0"
-            max="100"
-            defaultValue="100"
-            title="Volume"
+        </div>
+
+        <div className="video-wrapper">
+          <video
+            ref={videoRef}
+            controls
+            autoPlay
+            playsInline
+            crossOrigin="anonymous"
+            className="video-element"
           />
+
+          {isLoading && (
+            <div className="video-loading">
+              <div className="spinner"></div>
+              <p>Loading stream...</p>
+            </div>
+          )}
+
+          {error && (
+            <div className="video-error">
+              <p>Failed to load stream</p>
+              <p className="error-details">{error}</p>
+              <button type="button" onClick={handleClose}>
+                Close
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="video-player-info">
+          <span className="keyboard-hints">
+            Space: Play/Pause | F: Fullscreen | Arrows: Seek/Volume | Esc: Close
+          </span>
         </div>
       </div>
-    </main>
+    </div>
   );
 };
 

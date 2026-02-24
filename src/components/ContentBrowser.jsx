@@ -17,6 +17,7 @@ const ContentBrowser = () => {
     addToWatchHistory,
     isLoading,
     setIsLoading,
+    playVideo,
   } = useApp();
 
   const [categories, setCategories] = useState([]);
@@ -47,16 +48,16 @@ const ContentBrowser = () => {
       if (contentType === "live") {
         // For live TV, load channels directly
         const channelsData = await iptvApi.getLiveStreams();
-        const formattedChannels = channelsData.map((ch) => ({
-          name: ch.name,
-          url: iptvApi.buildStreamUrl(
-            "live",
-            ch.stream_id,
-            ch.stream_type || "ts",
-          ),
-          id: ch.stream_id,
-          category: ch.category_name || "Uncategorized",
-        }));
+        const formattedChannels = channelsData.map((ch) => {
+          // stream_type can be "live" (content type) - always use "ts" for live streams
+          const extension = ch.container_extension || "ts";
+          return {
+            name: ch.name,
+            url: iptvApi.buildStreamUrl("live", ch.stream_id, extension),
+            id: ch.stream_id,
+            category: ch.category_name || "Uncategorized",
+          };
+        });
         setChannels(formattedChannels);
 
         // Group by category
@@ -117,47 +118,33 @@ const ContentBrowser = () => {
   };
 
   /**
-   * Play live channel in VLC
+   * Play live channel in native player
    */
-  const playLiveChannel = async (item) => {
-    try {
-      await window.electron.openInVLC(item.url, { name: item.name });
-      addToWatchHistory({
-        type: "live",
-        streamId: item.stream_id || item.id,
-        name: item.name,
-        url: item.url,
-      });
-    } catch (error) {
-      console.error("Error opening VLC:", error);
-      // eslint-disable-next-line no-alert
-      alert("Failed to open VLC. Make sure VLC is installed.");
-    }
+  const playLiveChannel = (item) => {
+    playVideo({
+      type: "live",
+      streamId: item.stream_id || item.id,
+      name: item.name,
+      url: item.url,
+    });
   };
 
   /**
-   * Play movie in VLC
+   * Play movie in native player
    */
-  const playMovie = async (item) => {
+  const playMovie = (item) => {
     const streamUrl = iptvApi.buildStreamUrl(
       "movie",
       item.stream_id,
       item.container_extension || "mp4",
     );
 
-    try {
-      await window.electron.openInVLC(streamUrl, { name: item.name });
-      addToWatchHistory({
-        type: "movies",
-        streamId: item.stream_id,
-        name: item.name,
-        url: streamUrl,
-      });
-    } catch (error) {
-      console.error("Error opening VLC:", error);
-      // eslint-disable-next-line no-alert
-      alert("Failed to open VLC. Make sure VLC is installed.");
-    }
+    playVideo({
+      type: "movies",
+      streamId: item.stream_id,
+      name: item.name,
+      url: streamUrl,
+    });
   };
 
   /**
@@ -215,9 +202,9 @@ const ContentBrowser = () => {
   };
 
   /**
-   * Play series episode in VLC
+   * Play series episode in native player
    */
-  const handleEpisodeClick = async (episode, seasonNum) => {
+  const handleEpisodeClick = (episode, seasonNum) => {
     const user = users.find((u) => u.id === activeUserId);
     if (!user) return;
 
@@ -229,43 +216,27 @@ const ContentBrowser = () => {
     const episodeNum = getEpisodeNumber(episode);
     const episodeName = `${currentSeries.name} - S${String(seasonNum).padStart(2, "0")}E${String(episodeNum).padStart(2, "0")}`;
 
-    try {
-      await window.electron.openInVLC(streamUrl, { name: episodeName });
-      // Add to watch history with series metadata for smart grouping
-      addToWatchHistory({
-        type: "series",
-        streamId: episode.id,
-        seriesId: currentSeries.id,
-        seriesName: currentSeries.name,
-        name: episodeName,
-        url: streamUrl,
-        seasonNum: seasonNum,
-        episodeNum: episodeNum,
-      });
-    } catch (error) {
-      console.error("Error opening VLC:", error);
-      // eslint-disable-next-line no-alert
-      alert("Failed to open VLC. Make sure VLC is installed.");
-    }
+    playVideo({
+      type: "series",
+      streamId: episode.id,
+      seriesId: currentSeries.id,
+      seriesName: currentSeries.name,
+      name: episodeName,
+      url: streamUrl,
+      seasonNum: seasonNum,
+      episodeNum: episodeNum,
+    });
   };
 
   /**
    * Resume playback from continue watching
-   * Opens VLC at the saved timestamp
+   * Opens native player at the saved timestamp
    */
-  const handleContinueWatchingClick = async (item) => {
-    try {
-      const options = {
-        name: item.name,
-        startTime: item.currentTime || 0,
-      };
-
-      await window.electron.openInVLC(item.url, options);
-    } catch (error) {
-      console.error("Error opening VLC:", error);
-      // eslint-disable-next-line no-alert
-      alert("Failed to open VLC. Make sure VLC is installed.");
-    }
+  const handleContinueWatchingClick = (item) => {
+    playVideo({
+      ...item,
+      startTime: item.currentTime || 0,
+    });
   };
 
   const handleBack = () => {

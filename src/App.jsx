@@ -2,6 +2,7 @@ import { useState } from "react";
 import { AppProvider } from "./context/AppContext";
 import Header from "./components/Header";
 import ContentBrowser from "./components/ContentBrowser";
+import VideoPlayer from "./components/VideoPlayer";
 import UsersModal from "./components/UsersModal";
 import "./App.css";
 
@@ -20,6 +21,8 @@ function App() {
         {showUsersModal && (
           <UsersModal onClose={() => setShowUsersModal(false)} />
         )}
+
+        <VideoPlayer />
       </div>
     </AppProvider>
   );
