@@ -997,6 +997,15 @@ body {
   color: #ffd700;
 }
 
+.item-epg {
+  font-size: 11px;
+  color: #aaa;
+  margin-top: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* Episodes View */
 .series-title {
   font-size: 24px;

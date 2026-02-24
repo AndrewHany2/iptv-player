@@ -2,7 +2,13 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import Hls from "hls.js";
 import { useApp } from "../context/AppContext";
 
-const PROXY_URL = "http://localhost:5000/proxy?url=";
+const PROXY_BASE = "http://localhost:5000";
+
+const PROXY_ROUTE = {
+  live: "/proxy/live",
+  movies: "/proxy/movie",
+  series: "/proxy/series",
+};
 
 const VideoPlayer = () => {
   const { currentVideo, closeVideo, updateWatchProgress, addToWatchHistory } =
@@ -15,9 +21,10 @@ const VideoPlayer = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Build proxied URL
-  const getProxiedUrl = useCallback((url) => {
-    return `${PROXY_URL}${encodeURIComponent(url)}`;
+  // Build proxied URL using the correct route for the content type
+  const getProxiedUrl = useCallback((url, type) => {
+    const route = PROXY_ROUTE[type] || "/proxy/live";
+    return `${PROXY_BASE}${route}?url=${encodeURIComponent(url)}`;
   }, []);
 
   // Stop progress tracking
@@ -52,9 +59,14 @@ const VideoPlayer = () => {
     lastVideoUrlRef.current = currentVideo.url;
 
     const video = videoRef.current;
-    const url = currentVideo.url;
-    const proxiedUrl = getProxiedUrl(url);
-    const isHls = url.includes(".m3u8") || currentVideo.type === "live";
+    // For live .ts streams, swap to .m3u8 so HLS.js can handle it
+    const rawUrl = currentVideo.url;
+    const url =
+      currentVideo.type === "live" && rawUrl.endsWith(".ts")
+        ? rawUrl.replace(/\.ts$/, ".m3u8")
+        : rawUrl;
+    const proxiedUrl = getProxiedUrl(url, currentVideo.type);
+    const isHls = url.includes(".m3u8");
 
     setIsLoading(true);
     setError(null);
@@ -95,7 +107,7 @@ const VideoPlayer = () => {
         video.play().catch(console.error);
       });
 
-      hls.on(Hls.Events.ERROR, (event, data) => {
+      hls.on(Hls.Events.ERROR, (_event, data) => {
         if (data.fatal) {
           setError(`Stream error: ${data.type}`);
           setIsLoading(false);

@@ -80,6 +80,14 @@ class IPTVApi {
     return this.fetch(url);
   }
 
+  async getShortEpg(streamId, limit = 2) {
+    const url = this.buildUrl("get_short_epg", {
+      stream_id: streamId,
+      limit,
+    });
+    return this.fetch(url);
+  }
+
   buildStreamUrl(type, streamId, extension = "ts") {
     // type: 'live', 'movie', 'series'
     if (type === "live") {

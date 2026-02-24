@@ -14,7 +14,6 @@ const ContentBrowser = () => {
     activeUserId,
     channels,
     setChannels,
-    addToWatchHistory,
     isLoading,
     setIsLoading,
     playVideo,
@@ -22,10 +21,11 @@ const ContentBrowser = () => {
 
   const [categories, setCategories] = useState([]);
   const [items, setItems] = useState([]);
-  const [currentCategory, setCurrentCategory] = useState(null);
+  const [, setCurrentCategory] = useState(null);
   const [currentSeries, setCurrentSeries] = useState(null);
   const [seriesSeasons, setSeriesSeasons] = useState({});
   const [view, setView] = useState("categories"); // 'categories', 'items', 'episodes'
+  const [epgCache, setEpgCache] = useState({}); // stream_id → current program title
 
   // Load categories when content type changes
   useEffect(() => {
@@ -49,13 +49,14 @@ const ContentBrowser = () => {
         // For live TV, load channels directly
         const channelsData = await iptvApi.getLiveStreams();
         const formattedChannels = channelsData.map((ch) => {
-          // stream_type can be "live" (content type) - always use "ts" for live streams
-          const extension = ch.container_extension || "ts";
           return {
             name: ch.name,
-            url: iptvApi.buildStreamUrl("live", ch.stream_id, extension),
+            // Always use m3u8 for live - Chromium can't play raw MPEG-TS
+            url: iptvApi.buildStreamUrl("live", ch.stream_id, "m3u8"),
             id: ch.stream_id,
+            stream_id: ch.stream_id,
             category: ch.category_name || "Uncategorized",
+            logo: ch.stream_icon || null,
           };
         });
         setChannels(formattedChannels);
@@ -118,6 +119,34 @@ const ContentBrowser = () => {
   };
 
   /**
+   * Decode EPG title — some servers base64-encode it
+   */
+  const decodeEpgTitle = (title) => {
+    try {
+      return atob(title);
+    } catch {
+      return title;
+    }
+  };
+
+  /**
+   * Fetch short EPG for a live channel on hover (cached)
+   */
+  const fetchEpg = async (streamId) => {
+    if (epgCache[streamId] !== undefined) return;
+    // Mark as loading to avoid duplicate requests
+    setEpgCache((prev) => ({ ...prev, [streamId]: null }));
+    try {
+      const data = await iptvApi.getShortEpg(streamId, 1);
+      const listing = data?.epg_listings?.[0];
+      const title = listing ? decodeEpgTitle(listing.title) : "";
+      setEpgCache((prev) => ({ ...prev, [streamId]: title }));
+    } catch {
+      setEpgCache((prev) => ({ ...prev, [streamId]: "" }));
+    }
+  };
+
+  /**
    * Play live channel in native player
    */
   const playLiveChannel = (item) => {
@@ -173,10 +202,10 @@ const ContentBrowser = () => {
 
     switch (contentType) {
       case "live":
-        await playLiveChannel(item);
+        playLiveChannel(item);
         break;
       case "movies":
-        await playMovie(item);
+        playMovie(item);
         break;
       case "series":
         await loadSeriesEpisodes(item);
@@ -360,6 +389,10 @@ const ContentBrowser = () => {
                     key={item.stream_id || item.series_id || item.id}
                     className="item-card"
                     onClick={() => handleItemClick(item)}
+                    onMouseEnter={() =>
+                      contentType === "live" &&
+                      fetchEpg(item.stream_id || item.id)
+                    }
                   >
                     <div className="item-icon">
                       {contentType === "live"
@@ -369,6 +402,12 @@ const ContentBrowser = () => {
                           : "📺"}
                     </div>
                     <div className="item-name">{item.name}</div>
+                    {contentType === "live" &&
+                      epgCache[item.stream_id || item.id] && (
+                        <div className="item-epg">
+                          ▶ {epgCache[item.stream_id || item.id]}
+                        </div>
+                      )}
                     {item.rating && (
                       <div className="item-rating">{item.rating} ⭐</div>
                     )}
