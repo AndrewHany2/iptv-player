@@ -2,3 +2,4 @@ node_modules/
 dist/
 *.log
 .DS_Store
+iptv-player-win32-x64
