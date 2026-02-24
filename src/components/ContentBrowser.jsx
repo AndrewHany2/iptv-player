@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useApp } from "../context/AppContext";
 import iptvApi from "../services/iptvApi";
-import ContinueWatching from "./ContinueWatching";
 import Loader from "./Loader";
 
 const ContentBrowser = () => {
@@ -17,6 +16,8 @@ const ContentBrowser = () => {
     isLoading,
     setIsLoading,
     playVideo,
+    watchHistory,
+    removeFromWatchHistory,
   } = useApp();
 
   const [categories, setCategories] = useState([]);
@@ -29,6 +30,7 @@ const ContentBrowser = () => {
 
   // Load categories when content type changes
   useEffect(() => {
+    if (contentType === "history") return;
     if (activeUserId) {
       loadCategories();
     }
@@ -258,10 +260,9 @@ const ContentBrowser = () => {
   };
 
   /**
-   * Resume playback from continue watching
-   * Opens native player at the saved timestamp
+   * Resume playback from history
    */
-  const handleContinueWatchingClick = (item) => {
+  const handleHistoryClick = (item) => {
     playVideo({
       ...item,
       startTime: item.currentTime || 0,
@@ -288,9 +289,35 @@ const ContentBrowser = () => {
         return "🎬 Movies";
       case "series":
         return "📺 Series";
+      case "history":
+        return "🕘 History";
       default:
         return "Content";
     }
+  };
+
+  const getHistoryIcon = (type) => {
+    const icons = { live: "📺", movie: "🎬", movies: "🎬", series: "📺" };
+    return icons[type] || "▶️";
+  };
+
+  const getHistoryLabel = (item) => {
+    if (item.type === "series" && item.seasonNum && item.episodeNum) {
+      return `S${item.seasonNum}E${item.episodeNum}`;
+    }
+    return item.type;
+  };
+
+  const formatRelativeTime = (dateString) => {
+    const date = new Date(dateString);
+    const diffMs = Date.now() - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString();
   };
 
   const filteredCategories = categories.filter((cat) =>
@@ -298,6 +325,10 @@ const ContentBrowser = () => {
   );
 
   const filteredItems = items.filter((item) =>
+    item.name.toLowerCase().includes(searchQuery.toLowerCase()),
+  );
+
+  const filteredHistory = watchHistory.filter((item) =>
     item.name.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
@@ -328,25 +359,111 @@ const ContentBrowser = () => {
         >
           📺 Series
         </button>
+        <button
+          type="button"
+          className={`type-btn ${contentType === "history" ? "active" : ""}`}
+          onClick={() => setContentType("history")}
+        >
+          🕘 History
+        </button>
       </div>
 
       {/* Search Bar */}
-      <div className="search-bar">
-        <input
-          type="text"
-          placeholder={`🔍 Search ${getContentTypeLabel()}...`}
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="search-input"
-        />
-      </div>
-
-      {/* Continue Watching */}
-      <ContinueWatching onItemClick={handleContinueWatchingClick} />
+      {contentType !== "history" && (
+        <div className="search-bar">
+          <input
+            type="text"
+            placeholder={`🔍 Search ${getContentTypeLabel()}...`}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="search-input"
+          />
+        </div>
+      )}
 
       {/* Content Area */}
       <div className="content-area">
-        {view === "categories" && (
+        {/* History Tab */}
+        {contentType === "history" && (
+          <div className="history-view">
+            <div className="history-header">
+              <input
+                type="text"
+                placeholder="🔍 Search history..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="search-input"
+              />
+            </div>
+            {filteredHistory.length === 0 ? (
+              <div className="empty-state">
+                <p>No watch history yet</p>
+                <p className="hint">Start watching something to see it here</p>
+              </div>
+            ) : (
+              <div className="continue-watching-grid">
+                {filteredHistory.map((item) => {
+                  const progress =
+                    item.duration > 0
+                      ? Math.min(
+                          Math.round((item.currentTime / item.duration) * 100),
+                          100,
+                        )
+                      : 0;
+                  const hasProgress =
+                    item.currentTime > 0 && item.duration > 0;
+
+                  return (
+                    <div
+                      key={item.id}
+                      className="continue-watching-card"
+                      onClick={() => handleHistoryClick(item)}
+                    >
+                      <button
+                        type="button"
+                        className="history-remove-btn"
+                        title="Remove from history"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeFromWatchHistory(item.id);
+                        }}
+                      >
+                        ✕
+                      </button>
+                      <div className="continue-icon">
+                        {getHistoryIcon(item.type)}
+                      </div>
+                      <div className="continue-info">
+                        <div className="continue-title">{item.name}</div>
+                        <div className="continue-meta">
+                          <span className="continue-type">
+                            {getHistoryLabel(item)}
+                          </span>
+                          <span className="continue-time">
+                            {formatRelativeTime(item.watchedAt)}
+                          </span>
+                        </div>
+                        {hasProgress && (
+                          <div className="continue-progress">
+                            <div className="progress-bar">
+                              <div
+                                className="progress-fill"
+                                style={{ width: `${progress}%` }}
+                              />
+                            </div>
+                            <div className="progress-text">{progress}%</div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {contentType !== "history" && view === "categories" && (
           <div className="categories-grid">
             {filteredCategories.length === 0 ? (
               <div className="empty-state">
@@ -373,7 +490,7 @@ const ContentBrowser = () => {
           </div>
         )}
 
-        {view === "items" && (
+        {contentType !== "history" && view === "items" && (
           <div className="items-view">
             <button type="button" className="back-button" onClick={handleBack}>
               ← Back to Categories
@@ -418,7 +535,7 @@ const ContentBrowser = () => {
           </div>
         )}
 
-        {view === "episodes" && (
+        {contentType !== "history" && view === "episodes" && (
           <div className="episodes-view">
             <button type="button" className="back-button" onClick={handleBack}>
               ← Back to Series

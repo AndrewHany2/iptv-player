@@ -1268,6 +1268,38 @@ body {
 }
 
 /* Continue Watching Styles */
+.history-view {
+  padding: 10px 0;
+}
+
+.history-header {
+  margin-bottom: 16px;
+}
+
+.history-remove-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: none;
+  border: none;
+  color: #666;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 5px;
+  border-radius: 4px;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+}
+
+.continue-watching-card:hover .history-remove-btn {
+  opacity: 1;
+}
+
+.history-remove-btn:hover {
+  color: #ff4444;
+}
+
 .continue-watching {
   margin: 20px 0;
   padding: 20px;
@@ -1289,6 +1321,7 @@ body {
 }
 
 .continue-watching-card {
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: 12px;

@@ -123,6 +123,12 @@ export const AppProvider = ({ children }) => {
     saveWatchHistory(newHistory);
   };
 
+  const removeFromWatchHistory = (id) => {
+    const newHistory = watchHistory.filter((item) => item.id !== id);
+    setWatchHistory(newHistory);
+    saveWatchHistory(newHistory);
+  };
+
   const updateWatchProgress = (streamId, type, currentTime, duration) => {
     const updatedHistory = watchHistory.map((item) => {
       if (item.streamId === streamId && item.type === type) {
@@ -291,6 +297,7 @@ export const AppProvider = ({ children }) => {
     watchHistory,
     addToWatchHistory,
     updateWatchProgress,
+    removeFromWatchHistory,
     setSeriesSeasons,
 
     // Video Playback
