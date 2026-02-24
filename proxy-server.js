@@ -135,6 +135,10 @@ function createProxyHandler(isVideo, proxyPath) {
             respContentType.includes("mpegurl") ||
             decodedUrl.includes(".m3u8");
 
+          if (isVideo) {
+            res.setHeader("Cache-Control", "no-cache");
+          }
+
           if (isVideo && isM3u8) {
             let data = "";
             responseStream.on("data", (chunk) => {
@@ -147,6 +151,8 @@ function createProxyHandler(isVideo, proxyPath) {
                 decodedUrl,
                 proxyPath,
               );
+              res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
+              res.setHeader("Cache-Control", "no-cache");
               res.send(rewrittenPlaylist);
             });
 
@@ -161,7 +167,11 @@ function createProxyHandler(isVideo, proxyPath) {
 
             responseStream.pipe(res);
             responseStream.on("error", safeEnd);
-            res.on("close", () => response.destroy());
+            res.on("close", () => {
+              if (!response.complete) {
+                response.destroy();
+              }
+          });
           }
         },
       );
@@ -222,6 +232,8 @@ function makeRequestWithRedirect(
         port: redirectUrlObj.port || (isHttps ? 443 : 80),
         path: redirectUrlObj.pathname + redirectUrlObj.search,
         method: "GET",
+        agent: options.agent,          // ✅ KEEP SAME AGENT
+        timeout: options.timeout,      // ✅ KEEP SAME TIMEOUT
         headers: {
           ...options.headers,
           Host: newHostHeader,
