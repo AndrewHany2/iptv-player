@@ -23,6 +23,9 @@ const VideoPlayer = () => {
 
   // Build proxied URL using the correct route for the content type
   const getProxiedUrl = useCallback((url, type) => {
+    if (type === "live") {
+      return url; // Do not use proxy for live
+    }
     const route = PROXY_ROUTE[type] || "/proxy/live";
     return `${PROXY_BASE}${route}?url=${encodeURIComponent(url)}`;
   }, []);
