@@ -3,13 +3,6 @@ import Hls from "hls.js";
 import { useApp } from "../context/AppContext";
 import iptvApi from "../services/iptvApi";
 
-const PROXY_BASE = "http://localhost:5000";
-
-const PROXY_ROUTE = {
-  live: "/proxy/live",
-  movies: "/proxy/movie",
-  series: "/proxy/series",
-};
 
 const SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2];
 
@@ -60,14 +53,8 @@ const VideoPlayer = () => {
   const [showAspectMenu, setShowAspectMenu] = useState(false);
   const aspectMenuRef = useRef(null);
 
-  // Build proxied URL using the correct route for the content type
-  const getProxiedUrl = useCallback((url, type) => {
-    if (type === "live") {
-      return url; // Do not use proxy for live
-    }
-    const route = PROXY_ROUTE[type] || "/proxy/live";
-    return `${PROXY_BASE}${route}?url=${encodeURIComponent(url)}`;
-  }, []);
+  // Return direct URL — Electron session interceptor injects headers for all requests
+  const getProxiedUrl = useCallback((url) => url, []);
 
   // Stop progress tracking
   const stopProgressTracking = useCallback(() => {
@@ -107,7 +94,7 @@ const VideoPlayer = () => {
       currentVideo.type === "live" && rawUrl.endsWith(".ts")
         ? rawUrl.replace(/\.ts$/, ".m3u8")
         : rawUrl;
-    const proxiedUrl = getProxiedUrl(url, currentVideo.type);
+    const proxiedUrl = getProxiedUrl(url);
     const isHls = url.includes(".m3u8");
 
     setIsLoading(true);

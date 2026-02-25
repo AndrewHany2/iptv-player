@@ -1,4 +1,4 @@
-const PROXY_ENABLED = true;
+const PROXY_ENABLED = false;
 const PROXY_URL = "http://localhost:5000/proxy";
 
 class IPTVApi {
