@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git mv index.html electron/index.html)",
+      "Bash(git mv main.js electron/main.js)",
+      "Bash(git mv preload.js electron/preload.js)",
+      "Bash(git mv package.json electron/package.json)",
+      "Bash(git mv package-lock.json electron/package-lock.json)",
+      "Bash(git mv vite.config.mjs electron/vite.config.mjs)",
+      "Bash(git mv scripts electron/scripts)",
+      "Bash(git mv src electron/src)",
+      "Bash(git mv src/components/AddChannelModal.jsx electron/src/components/AddChannelModal.jsx)",
+      "Bash(git mv src/components/ContentBrowser.jsx electron/src/components/ContentBrowser.jsx)",
+      "Bash(git mv src/components/ContentTabs.jsx electron/src/components/ContentTabs.jsx)",
+      "Bash(git mv src/components/ContinueWatching.jsx electron/src/components/ContinueWatching.jsx)",
+      "Bash(git mv src/components/Header.jsx electron/src/components/Header.jsx)",
+      "Bash(git mv src/components/LiveChannels.jsx electron/src/components/LiveChannels.jsx)",
+      "Bash(git mv src/components/Loader.jsx electron/src/components/Loader.jsx)",
+      "Bash(git mv src/components/MoviesContent.jsx electron/src/components/MoviesContent.jsx)",
+      "Bash(git mv src/components/SeriesContent.jsx electron/src/components/SeriesContent.jsx)",
+      "Bash(git mv src/components/Sidebar.jsx electron/src/components/Sidebar.jsx)",
+      "Bash(git mv src/components/UsersModal.jsx electron/src/components/UsersModal.jsx)",
+      "Bash(git mv src/components/VideoPlayer.jsx electron/src/components/VideoPlayer.jsx)",
+      "Bash(git mv electron/.vscode.tasks.json .vscode/tasks.json)",
+      "Bash(git add react-native/.gitkeep)"
+    ]
+  }
+}
