@@ -21,6 +21,10 @@ const VideoPlayer = () => {
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [qualityLevels, setQualityLevels] = useState([]);
+  const [selectedLevel, setSelectedLevel] = useState(-1); // -1 = Auto
+  const [showQualityMenu, setShowQualityMenu] = useState(false);
+  const qualityMenuRef = useRef(null);
 
   // Build proxied URL using the correct route for the content type
   const getProxiedUrl = useCallback((url, type) => {
@@ -74,6 +78,9 @@ const VideoPlayer = () => {
 
     setIsLoading(true);
     setError(null);
+    setQualityLevels([]);
+    setSelectedLevel(-1);
+    setShowQualityMenu(false);
 
     // Cleanup previous HLS instance
     if (hlsRef.current) {
@@ -105,6 +112,7 @@ const VideoPlayer = () => {
 
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         setIsLoading(false);
+        setQualityLevels(hls.levels);
         if (currentVideo.startTime && currentVideo.startTime > 0) {
           video.currentTime = currentVideo.startTime;
         }
@@ -258,9 +266,40 @@ const VideoPlayer = () => {
     return () => document.removeEventListener("keydown", handleKeyDown, true);
   }, [currentVideo, handleClose]);
 
+  // Close quality menu when clicking outside
+  useEffect(() => {
+    if (!showQualityMenu) return;
+    const handleClickOutside = (e) => {
+      if (qualityMenuRef.current && !qualityMenuRef.current.contains(e.target)) {
+        setShowQualityMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showQualityMenu]);
+
+  const handleQualityChange = useCallback((levelIndex) => {
+    if (hlsRef.current) {
+      hlsRef.current.currentLevel = levelIndex;
+      setSelectedLevel(levelIndex);
+      setShowQualityMenu(false);
+    }
+  }, []);
+
+  // Label for a quality level. Shows bitrate alongside if multiple levels share the same height.
+  const getLevelLabel = (level, levels) => {
+    if (!level.height) return `${Math.round(level.bitrate / 1000)}k`;
+    const sameHeight = levels.filter((l) => l.height === level.height);
+    if (sameHeight.length > 1) return `${level.height}p (${Math.round(level.bitrate / 1000)}k)`;
+    return `${level.height}p`;
+  };
+
+  const currentQualityLabel =
+    selectedLevel === -1 ? "Auto" : getLevelLabel(qualityLevels[selectedLevel], qualityLevels);
+
   // Find the next episode for series content.
-  // Looks up the current episode by id (streamId) within seriesSeasons,
-  // then returns the next one in the same season or the first of the next season.
+  // Builds a flat sorted list (season asc → episode_num asc) across all seasons,
+  // finds the current episode by streamId, and returns the immediately next entry.
   const getNextEpisode = useCallback(() => {
     if (
       !currentVideo ||
@@ -269,40 +308,26 @@ const VideoPlayer = () => {
     )
       return null;
 
-    const { seriesSeasons, seasonNum } = currentVideo;
-    const seasonKeys = Object.keys(seriesSeasons)
-      .map(Number)
-      .sort((a, b) => a - b);
+    const { seriesSeasons } = currentVideo;
 
-    const sortedEpisodes = (sNum) =>
-      [...(seriesSeasons[String(sNum)] || [])].sort(
-        (a, b) => Number(a.episode_num) - Number(b.episode_num),
+    // Flatten all seasons into one ordered list
+    const allEpisodes = Object.keys(seriesSeasons)
+      .map(Number)
+      .sort((a, b) => a - b)
+      .flatMap((sNum) =>
+        [...(seriesSeasons[String(sNum)] || [])]
+          .sort((a, b) => Number(a.episode_num) - Number(b.episode_num))
+          .map((ep) => ({ ...ep, seasonNum: String(sNum) })),
       );
 
-    const currentSeasonEps = sortedEpisodes(seasonNum);
-    const currentIdx = currentSeasonEps.findIndex(
+    const currentIdx = allEpisodes.findIndex(
       (ep) => String(ep.id) === String(currentVideo.streamId),
     );
 
-    // Next episode in same season
-    if (currentIdx !== -1 && currentIdx < currentSeasonEps.length - 1) {
-      return {
-        episode: currentSeasonEps[currentIdx + 1],
-        seasonNum: String(seasonNum),
-      };
-    }
+    if (currentIdx === -1 || currentIdx >= allEpisodes.length - 1) return null;
 
-    // First episode of next season
-    const currentSeasonNumIdx = seasonKeys.indexOf(Number(seasonNum));
-    if (currentSeasonNumIdx !== -1 && currentSeasonNumIdx < seasonKeys.length - 1) {
-      const nextSeasonNum = seasonKeys[currentSeasonNumIdx + 1];
-      const nextEps = sortedEpisodes(nextSeasonNum);
-      if (nextEps.length > 0) {
-        return { episode: nextEps[0], seasonNum: String(nextSeasonNum) };
-      }
-    }
-
-    return null;
+    const next = allEpisodes[currentIdx + 1];
+    return { episode: next, seasonNum: next.seasonNum };
   }, [currentVideo]);
 
   const handleNextEpisode = useCallback(() => {
@@ -341,6 +366,39 @@ const VideoPlayer = () => {
       <div className="video-player-container">
         <div className="video-player-header">
           <span className="video-title">{currentVideo.name}</span>
+          {qualityLevels.length > 1 && (
+            <div className="quality-selector" ref={qualityMenuRef}>
+              <button
+                type="button"
+                className="quality-btn"
+                onClick={() => setShowQualityMenu((prev) => !prev)}
+              >
+                ⚙ {currentQualityLabel}
+              </button>
+              {showQualityMenu && (
+                <div className="quality-menu">
+                  <div
+                    className={`quality-option ${selectedLevel === -1 ? "active" : ""}`}
+                    onClick={() => handleQualityChange(-1)}
+                  >
+                    Auto
+                  </div>
+                  {[...qualityLevels]
+                    .map((level, idx) => ({ level, idx }))
+                    .sort((a, b) => (b.level.height || 0) - (a.level.height || 0))
+                    .map(({ level, idx }) => (
+                      <div
+                        key={idx}
+                        className={`quality-option ${selectedLevel === idx ? "active" : ""}`}
+                        onClick={() => handleQualityChange(idx)}
+                      >
+                        {getLevelLabel(level, qualityLevels)}
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+          )}
           {nextEpisode && (
             <button
               type="button"

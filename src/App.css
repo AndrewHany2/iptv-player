@@ -1457,6 +1457,60 @@ body {
   transform: scale(1.1);
 }
 
+.quality-selector {
+  position: relative;
+  margin-right: 10px;
+  flex-shrink: 0;
+}
+
+.quality-btn {
+  background: #3d3d3d;
+  border: none;
+  color: #fff;
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+
+.quality-btn:hover {
+  background: #4d4d4d;
+}
+
+.quality-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: #2d2d2d;
+  border: 1px solid #444;
+  border-radius: 8px;
+  overflow: hidden;
+  z-index: 100;
+  min-width: 100px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+}
+
+.quality-option {
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #ccc;
+  transition: background 0.15s;
+}
+
+.quality-option:hover {
+  background: #3d3d3d;
+  color: #fff;
+}
+
+.quality-option.active {
+  color: #4a9eff;
+  font-weight: 600;
+}
+
 .next-episode-btn {
   background: #0066cc;
   border: none;
