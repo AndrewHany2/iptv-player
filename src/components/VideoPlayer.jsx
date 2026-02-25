@@ -53,9 +53,6 @@ const VideoPlayer = () => {
   const [showAspectMenu, setShowAspectMenu] = useState(false);
   const aspectMenuRef = useRef(null);
 
-  // Return direct URL — Electron session interceptor injects headers for all requests
-  const getProxiedUrl = useCallback((url) => url, []);
-
   // Stop progress tracking
   const stopProgressTracking = useCallback(() => {
     if (progressIntervalRef.current) {
@@ -94,7 +91,6 @@ const VideoPlayer = () => {
       currentVideo.type === "live" && rawUrl.endsWith(".ts")
         ? rawUrl.replace(/\.ts$/, ".m3u8")
         : rawUrl;
-    const proxiedUrl = getProxiedUrl(url);
     const isHls = url.includes(".m3u8");
 
     setIsLoading(true);
@@ -136,7 +132,7 @@ const VideoPlayer = () => {
 
       hlsRef.current = hls;
 
-      hls.loadSource(proxiedUrl);
+      hls.loadSource(url);
       hls.attachMedia(video);
 
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
@@ -172,10 +168,10 @@ const VideoPlayer = () => {
         }
       });
     } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
-      video.src = proxiedUrl;
+      video.src = url;
       video.addEventListener("loadedmetadata", onLoadedMetadata, { once: true });
     } else {
-      video.src = proxiedUrl;
+      video.src = url;
       video.addEventListener("loadedmetadata", onLoadedMetadata, { once: true });
     }
 

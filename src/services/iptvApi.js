@@ -1,6 +1,3 @@
-const PROXY_ENABLED = false;
-const PROXY_URL = "http://localhost:5000/proxy";
-
 class IPTVApi {
   constructor() {
     this.baseUrl = null;
@@ -30,12 +27,7 @@ class IPTVApi {
   }
 
   async fetch(url) {
-    let fetchUrl = url;
-    if (PROXY_ENABLED) {
-      fetchUrl = `${PROXY_URL}?url=${encodeURIComponent(url)}`;
-    }
-
-    const response = await fetch(fetchUrl, {
+    const response = await fetch(url, {
       method: "GET",
       headers: {
         Accept: "application/json, text/plain, */*",
