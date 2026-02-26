@@ -22,7 +22,8 @@
       "Bash(git mv src/components/UsersModal.jsx electron/src/components/UsersModal.jsx)",
       "Bash(git mv src/components/VideoPlayer.jsx electron/src/components/VideoPlayer.jsx)",
       "Bash(git mv electron/.vscode.tasks.json .vscode/tasks.json)",
-      "Bash(git add react-native/.gitkeep)"
+      "Bash(git add react-native/.gitkeep)",
+      "Bash(npm install @supabase/supabase-js)"
     ]
   }
 }

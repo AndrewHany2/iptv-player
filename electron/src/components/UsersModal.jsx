@@ -6,20 +6,30 @@ import iptvApi from "../services/iptvApi";
 const UsersModal = ({ onClose }) => {
   const {
     users,
-    setUsers,
     activeUserId,
     setActiveUserId,
     saveUsers,
+    addUser,
+    updateUser,
+    removeUser,
     setChannels,
   } = useApp();
+
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     nickname: "",
     host: "",
     username: "",
     password: "",
   });
+
+  const resetForm = () => {
+    setFormData({ nickname: "", host: "", username: "", password: "" });
+    setEditingId(null);
+    setShowForm(false);
+  };
 
   const handleAddNew = () => {
     setFormData({ nickname: "", host: "", username: "", password: "" });
@@ -38,41 +48,34 @@ const UsersModal = ({ onClose }) => {
     setShowForm(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.host || !formData.username || !formData.password) {
       // eslint-disable-next-line no-alert
       alert("Please fill in all required fields");
       return;
     }
-
-    if (editingId) {
-      // Update existing user
-      setUsers(
-        users.map((u) => (u.id === editingId ? { ...u, ...formData } : u)),
-      );
-    } else {
-      // Add new user
-      const newUser = {
-        id: Date.now().toString(),
-        ...formData,
-      };
-      setUsers([...users, newUser]);
+    setLoading(true);
+    try {
+      if (editingId) {
+        await updateUser(editingId, formData);
+      } else {
+        await addUser(formData);
+      }
+      resetForm();
+    } finally {
+      setLoading(false);
     }
-
-    saveUsers();
-    setShowForm(false);
-    setFormData({ nickname: "", host: "", username: "", password: "" });
   };
 
-  const handleDelete = (userId) => {
+  const handleDelete = async (userId) => {
     // eslint-disable-next-line no-alert, no-restricted-globals
-    if (!confirm("Are you sure you want to delete this user?")) return;
-
-    setUsers(users.filter((u) => u.id !== userId));
-    if (activeUserId === userId) {
-      setActiveUserId(null);
+    if (!confirm("Are you sure you want to delete this account?")) return;
+    setLoading(true);
+    try {
+      await removeUser(userId);
+    } finally {
+      setLoading(false);
     }
-    saveUsers();
   };
 
   const handleConnect = async (userId) => {
@@ -82,31 +85,27 @@ const UsersModal = ({ onClose }) => {
     setActiveUserId(userId);
     saveUsers();
 
-    // Load channels
+    setLoading(true);
     try {
       iptvApi.setCredentials(user.host, user.username, user.password);
       const channelsData = await iptvApi.getLiveStreams();
-
       const formattedChannels = channelsData.map((ch) => ({
         name: ch.name,
-        url: iptvApi.buildStreamUrl(
-          "live",
-          ch.stream_id,
-          ch.stream_type || "ts",
-        ),
+        url: iptvApi.buildStreamUrl("live", ch.stream_id, ch.stream_type || "ts"),
         id: ch.stream_id,
       }));
-
       setChannels(formattedChannels);
       // eslint-disable-next-line no-alert
       alert(
-        `Connected to ${user.nickname || user.username}! Loaded ${formattedChannels.length} channels.`,
+        `Connected to ${user.nickname || user.username}! Loaded ${formattedChannels.length} channels.`
       );
       onClose();
-    } catch (error) {
-      console.error("Error loading channels:", error);
+    } catch (err) {
+      console.error("Error loading channels:", err);
       // eslint-disable-next-line no-alert
       alert("Failed to load channels. Please check your credentials.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -114,7 +113,7 @@ const UsersModal = ({ onClose }) => {
     <div className="modal">
       <div className="modal-content modal-large">
         <div className="modal-header">
-          <h2>👥 IPTV Users Management</h2>
+          <h2>📡 IPTV Accounts</h2>
           <button
             type="button"
             className="close-btn"
@@ -129,21 +128,22 @@ const UsersModal = ({ onClose }) => {
           {!showForm ? (
             <>
               <div className="section-header">
-                <h3>Saved Users</h3>
+                <h3>Saved Accounts</h3>
                 <button
                   type="button"
                   className="btn btn-primary"
                   onClick={handleAddNew}
+                  disabled={loading}
                 >
-                  ➕ Add New User
+                  ➕ Add Account
                 </button>
               </div>
 
               {users.length === 0 ? (
                 <div className="empty-state">
-                  <p>No users added yet</p>
+                  <p>No IPTV accounts added yet</p>
                   <p className="hint">
-                    Click "Add New User" to add your first IPTV service
+                    Click &quot;Add Account&quot; to add your first IPTV service
                   </p>
                 </div>
               ) : (
@@ -164,6 +164,7 @@ const UsersModal = ({ onClose }) => {
                           type="button"
                           className="btn btn-primary btn-sm"
                           onClick={() => handleConnect(user.id)}
+                          disabled={loading}
                         >
                           🔗 Connect
                         </button>
@@ -171,6 +172,7 @@ const UsersModal = ({ onClose }) => {
                           type="button"
                           className="btn btn-secondary btn-sm"
                           onClick={() => handleEdit(user)}
+                          disabled={loading}
                         >
                           ✏️ Edit
                         </button>
@@ -178,6 +180,7 @@ const UsersModal = ({ onClose }) => {
                           type="button"
                           className="btn btn-danger btn-sm"
                           onClick={() => handleDelete(user.id)}
+                          disabled={loading}
                         >
                           🗑️ Delete
                         </button>
@@ -189,7 +192,7 @@ const UsersModal = ({ onClose }) => {
             </>
           ) : (
             <div className="user-form-section">
-              <h3>{editingId ? "Edit User" : "Add New User"}</h3>
+              <h3>{editingId ? "Edit Account" : "Add New Account"}</h3>
 
               <label htmlFor="user-nickname">Nickname (optional):</label>
               <input
@@ -201,6 +204,7 @@ const UsersModal = ({ onClose }) => {
                 onChange={(e) =>
                   setFormData({ ...formData, nickname: e.target.value })
                 }
+                disabled={loading}
               />
 
               <label htmlFor="user-host">Server/Host:</label>
@@ -208,12 +212,13 @@ const UsersModal = ({ onClose }) => {
                 id="user-host"
                 type="text"
                 className="input-field"
-                placeholder="s1.nasaservers.com:8080"
+                placeholder="s1.example.com:8080"
                 value={formData.host}
                 onChange={(e) =>
                   setFormData({ ...formData, host: e.target.value })
                 }
                 required
+                disabled={loading}
               />
 
               <label htmlFor="user-username">Username:</label>
@@ -227,6 +232,7 @@ const UsersModal = ({ onClose }) => {
                   setFormData({ ...formData, username: e.target.value })
                 }
                 required
+                disabled={loading}
               />
 
               <label htmlFor="user-password">Password:</label>
@@ -240,13 +246,15 @@ const UsersModal = ({ onClose }) => {
                   setFormData({ ...formData, password: e.target.value })
                 }
                 required
+                disabled={loading}
               />
 
               <div className="form-actions">
                 <button
                   type="button"
                   className="btn btn-secondary"
-                  onClick={() => setShowForm(false)}
+                  onClick={resetForm}
+                  disabled={loading}
                 >
                   Cancel
                 </button>
@@ -254,8 +262,9 @@ const UsersModal = ({ onClose }) => {
                   type="button"
                   className="btn btn-primary"
                   onClick={handleSave}
+                  disabled={loading}
                 >
-                  💾 Save User
+                  {loading ? "Saving…" : "💾 Save"}
                 </button>
               </div>
             </div>

@@ -2,7 +2,7 @@ import PropTypes from "prop-types";
 import { useApp } from "../context/AppContext";
 
 const Header = ({ onOpenUsers }) => {
-  const { users, activeUserId } = useApp();
+  const { users, activeUserId, authUser, signOut, isSyncing } = useApp();
 
   const activeUser = users.find((u) => u.id === activeUserId);
   const displayName = activeUser
@@ -13,15 +13,31 @@ const Header = ({ onOpenUsers }) => {
     <header className="header">
       <h1>📺 IPTV Player</h1>
       <div className="header-controls">
+        {isSyncing && <span className="sync-badge">↻ Syncing…</span>}
+
         {activeUser && (
           <div className="active-user-badge">
-            <span className="user-icon">👤</span>
+            <span className="user-icon">📡</span>
             <span className="user-name">{displayName}</span>
           </div>
         )}
-        <button type="button" className="btn btn-primary" onClick={onOpenUsers}>
-          👥 Users
+
+        <button type="button" className="btn btn-secondary" onClick={onOpenUsers}>
+          👥 IPTV Accounts
         </button>
+
+        {authUser && (
+          <div className="auth-user-section">
+            <span className="auth-email">{authUser.email}</span>
+            <button
+              type="button"
+              className="btn btn-danger btn-sm"
+              onClick={signOut}
+            >
+              Sign Out
+            </button>
+          </div>
+        )}
       </div>
     </header>
   );

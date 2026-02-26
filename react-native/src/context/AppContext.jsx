@@ -1,31 +1,57 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useRef,
+  useMemo,
+  useCallback,
+} from "react";
 import PropTypes from "prop-types";
 import iptvApi from "../services/iptvApi";
+import {
+  fetchRemoteHistory,
+  upsertHistoryEntry,
+  deleteHistoryEntry,
+  mergeHistories,
+  isSupabaseConfigured,
+  getSession,
+  signIn as supabaseSignIn,
+  signUp as supabaseSignUp,
+  signOut as supabaseSignOut,
+  onAuthStateChange,
+  fetchIptvAccounts,
+  insertIptvAccount,
+  updateIptvAccount as supabaseUpdateIptvAccount,
+  deleteIptvAccount as supabaseDeleteIptvAccount,
+} from "../services/supabase";
 
 const AppContext = createContext();
 
 export const useApp = () => {
   const context = useContext(AppContext);
-  if (!context) {
-    throw new Error("useApp must be used within AppProvider");
-  }
+  if (!context) throw new Error("useApp must be used within AppProvider");
   return context;
 };
 
 export const AppProvider = ({ children }) => {
-  // Content type state
-  const [contentType, setContentType] = useState("live"); // 'live', 'movies', 'series'
+  // ─── Auth state ───────────────────────────────────────────────────────────
+  const [authUser, setAuthUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(isSupabaseConfigured());
 
-  // Live TV state
+  // ─── Content type ─────────────────────────────────────────────────────────
+  const [contentType, setContentType] = useState("live");
+
+  // ─── Live TV ──────────────────────────────────────────────────────────────
   const [channels, setChannels] = useState([]);
   const [filteredChannels, setFilteredChannels] = useState([]);
   const [currentChannelIndex, setCurrentChannelIndex] = useState(-1);
 
-  // Users state
+  // ─── Users (IPTV accounts) ────────────────────────────────────────────────
   const [users, setUsers] = useState([]);
   const [activeUserId, setActiveUserId] = useState(null);
 
-  // VOD state
+  // ─── VOD ──────────────────────────────────────────────────────────────────
   const [movieCategories, setMovieCategories] = useState([]);
   const [movies, setMovies] = useState([]);
   const [currentMovieCategory, setCurrentMovieCategory] = useState(null);
@@ -36,24 +62,128 @@ export const AppProvider = ({ children }) => {
   const [currentSeries, setCurrentSeries] = useState(null);
   const [seriesSeasons, setSeriesSeasons] = useState({});
 
-  // Watch history state
+  // ─── Watch history ────────────────────────────────────────────────────────
   const [watchHistory, setWatchHistory] = useState([]);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const progressSyncTimer = useRef(null);
 
-  // UI state
+  // ─── UI ───────────────────────────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Video playback state
+  // ─── Video playback ───────────────────────────────────────────────────────
   const [currentVideo, setCurrentVideo] = useState(null);
 
-  // Watch history functions
+  // ─── Derived ──────────────────────────────────────────────────────────────
+  // userKey for watch history: auth UUID when logged in, fallback to host_user
+  const userKey = useMemo(() => {
+    if (authUser) return authUser.id;
+    const user = users.find((u) => u.id === activeUserId);
+    return user ? `${user.host}_${user.username}` : null;
+  }, [authUser, users, activeUserId]);
+
+  // ─── Auth functions ───────────────────────────────────────────────────────
+  const signIn = useCallback(async (email, password) => {
+    const user = await supabaseSignIn(email, password);
+    return user;
+  }, []);
+
+  const signUp = useCallback(async (email, password) => {
+    const user = await supabaseSignUp(email, password);
+    return user;
+  }, []);
+
+  const signOut = useCallback(async () => {
+    await supabaseSignOut();
+    setAuthUser(null);
+    setUsers([]);
+    setActiveUserId(null);
+    setChannels([]);
+    setWatchHistory([]);
+    localStorage.removeItem("iptv_users");
+    localStorage.removeItem("iptv_channels");
+    localStorage.removeItem("iptv_watch_history");
+  }, []);
+
+  // ─── IPTV account operations ──────────────────────────────────────────────
+  const addUser = useCallback(
+    async (formData) => {
+      const tempId = Date.now().toString();
+      const newUser = { id: tempId, ...formData };
+
+      if (authUser && isSupabaseConfigured()) {
+        const remoteId = await insertIptvAccount(authUser.id, formData);
+        if (remoteId) newUser.id = remoteId;
+      }
+
+      setUsers((prev) => {
+        const updated = [...prev, newUser];
+        localStorage.setItem(
+          "iptv_users",
+          JSON.stringify({ users: updated, activeUserId })
+        );
+        return updated;
+      });
+
+      return newUser;
+    },
+    [authUser, activeUserId]
+  );
+
+  const updateUser = useCallback(
+    async (id, formData) => {
+      if (authUser && isSupabaseConfigured()) {
+        await supabaseUpdateIptvAccount(id, formData);
+      }
+      setUsers((prev) => {
+        const updated = prev.map((u) =>
+          u.id === id ? { ...u, ...formData } : u
+        );
+        localStorage.setItem(
+          "iptv_users",
+          JSON.stringify({ users: updated, activeUserId })
+        );
+        return updated;
+      });
+    },
+    [authUser, activeUserId]
+  );
+
+  const removeUser = useCallback(
+    async (id) => {
+      if (authUser && isSupabaseConfigured()) {
+        await supabaseDeleteIptvAccount(id);
+      }
+      setUsers((prev) => {
+        const updated = prev.filter((u) => u.id !== id);
+        localStorage.setItem(
+          "iptv_users",
+          JSON.stringify({ users: updated, activeUserId })
+        );
+        return updated;
+      });
+      if (activeUserId === id) setActiveUserId(null);
+    },
+    [authUser, activeUserId]
+  );
+
+  const saveUsers = useCallback(
+    (overrideUsers) => {
+      const list = overrideUsers ?? users;
+      localStorage.setItem(
+        "iptv_users",
+        JSON.stringify({ users: list, activeUserId })
+      );
+    },
+    [users, activeUserId]
+  );
+
+  // ─── Watch history functions ───────────────────────────────────────────────
   const loadWatchHistory = () => {
     try {
       const saved = localStorage.getItem("iptv_watch_history");
-      if (saved) {
-        setWatchHistory(JSON.parse(saved));
-      }
+      if (saved) setWatchHistory(JSON.parse(saved));
     } catch (err) {
       console.error("Error loading watch history:", err);
     }
@@ -67,41 +197,20 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  /**
-   * Determines if a history entry should be filtered out based on the new item
-   * Implements smart grouping for series (one entry per series)
-   * @param {Object} historyItem - Existing history entry
-   * @param {Object} newItem - New item being added
-   * @returns {boolean} True if the history item should be kept
-   */
   const shouldKeepHistoryItem = (historyItem, newItem) => {
-    // For series: remove any previous episode from the same series
     if (newItem.type === "series" && historyItem.type === "series") {
-      // Primary: Compare by seriesId (most reliable)
-      if (newItem.seriesId && historyItem.seriesId) {
+      if (newItem.seriesId && historyItem.seriesId)
         return historyItem.seriesId !== newItem.seriesId;
-      }
-      // Fallback: Compare by series name
-      if (newItem.seriesName && historyItem.seriesName) {
+      if (newItem.seriesName && historyItem.seriesName)
         return historyItem.seriesName !== newItem.seriesName;
-      }
-      // Last resort: Compare by streamId (old behavior)
       return historyItem.streamId !== newItem.streamId;
     }
-
-    // For movies and live TV: remove exact same stream
     return !(
       historyItem.type === newItem.type &&
       historyItem.streamId === newItem.streamId
     );
   };
 
-  /**
-   * Add or update an item in watch history
-   * For series, replaces previous episodes from the same series
-   * For movies/live, replaces the exact same stream
-   * @param {Object} item - Watch history item to add
-   */
   const addToWatchHistory = (item) => {
     const newEntry = {
       ...item,
@@ -110,99 +219,48 @@ export const AppProvider = ({ children }) => {
       currentTime: item.currentTime || 0,
       duration: item.duration || 0,
     };
-
-    // Filter out duplicates using smart grouping logic
     const filteredHistory = watchHistory.filter((h) =>
-      shouldKeepHistoryItem(h, item),
+      shouldKeepHistoryItem(h, item)
     );
-
-    // Add new entry at the beginning and limit to 20 items
     const newHistory = [newEntry, ...filteredHistory].slice(0, 20);
-
     setWatchHistory(newHistory);
     saveWatchHistory(newHistory);
+    if (userKey) upsertHistoryEntry(userKey, newEntry);
   };
 
   const removeFromWatchHistory = (id) => {
     const newHistory = watchHistory.filter((item) => item.id !== id);
     setWatchHistory(newHistory);
     saveWatchHistory(newHistory);
+    if (userKey) deleteHistoryEntry(userKey, id);
   };
 
   const updateWatchProgress = (streamId, type, currentTime, duration) => {
     const updatedHistory = watchHistory.map((item) => {
       if (item.streamId === streamId && item.type === type) {
-        return {
-          ...item,
-          currentTime,
-          duration,
-          watchedAt: new Date().toISOString(),
-        };
+        return { ...item, currentTime, duration, watchedAt: new Date().toISOString() };
       }
       return item;
     });
     setWatchHistory(updatedHistory);
     saveWatchHistory(updatedHistory);
+
+    if (userKey) {
+      clearTimeout(progressSyncTimer.current);
+      progressSyncTimer.current = setTimeout(() => {
+        const entry = updatedHistory.find(
+          (item) => item.streamId === streamId && item.type === type
+        );
+        if (entry) upsertHistoryEntry(userKey, entry);
+      }, 5000);
+    }
   };
 
-  /**
-   * Play video in native player
-   * @param {Object} video - Video to play { url, name, type, streamId, startTime, ... }
-   */
-  const playVideo = (video) => {
-    setCurrentVideo(video);
-  };
+  // ─── Video playback ───────────────────────────────────────────────────────
+  const playVideo = (video) => setCurrentVideo(video);
+  const closeVideo = () => setCurrentVideo(null);
 
-  /**
-   * Close the native video player
-   */
-  const closeVideo = () => {
-    setCurrentVideo(null);
-  };
-
-  // Load saved data on mount
-  useEffect(() => {
-    loadSavedUsers();
-    loadSavedChannels();
-    loadWatchHistory();
-  }, []);
-
-  // Auto-save users and activeUserId to localStorage
-  useEffect(() => {
-    if (users.length > 0) {
-      saveUsers();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [users, activeUserId]);
-
-  // Auto-save channels to localStorage
-  useEffect(() => {
-    if (channels.length > 0) {
-      saveChannels();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [channels]);
-
-  // Auto-sync active user
-  useEffect(() => {
-    if (activeUserId) {
-      syncActiveUser();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeUserId]);
-
-  // Filter channels based on search
-  useEffect(() => {
-    if (searchQuery.trim() === "") {
-      setFilteredChannels(channels);
-    } else {
-      const query = searchQuery.toLowerCase();
-      setFilteredChannels(
-        channels.filter((ch) => ch.name.toLowerCase().includes(query)),
-      );
-    }
-  }, [searchQuery, channels]);
-
+  // ─── Local storage loaders (non-auth mode) ────────────────────────────────
   const loadSavedUsers = () => {
     try {
       const saved = localStorage.getItem("iptv_users");
@@ -219,25 +277,9 @@ export const AppProvider = ({ children }) => {
   const loadSavedChannels = () => {
     try {
       const saved = localStorage.getItem("iptv_channels");
-      if (saved) {
-        setChannels(JSON.parse(saved));
-      }
+      if (saved) setChannels(JSON.parse(saved));
     } catch (err) {
       console.error("Error loading channels:", err);
-    }
-  };
-
-  const saveUsers = () => {
-    try {
-      localStorage.setItem(
-        "iptv_users",
-        JSON.stringify({
-          users,
-          activeUserId,
-        }),
-      );
-    } catch (err) {
-      console.error("Error saving users:", err);
     }
   };
 
@@ -252,12 +294,112 @@ export const AppProvider = ({ children }) => {
   const syncActiveUser = async () => {
     const user = users.find((u) => u.id === activeUserId);
     if (!user) return;
-
-    // Set credentials in the API service
     iptvApi.setCredentials(user.host, user.username, user.password);
   };
 
+  // ─── Effects ──────────────────────────────────────────────────────────────
+
+  // On mount: check Supabase session, subscribe to auth state changes
+  useEffect(() => {
+    if (!isSupabaseConfigured()) {
+      loadSavedUsers();
+      loadSavedChannels();
+      loadWatchHistory();
+      return;
+    }
+
+    getSession().then((session) => {
+      setAuthUser(session?.user ?? null);
+      setAuthLoading(false);
+    });
+
+    const unsubscribe = onAuthStateChange((user) => {
+      setAuthUser(user);
+      setAuthLoading(false);
+    });
+
+    return unsubscribe;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // When auth user changes: load their IPTV accounts + watch history
+  useEffect(() => {
+    if (!authUser) return;
+
+    // Load IPTV accounts from Supabase
+    fetchIptvAccounts(authUser.id).then((accounts) => {
+      if (accounts.length > 0) {
+        setUsers(accounts);
+        // Restore last active user
+        const saved = localStorage.getItem("iptv_users");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.activeUserId) setActiveUserId(parsed.activeUserId);
+        }
+      }
+    });
+
+    // Load local channels cache
+    loadSavedChannels();
+
+    // Load and merge watch history
+    loadWatchHistory();
+    setIsSyncing(true);
+    fetchRemoteHistory(authUser.id)
+      .then((remote) => {
+        setWatchHistory((local) => {
+          const merged = mergeHistories(local, remote);
+          saveWatchHistory(merged);
+          return merged;
+        });
+      })
+      .finally(() => setIsSyncing(false));
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authUser?.id]);
+
+  // Auto-sync active user credentials when selection changes
+  useEffect(() => {
+    if (activeUserId) {
+      syncActiveUser();
+      // Persist active selection locally
+      const saved = localStorage.getItem("iptv_users");
+      const parsed = saved ? JSON.parse(saved) : {};
+      localStorage.setItem(
+        "iptv_users",
+        JSON.stringify({ ...parsed, activeUserId })
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeUserId]);
+
+  // Auto-save channels to localStorage
+  useEffect(() => {
+    if (channels.length > 0) saveChannels();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [channels]);
+
+  // Filter channels based on search
+  useEffect(() => {
+    if (searchQuery.trim() === "") {
+      setFilteredChannels(channels);
+    } else {
+      const query = searchQuery.toLowerCase();
+      setFilteredChannels(
+        channels.filter((ch) => ch.name.toLowerCase().includes(query))
+      );
+    }
+  }, [searchQuery, channels]);
+
+  // ─── Context value ────────────────────────────────────────────────────────
   const value = {
+    // Auth
+    authUser,
+    authLoading,
+    signIn,
+    signUp,
+    signOut,
+
     // Content type
     contentType,
     setContentType,
@@ -269,12 +411,15 @@ export const AppProvider = ({ children }) => {
     currentChannelIndex,
     setCurrentChannelIndex,
 
-    // Users
+    // Users (IPTV accounts)
     users,
     setUsers,
     activeUserId,
     setActiveUserId,
     saveUsers,
+    addUser,
+    updateUser,
+    removeUser,
 
     // VOD
     movieCategories,
@@ -292,13 +437,14 @@ export const AppProvider = ({ children }) => {
     currentSeries,
     setCurrentSeries,
     seriesSeasons,
+    setSeriesSeasons,
 
     // Watch History
     watchHistory,
     addToWatchHistory,
     updateWatchProgress,
     removeFromWatchHistory,
-    setSeriesSeasons,
+    isSyncing,
 
     // Video Playback
     currentVideo,
