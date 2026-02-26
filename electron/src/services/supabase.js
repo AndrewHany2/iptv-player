@@ -12,21 +12,12 @@ export const isSupabaseConfigured = () => !!supabase;
 
 // ─── Auth ────────────────────────────────────────────────────────────────────
 
-// Username is stored in the `profiles` table.
-// Supabase Auth always uses an internal email: `${username}@iptv-player.local`
-const toInternalEmail = (username) => `${username.toLowerCase()}@iptv-player.local`;
-
 export async function getSession() {
   if (!supabase) return null;
   const { data } = await supabase.auth.getSession();
   return data.session;
 }
 
-/**
- * @param {string} username - Required display name / login handle
- * @param {string} password
- * @param {string} [email]  - Optional real email (stored in profile only)
- */
 export async function signUp(username, password, email) {
   // Check username availability
   const { data: existing } = await supabase
@@ -37,27 +28,49 @@ export async function signUp(username, password, email) {
 
   if (existing) throw new Error("Username is already taken.");
 
-  const internalEmail = toInternalEmail(username);
+  // Store username in user_metadata — profile row is created later in
+  // AppContext once the session is established (avoids all RLS/FK race issues)
   const { data, error } = await supabase.auth.signUp({
-    email: internalEmail,
+    email: email.toLowerCase(),
     password,
+    options: {
+      data: { username: username.toLowerCase() },
+    },
   });
   if (error) throw new Error(error.message);
-
-  // Insert profile row
-  const { error: profileError } = await supabase.from("profiles").insert({
-    user_id: data.user.id,
-    username: username.toLowerCase(),
-    email: email || null,
-  });
-  if (profileError) throw new Error(profileError.message);
 
   return data.user;
 }
 
-export async function signIn(username, password) {
+export async function upsertProfile(userId, username, email) {
+  if (!supabase) return;
+  const { error } = await supabase.from("profiles").upsert(
+    { user_id: userId, username, email },
+    { onConflict: "user_id" }
+  );
+  if (error) console.error("[Supabase] upsertProfile:", error.message);
+}
+
+export async function signIn(usernameOrEmail, password) {
+  let email;
+
+  if (usernameOrEmail.includes("@")) {
+    // Direct email login
+    email = usernameOrEmail.toLowerCase();
+  } else {
+    // Username login — look up the real email from profiles
+    const { data: profileRow } = await supabase
+      .from("profiles")
+      .select("email")
+      .eq("username", usernameOrEmail.toLowerCase())
+      .maybeSingle();
+
+    if (!profileRow?.email) throw new Error("Invalid username or password.");
+    email = profileRow.email;
+  }
+
   const { data, error } = await supabase.auth.signInWithPassword({
-    email: toInternalEmail(username),
+    email,
     password,
   });
   if (error) throw new Error("Invalid username or password.");

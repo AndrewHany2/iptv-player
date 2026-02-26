@@ -28,12 +28,16 @@ const AuthPage = () => {
       setError("Username and password are required.");
       return;
     }
-    if (!/^[a-zA-Z0-9_]{3,30}$/.test(username.trim())) {
+    if (mode === "register" && !/^[a-zA-Z0-9_]{3,30}$/.test(username.trim())) {
       setError("Username must be 3–30 characters: letters, numbers, underscores only.");
       return;
     }
     if (password.length < 6) {
       setError("Password must be at least 6 characters.");
+      return;
+    }
+    if (mode === "register" && !email.trim()) {
+      setError("Email is required.");
       return;
     }
     if (mode === "register" && password !== confirmPassword) {
@@ -46,9 +50,10 @@ const AuthPage = () => {
       if (mode === "login") {
         await signIn(username.trim(), password);
       } else {
-        await signUp(username.trim(), password, email.trim() || undefined);
-        // If email confirmation is disabled in Supabase, user is now logged in.
-        // If it is still enabled, signUp will throw an error guiding the user.
+        await signUp(username.trim(), password, email.trim());
+        // Auto sign-in after registration so the session is always established,
+        // regardless of whether Supabase email confirmation is on or off.
+        await signIn(username.trim(), password);
       }
     } catch (err) {
       setError(err.message);
@@ -68,12 +73,14 @@ const AuthPage = () => {
 
         <form className="auth-form" onSubmit={handleSubmit}>
           <div className="auth-field">
-            <label htmlFor="auth-username">Username</label>
+            <label htmlFor="auth-username">
+              {mode === "login" ? "Username or Email" : "Username"}
+            </label>
             <input
               id="auth-username"
               type="text"
               className="input-field"
-              placeholder="your_username"
+              placeholder={mode === "login" ? "your_username or you@example.com" : "your_username"}
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               autoComplete="username"
@@ -84,9 +91,7 @@ const AuthPage = () => {
 
           {mode === "register" && (
             <div className="auth-field">
-              <label htmlFor="auth-email">
-                Email <span className="auth-optional">(optional)</span>
-              </label>
+              <label htmlFor="auth-email">Email</label>
               <input
                 id="auth-email"
                 type="email"

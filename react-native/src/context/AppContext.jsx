@@ -21,6 +21,7 @@ import {
   signOut as supabaseSignOut,
   onAuthStateChange,
   fetchProfile,
+  upsertProfile,
   fetchIptvAccounts,
   insertIptvAccount,
   updateIptvAccount as supabaseUpdateIptvAccount,
@@ -327,8 +328,16 @@ export const AppProvider = ({ children }) => {
   useEffect(() => {
     if (!authUser) return;
 
-    // Load profile (username, email)
-    fetchProfile(authUser.id).then((p) => setProfile(p));
+    // Ensure profile row exists (created here after session is established,
+    // so auth.uid() is valid and RLS passes)
+    const meta = authUser.user_metadata;
+    if (meta?.username) {
+      upsertProfile(authUser.id, meta.username, authUser.email).then(() =>
+        fetchProfile(authUser.id).then((p) => setProfile(p))
+      );
+    } else {
+      fetchProfile(authUser.id).then((p) => setProfile(p));
+    }
 
     // Load IPTV accounts from Supabase
     fetchIptvAccounts(authUser.id).then((accounts) => {

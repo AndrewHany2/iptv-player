@@ -12,21 +12,12 @@ export const isSupabaseConfigured = () => !!supabase;
 
 // ─── Auth ────────────────────────────────────────────────────────────────────
 
-// Username is stored in the `profiles` table.
-// Supabase Auth always uses an internal email: `${username}@iptv-player.local`
-const toInternalEmail = (username) => `${username.toLowerCase()}@iptv-player.local`;
-
 export async function getSession() {
   if (!supabase) return null;
   const { data } = await supabase.auth.getSession();
   return data.session;
 }
 
-/**
- * @param {string} username - Required display name / login handle
- * @param {string} password
- * @param {string} [email]  - Optional real email (stored in profile only)
- */
 export async function signUp(username, password, email) {
   // Check username availability
   const { data: existing } = await supabase
@@ -37,27 +28,45 @@ export async function signUp(username, password, email) {
 
   if (existing) throw new Error("Username is already taken.");
 
-  const internalEmail = toInternalEmail(username);
+  // Use the real email for Supabase Auth
   const { data, error } = await supabase.auth.signUp({
-    email: internalEmail,
+    email: email.toLowerCase(),
     password,
   });
   if (error) throw new Error(error.message);
 
-  // Insert profile row
-  const { error: profileError } = await supabase.from("profiles").insert({
-    user_id: data.user.id,
-    username: username.toLowerCase(),
-    email: email || null,
+  // Use a SECURITY DEFINER function to insert the profile — bypasses RLS
+  // timing issues that occur immediately after signUp
+  const { error: profileError } = await supabase.rpc("create_profile", {
+    p_user_id: data.user.id,
+    p_username: username.toLowerCase(),
+    p_email: email.toLowerCase(),
   });
   if (profileError) throw new Error(profileError.message);
 
   return data.user;
 }
 
-export async function signIn(username, password) {
+export async function signIn(usernameOrEmail, password) {
+  let email;
+
+  if (usernameOrEmail.includes("@")) {
+    // Direct email login
+    email = usernameOrEmail.toLowerCase();
+  } else {
+    // Username login — look up the real email from profiles
+    const { data: profileRow } = await supabase
+      .from("profiles")
+      .select("email")
+      .eq("username", usernameOrEmail.toLowerCase())
+      .maybeSingle();
+
+    if (!profileRow?.email) throw new Error("Invalid username or password.");
+    email = profileRow.email;
+  }
+
   const { data, error } = await supabase.auth.signInWithPassword({
-    email: toInternalEmail(username),
+    email,
     password,
   });
   if (error) throw new Error("Invalid username or password.");
