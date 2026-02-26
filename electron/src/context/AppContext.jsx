@@ -20,6 +20,7 @@ import {
   signUp as supabaseSignUp,
   signOut as supabaseSignOut,
   onAuthStateChange,
+  fetchProfile,
   fetchIptvAccounts,
   insertIptvAccount,
   updateIptvAccount as supabaseUpdateIptvAccount,
@@ -38,6 +39,7 @@ export const AppProvider = ({ children }) => {
   // ─── Auth state ───────────────────────────────────────────────────────────
   const [authUser, setAuthUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(isSupabaseConfigured());
+  const [profile, setProfile] = useState(null); // { username, email }
 
   // ─── Content type ─────────────────────────────────────────────────────────
   const [contentType, setContentType] = useState("live");
@@ -84,19 +86,18 @@ export const AppProvider = ({ children }) => {
   }, [authUser, users, activeUserId]);
 
   // ─── Auth functions ───────────────────────────────────────────────────────
-  const signIn = useCallback(async (email, password) => {
-    const user = await supabaseSignIn(email, password);
-    return user;
+  const signIn = useCallback(async (username, password) => {
+    return await supabaseSignIn(username, password);
   }, []);
 
-  const signUp = useCallback(async (email, password) => {
-    const user = await supabaseSignUp(email, password);
-    return user;
+  const signUp = useCallback(async (username, password, email) => {
+    return await supabaseSignUp(username, password, email);
   }, []);
 
   const signOut = useCallback(async () => {
     await supabaseSignOut();
     setAuthUser(null);
+    setProfile(null);
     setUsers([]);
     setActiveUserId(null);
     setChannels([]);
@@ -322,9 +323,12 @@ export const AppProvider = ({ children }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // When auth user changes: load their IPTV accounts + watch history
+  // When auth user changes: load profile + IPTV accounts + watch history
   useEffect(() => {
     if (!authUser) return;
+
+    // Load profile (username, email)
+    fetchProfile(authUser.id).then((p) => setProfile(p));
 
     // Load IPTV accounts from Supabase
     fetchIptvAccounts(authUser.id).then((accounts) => {
@@ -396,6 +400,7 @@ export const AppProvider = ({ children }) => {
     // Auth
     authUser,
     authLoading,
+    profile,
     signIn,
     signUp,
     signOut,

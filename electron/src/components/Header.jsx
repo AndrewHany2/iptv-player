@@ -2,7 +2,7 @@ import PropTypes from "prop-types";
 import { useApp } from "../context/AppContext";
 
 const Header = ({ onOpenUsers }) => {
-  const { users, activeUserId, authUser, signOut, isSyncing } = useApp();
+  const { users, activeUserId, authUser, profile, signOut, isSyncing } = useApp();
 
   const activeUser = users.find((u) => u.id === activeUserId);
   const displayName = activeUser
@@ -28,7 +28,9 @@ const Header = ({ onOpenUsers }) => {
 
         {authUser && (
           <div className="auth-user-section">
-            <span className="auth-email">{authUser.email}</span>
+            <span className="auth-email">
+              👤 {profile?.username ?? "…"}
+            </span>
             <button
               type="button"
               className="btn btn-danger btn-sm"

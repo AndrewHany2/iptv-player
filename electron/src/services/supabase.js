@@ -12,24 +12,55 @@ export const isSupabaseConfigured = () => !!supabase;
 
 // ─── Auth ────────────────────────────────────────────────────────────────────
 
+// Username is stored in the `profiles` table.
+// Supabase Auth always uses an internal email: `${username}@iptv-player.local`
+const toInternalEmail = (username) => `${username.toLowerCase()}@iptv-player.local`;
+
 export async function getSession() {
   if (!supabase) return null;
   const { data } = await supabase.auth.getSession();
   return data.session;
 }
 
-export async function signUp(email, password) {
-  const { data, error } = await supabase.auth.signUp({ email, password });
-  if (error) throw new Error(error.message);
-  return data.user;
-}
+/**
+ * @param {string} username - Required display name / login handle
+ * @param {string} password
+ * @param {string} [email]  - Optional real email (stored in profile only)
+ */
+export async function signUp(username, password, email) {
+  // Check username availability
+  const { data: existing } = await supabase
+    .from("profiles")
+    .select("username")
+    .eq("username", username.toLowerCase())
+    .maybeSingle();
 
-export async function signIn(email, password) {
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
+  if (existing) throw new Error("Username is already taken.");
+
+  const internalEmail = toInternalEmail(username);
+  const { data, error } = await supabase.auth.signUp({
+    email: internalEmail,
     password,
   });
   if (error) throw new Error(error.message);
+
+  // Insert profile row
+  const { error: profileError } = await supabase.from("profiles").insert({
+    user_id: data.user.id,
+    username: username.toLowerCase(),
+    email: email || null,
+  });
+  if (profileError) throw new Error(profileError.message);
+
+  return data.user;
+}
+
+export async function signIn(username, password) {
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: toInternalEmail(username),
+    password,
+  });
+  if (error) throw new Error("Invalid username or password.");
   return data.user;
 }
 
@@ -44,6 +75,17 @@ export function onAuthStateChange(callback) {
     callback(session?.user ?? null);
   });
   return () => data.subscription.unsubscribe();
+}
+
+export async function fetchProfile(userId) {
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("username, email")
+    .eq("user_id", userId)
+    .single();
+  if (error) return null;
+  return data;
 }
 
 // ─── IPTV Accounts ───────────────────────────────────────────────────────────

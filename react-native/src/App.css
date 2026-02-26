@@ -1726,6 +1726,12 @@ body {
   color: #7ab8ff;
 }
 
+.auth-optional {
+  font-size: 11px;
+  color: #666;
+  font-weight: 400;
+}
+
 /* ─── Auth loading spinner ───────────────────────────────────────────────── */
 .auth-loading {
   display: flex;

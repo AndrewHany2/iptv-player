@@ -4,43 +4,51 @@ import { useApp } from "../context/AppContext";
 const AuthPage = () => {
   const { signIn, signUp } = useApp();
   const [mode, setMode] = useState("login"); // 'login' | 'register'
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState(""); // optional, register only
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
-  const [info, setInfo] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const switchMode = (next) => {
+    setMode(next);
+    setError("");
+    setUsername("");
+    setEmail("");
+    setPassword("");
+    setConfirmPassword("");
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-    setInfo("");
 
-    if (!email || !password) {
-      setError("Please fill in all fields.");
+    if (!username.trim() || !password) {
+      setError("Username and password are required.");
       return;
     }
-    if (mode === "register" && password !== confirmPassword) {
-      setError("Passwords do not match.");
+    if (!/^[a-zA-Z0-9_]{3,30}$/.test(username.trim())) {
+      setError("Username must be 3–30 characters: letters, numbers, underscores only.");
       return;
     }
     if (password.length < 6) {
       setError("Password must be at least 6 characters.");
       return;
     }
+    if (mode === "register" && password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
 
     setLoading(true);
     try {
       if (mode === "login") {
-        await signIn(email, password);
+        await signIn(username.trim(), password);
       } else {
-        await signUp(email, password);
-        setInfo(
-          "Account created! Check your email to confirm, then log in."
-        );
-        setMode("login");
-        setPassword("");
-        setConfirmPassword("");
+        await signUp(username.trim(), password, email.trim() || undefined);
+        // If email confirmation is disabled in Supabase, user is now logged in.
+        // If it is still enabled, signUp will throw an error guiding the user.
       }
     } catch (err) {
       setError(err.message);
@@ -60,18 +68,37 @@ const AuthPage = () => {
 
         <form className="auth-form" onSubmit={handleSubmit}>
           <div className="auth-field">
-            <label htmlFor="auth-email">Email</label>
+            <label htmlFor="auth-username">Username</label>
             <input
-              id="auth-email"
-              type="email"
+              id="auth-username"
+              type="text"
               className="input-field"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoComplete="email"
+              placeholder="your_username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              autoComplete="username"
               disabled={loading}
+              autoFocus
             />
           </div>
+
+          {mode === "register" && (
+            <div className="auth-field">
+              <label htmlFor="auth-email">
+                Email <span className="auth-optional">(optional)</span>
+              </label>
+              <input
+                id="auth-email"
+                type="email"
+                className="input-field"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
+                disabled={loading}
+              />
+            </div>
+          )}
 
           <div className="auth-field">
             <label htmlFor="auth-password">Password</label>
@@ -82,9 +109,7 @@ const AuthPage = () => {
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              autoComplete={
-                mode === "login" ? "current-password" : "new-password"
-              }
+              autoComplete={mode === "login" ? "current-password" : "new-password"}
               disabled={loading}
             />
           </div>
@@ -106,7 +131,6 @@ const AuthPage = () => {
           )}
 
           {error && <p className="auth-error">{error}</p>}
-          {info && <p className="auth-info">{info}</p>}
 
           <button
             type="submit"
@@ -128,11 +152,7 @@ const AuthPage = () => {
               <button
                 type="button"
                 className="auth-link"
-                onClick={() => {
-                  setMode("register");
-                  setError("");
-                  setInfo("");
-                }}
+                onClick={() => switchMode("register")}
               >
                 Register
               </button>
@@ -143,11 +163,7 @@ const AuthPage = () => {
               <button
                 type="button"
                 className="auth-link"
-                onClick={() => {
-                  setMode("login");
-                  setError("");
-                  setInfo("");
-                }}
+                onClick={() => switchMode("login")}
               >
                 Sign In
               </button>
