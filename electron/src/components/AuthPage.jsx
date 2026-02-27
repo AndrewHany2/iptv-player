@@ -51,9 +51,8 @@ const AuthPage = () => {
         await signIn(username.trim(), password);
       } else {
         await signUp(username.trim(), password, email.trim());
-        // Auto sign-in after registration so the session is always established,
-        // regardless of whether Supabase email confirmation is on or off.
-        await signIn(username.trim(), password);
+        // Use email directly — profile row doesn't exist yet for username lookup
+        await signIn(email.trim(), password);
       }
     } catch (err) {
       setError(err.message);

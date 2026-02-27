@@ -61,7 +61,8 @@ export default function AuthScreen() {
         await signIn(username.trim(), password);
       } else {
         await signUp(username.trim(), password, email.trim());
-        await signIn(username.trim(), password);
+        // Sign in with email directly — profile row doesn't exist yet for username lookup
+        await signIn(email.trim(), password);
       }
     } catch (err) {
       setError(err.message);
