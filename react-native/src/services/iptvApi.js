@@ -6,87 +6,66 @@ class IPTVApi {
   }
 
   setCredentials(host, username, password) {
-    let cleanHost = host.replace(/^(https?:\/\/)/, "");
-    cleanHost = cleanHost.replace(/\/$/, "");
+    let cleanHost = host.replace(/^(https?:\/\/)/, '');
+    cleanHost = cleanHost.replace(/\/$/, '');
     this.baseUrl = `http://${cleanHost}`;
     this.username = username;
     this.password = password;
   }
 
   buildUrl(action, params = {}) {
-    const url = new URL(`${this.baseUrl}/player_api.php`);
-    url.searchParams.append("username", this.username);
-    url.searchParams.append("password", this.password);
-    url.searchParams.append("action", action);
-
+    let url = `${this.baseUrl}/player_api.php?username=${encodeURIComponent(this.username)}&password=${encodeURIComponent(this.password)}&action=${encodeURIComponent(action)}`;
     Object.entries(params).forEach(([key, value]) => {
-      url.searchParams.append(key, value);
+      url += `&${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
     });
-
-    return url.toString();
+    return url;
   }
 
   async fetch(url) {
-    const response = await fetch(url, {
-      method: "GET",
-      headers: {
-        Accept: "application/json, text/plain, */*",
-      },
-      cache: "no-cache",
+    const response = await globalThis.fetch(url, {
+      method: 'GET',
+      headers: { Accept: 'application/json, text/plain, */*' },
     });
-
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-
     return response.json();
   }
 
   async getLiveStreams() {
-    const url = this.buildUrl("get_live_streams");
-    return this.fetch(url);
+    return this.fetch(this.buildUrl('get_live_streams'));
   }
 
   async getVODCategories() {
-    const url = this.buildUrl("get_vod_categories");
-    return this.fetch(url);
+    return this.fetch(this.buildUrl('get_vod_categories'));
   }
 
   async getVODStreams(categoryId) {
-    const url = this.buildUrl("get_vod_streams", { category_id: categoryId });
-    return this.fetch(url);
+    return this.fetch(this.buildUrl('get_vod_streams', { category_id: categoryId }));
   }
 
   async getSeriesCategories() {
-    const url = this.buildUrl("get_series_categories");
-    return this.fetch(url);
+    return this.fetch(this.buildUrl('get_series_categories'));
   }
 
   async getSeries(categoryId) {
-    const url = this.buildUrl("get_series", { category_id: categoryId });
-    return this.fetch(url);
+    return this.fetch(this.buildUrl('get_series', { category_id: categoryId }));
   }
 
   async getSeriesInfo(seriesId) {
-    const url = this.buildUrl("get_series_info", { series_id: seriesId });
-    return this.fetch(url);
+    return this.fetch(this.buildUrl('get_series_info', { series_id: seriesId }));
   }
 
   async getShortEpg(streamId, limit = 2) {
-    const url = this.buildUrl("get_short_epg", {
-      stream_id: streamId,
-      limit,
-    });
-    return this.fetch(url);
+    return this.fetch(this.buildUrl('get_short_epg', { stream_id: streamId, limit }));
   }
 
-  buildStreamUrl(type, streamId, extension = "ts") {
-    // type: 'live', 'movie', 'series'
-    if (type === "live") {
+  buildStreamUrl(type, streamId, extension = 'ts') {
+    if (type === 'live') {
       return `${this.baseUrl}/live/${this.username}/${this.password}/${streamId}.${extension}`;
-    } else if (type === "movie") {
+    } else if (type === 'movie') {
       return `${this.baseUrl}/movie/${this.username}/${this.password}/${streamId}.${extension}`;
-    } else if (type === "series") {
+    } else if (type === 'series') {
       return `${this.baseUrl}/series/${this.username}/${this.password}/${streamId}.${extension}`;
     }
     return null;

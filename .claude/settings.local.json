@@ -25,7 +25,12 @@
       "Bash(git add react-native/.gitkeep)",
       "Bash(npm install @supabase/supabase-js)",
       "Bash(ls d:/Codes/iptv-player/electron/.env*)",
-      "Bash(ls d:/Codes/iptv-player/react-native/.env*)"
+      "Bash(ls d:/Codes/iptv-player/react-native/.env*)",
+      "Bash(npm install expo@~52.0.0)",
+      "Bash(npx expo install --fix)",
+      "Bash(npm install react@18.3.1 react-dom@18.3.1 --legacy-peer-deps)",
+      "Bash(node -e \"const p = require\\(''./package.json''\\); console.log\\(''expo:'', p.dependencies.expo\\); console.log\\(''react:'', p.dependencies.react\\); console.log\\(''react-native:'', p.dependencies[''react-native'']\\); console.log\\(''expo-video:'', p.dependencies[''expo-video'']\\);\")",
+      "Bash(npx expo install --check)"
     ]
   }
 }

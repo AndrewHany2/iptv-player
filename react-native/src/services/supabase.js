@@ -1,11 +1,19 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from '@supabase/supabase-js';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "";
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
+const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
 
 export const supabase =
   SUPABASE_URL && SUPABASE_ANON_KEY
-    ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+    ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: {
+          storage: AsyncStorage,
+          autoRefreshToken: true,
+          persistSession: true,
+          detectSessionInUrl: false,
+        },
+      })
     : null;
 
 export const isSupabaseConfigured = () => !!supabase;
@@ -19,57 +27,51 @@ export async function getSession() {
 }
 
 export async function signUp(username, password, email) {
-  // Check username availability
   const { data: existing } = await supabase
-    .from("profiles")
-    .select("username")
-    .eq("username", username.toLowerCase())
+    .from('profiles')
+    .select('username')
+    .eq('username', username.toLowerCase())
     .maybeSingle();
 
-  if (existing) throw new Error("Username is already taken.");
+  if (existing) throw new Error('Username is already taken.');
 
-  // Use the real email for Supabase Auth
   const { data, error } = await supabase.auth.signUp({
     email: email.toLowerCase(),
     password,
+    options: {
+      data: { username: username.toLowerCase() },
+    },
   });
   if (error) throw new Error(error.message);
-
-  // Use a SECURITY DEFINER function to insert the profile — bypasses RLS
-  // timing issues that occur immediately after signUp
-  const { error: profileError } = await supabase.rpc("create_profile", {
-    p_user_id: data.user.id,
-    p_username: username.toLowerCase(),
-    p_email: email.toLowerCase(),
-  });
-  if (profileError) throw new Error(profileError.message);
-
   return data.user;
+}
+
+export async function upsertProfile(userId, username, email) {
+  if (!supabase) return;
+  const { error } = await supabase
+    .from('profiles')
+    .upsert({ user_id: userId, username, email }, { onConflict: 'user_id' });
+  if (error) console.error('[Supabase] upsertProfile:', error.message);
 }
 
 export async function signIn(usernameOrEmail, password) {
   let email;
 
-  if (usernameOrEmail.includes("@")) {
-    // Direct email login
+  if (usernameOrEmail.includes('@')) {
     email = usernameOrEmail.toLowerCase();
   } else {
-    // Username login — look up the real email from profiles
     const { data: profileRow } = await supabase
-      .from("profiles")
-      .select("email")
-      .eq("username", usernameOrEmail.toLowerCase())
+      .from('profiles')
+      .select('email')
+      .eq('username', usernameOrEmail.toLowerCase())
       .maybeSingle();
 
-    if (!profileRow?.email) throw new Error("Invalid username or password.");
+    if (!profileRow?.email) throw new Error('Invalid username or password.');
     email = profileRow.email;
   }
 
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
-  if (error) throw new Error("Invalid username or password.");
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) throw new Error('Invalid username or password.');
   return data.user;
 }
 
@@ -89,9 +91,9 @@ export function onAuthStateChange(callback) {
 export async function fetchProfile(userId) {
   if (!supabase) return null;
   const { data, error } = await supabase
-    .from("profiles")
-    .select("username, email")
-    .eq("user_id", userId)
+    .from('profiles')
+    .select('username, email')
+    .eq('user_id', userId)
     .single();
   if (error) return null;
   return data;
@@ -102,19 +104,18 @@ export async function fetchProfile(userId) {
 export async function fetchIptvAccounts(userId) {
   if (!supabase) return [];
   const { data, error } = await supabase
-    .from("iptv_accounts")
-    .select("*")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: true });
+    .from('iptv_accounts')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: true });
 
   if (error) {
-    console.error("[Supabase] fetchIptvAccounts:", error.message);
+    console.error('[Supabase] fetchIptvAccounts:', error.message);
     return [];
   }
-  // Map Supabase rows to the local user object shape
   return data.map((row) => ({
     id: row.id,
-    nickname: row.nickname || "",
+    nickname: row.nickname || '',
     host: row.host,
     username: row.username,
     password: row.password,
@@ -124,7 +125,7 @@ export async function fetchIptvAccounts(userId) {
 export async function insertIptvAccount(userId, account) {
   if (!supabase) return null;
   const { data, error } = await supabase
-    .from("iptv_accounts")
+    .from('iptv_accounts')
     .insert({
       user_id: userId,
       nickname: account.nickname || null,
@@ -136,35 +137,30 @@ export async function insertIptvAccount(userId, account) {
     .single();
 
   if (error) {
-    console.error("[Supabase] insertIptvAccount:", error.message);
+    console.error('[Supabase] insertIptvAccount:', error.message);
     return null;
   }
-  return data.id; // return the generated UUID
+  return data.id;
 }
 
 export async function updateIptvAccount(accountId, account) {
   if (!supabase) return;
   const { error } = await supabase
-    .from("iptv_accounts")
+    .from('iptv_accounts')
     .update({
       nickname: account.nickname || null,
       host: account.host,
       username: account.username,
       password: account.password,
     })
-    .eq("id", accountId);
-
-  if (error) console.error("[Supabase] updateIptvAccount:", error.message);
+    .eq('id', accountId);
+  if (error) console.error('[Supabase] updateIptvAccount:', error.message);
 }
 
 export async function deleteIptvAccount(accountId) {
   if (!supabase) return;
-  const { error } = await supabase
-    .from("iptv_accounts")
-    .delete()
-    .eq("id", accountId);
-
-  if (error) console.error("[Supabase] deleteIptvAccount:", error.message);
+  const { error } = await supabase.from('iptv_accounts').delete().eq('id', accountId);
+  if (error) console.error('[Supabase] deleteIptvAccount:', error.message);
 }
 
 // ─── Watch History ────────────────────────────────────────────────────────────
@@ -172,14 +168,14 @@ export async function deleteIptvAccount(accountId) {
 export async function fetchRemoteHistory(userKey) {
   if (!supabase) return [];
   const { data, error } = await supabase
-    .from("watch_history")
-    .select("entry")
-    .eq("user_key", userKey)
-    .order("watched_at", { ascending: false })
+    .from('watch_history')
+    .select('entry')
+    .eq('user_key', userKey)
+    .order('watched_at', { ascending: false })
     .limit(50);
 
   if (error) {
-    console.error("[Supabase] fetchRemoteHistory:", error.message);
+    console.error('[Supabase] fetchRemoteHistory:', error.message);
     return [];
   }
   return data.map((row) => row.entry);
@@ -187,26 +183,26 @@ export async function fetchRemoteHistory(userKey) {
 
 export async function upsertHistoryEntry(userKey, entry) {
   if (!supabase) return;
-  const { error } = await supabase.from("watch_history").upsert(
+  const { error } = await supabase.from('watch_history').upsert(
     {
       user_key: userKey,
       entry_id: entry.id,
       entry,
       watched_at: entry.watchedAt,
     },
-    { onConflict: "user_key,entry_id" }
+    { onConflict: 'user_key,entry_id' }
   );
-  if (error) console.error("[Supabase] upsertHistoryEntry:", error.message);
+  if (error) console.error('[Supabase] upsertHistoryEntry:', error.message);
 }
 
 export async function deleteHistoryEntry(userKey, entryId) {
   if (!supabase) return;
   const { error } = await supabase
-    .from("watch_history")
+    .from('watch_history')
     .delete()
-    .eq("user_key", userKey)
-    .eq("entry_id", entryId);
-  if (error) console.error("[Supabase] deleteHistoryEntry:", error.message);
+    .eq('user_key', userKey)
+    .eq('entry_id', entryId);
+  if (error) console.error('[Supabase] deleteHistoryEntry:', error.message);
 }
 
 export function mergeHistories(local, remote) {
