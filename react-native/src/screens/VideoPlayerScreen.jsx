@@ -103,7 +103,7 @@ export default function VideoPlayerScreen({ navigation }) {
               currentVideo.streamId,
               currentVideo.type,
               player.currentTime,
-              player.duration || 0
+              Number.isFinite(player.duration) ? player.duration : 0
             );
           }
         }, 10000);
@@ -170,7 +170,7 @@ export default function VideoPlayerScreen({ navigation }) {
         currentVideo.streamId,
         currentVideo.type,
         player.currentTime,
-        player.duration || 0
+        Number.isFinite(player.duration) ? player.duration : 0
       );
     }
     clearInterval(progressIntervalRef.current);

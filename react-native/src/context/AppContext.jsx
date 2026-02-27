@@ -181,20 +181,39 @@ export const AppProvider = ({ children }) => {
   };
 
   const addToWatchHistory = (item) => {
-    const newEntry = {
-      ...item,
-      watchedAt: new Date().toISOString(),
-      id: `${item.type}_${item.streamId || item.id}_${Date.now()}`,
-      currentTime: item.currentTime || 0,
-      duration: item.duration || 0,
-    };
-    const filteredHistory = watchHistoryRef.current.filter((h) =>
-      shouldKeepHistoryItem(h, item)
-    );
-    const newHistory = [newEntry, ...filteredHistory].slice(0, 20);
+    const now = new Date().toISOString();
+    const prev = watchHistoryRef.current;
+    // Find existing entry for same series / movie
+    const existingIdx = prev.findIndex((h) => !shouldKeepHistoryItem(h, item));
+
+    let entry;
+    let newHistory;
+    if (existingIdx !== -1) {
+      // Update in-place: preserve id, update episode info, reset progress to startTime
+      entry = {
+        ...prev[existingIdx],
+        ...item,
+        id: prev[existingIdx].id,
+        watchedAt: now,
+        currentTime: item.currentTime || 0,
+        duration: item.duration || 0,
+      };
+      const rest = prev.filter((_, i) => i !== existingIdx);
+      newHistory = [entry, ...rest].slice(0, 20);
+    } else {
+      entry = {
+        ...item,
+        watchedAt: now,
+        id: `${item.type}_${item.streamId || item.id}_${Date.now()}`,
+        currentTime: item.currentTime || 0,
+        duration: item.duration || 0,
+      };
+      newHistory = [entry, ...prev].slice(0, 20);
+    }
+
     setWatchHistory(newHistory);
     saveWatchHistory(newHistory);
-    if (userKey) upsertHistoryEntry(userKey, newEntry);
+    if (userKey) upsertHistoryEntry(userKey, entry);
   };
 
   const removeFromWatchHistory = (id) => {

@@ -66,11 +66,11 @@ export default function HistoryScreen({ navigation }) {
     );
   }
 
-  // Items in progress: currentTime > 0 and progress < 95%
+  // Items in progress: currentTime > 0 and not yet finished (< 95%)
   const continueWatching = watchHistory.filter((item) => {
     if (item.type === 'live' || !item.currentTime || item.currentTime <= 0) return false;
-    if (!item.duration || item.duration <= 0) return false;
-    return item.currentTime / item.duration < 0.95;
+    if (item.duration > 0) return item.currentTime / item.duration < 0.95;
+    return true; // include when duration is unknown
   });
 
   return (
@@ -85,10 +85,9 @@ export default function HistoryScreen({ navigation }) {
               <Text style={styles.sectionTitle}>Continue Watching</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 {continueWatching.map((item) => {
-                  const progress = Math.min(
-                    Math.round((item.currentTime / item.duration) * 100),
-                    100
-                  );
+                  const progress = item.duration > 0
+                    ? Math.min(Math.round((item.currentTime / item.duration) * 100), 100)
+                    : null;
                   return (
                     <TouchableOpacity
                       key={item.id}
@@ -98,11 +97,14 @@ export default function HistoryScreen({ navigation }) {
                       <Text style={styles.continueIcon}>{getHistoryIcon(item.type)}</Text>
                       <Text style={styles.continueTitle} numberOfLines={2}>{item.name}</Text>
                       <Text style={styles.continueMeta}>{getHistoryLabel(item)}</Text>
-                      <View style={styles.continueProgressBar}>
-                        <View style={[styles.continueProgressFill, { width: `${progress}%` }]} />
-                      </View>
+                      {progress !== null && (
+                        <View style={styles.continueProgressBar}>
+                          <View style={[styles.continueProgressFill, { width: `${progress}%` }]} />
+                        </View>
+                      )}
                       <Text style={styles.continueDuration}>
-                        {formatDuration(item.currentTime)} / {formatDuration(item.duration)}
+                        {formatDuration(item.currentTime)}
+                        {item.duration > 0 ? ` / ${formatDuration(item.duration)}` : ''}
                       </Text>
                     </TouchableOpacity>
                   );
