@@ -67,6 +67,8 @@ export const AppProvider = ({ children }) => {
 
   // ─── Watch history ────────────────────────────────────────────────────────
   const [watchHistory, setWatchHistory] = useState([]);
+  const watchHistoryRef = useRef([]);
+  watchHistoryRef.current = watchHistory; // always latest, no stale closures
   const [isSyncing, setIsSyncing] = useState(false);
   const progressSyncTimer = useRef(null);
 
@@ -237,26 +239,31 @@ export const AppProvider = ({ children }) => {
     if (userKey) deleteHistoryEntry(userKey, id);
   };
 
-  const updateWatchProgress = (streamId, type, currentTime, duration) => {
-    const updatedHistory = watchHistory.map((item) => {
-      if (item.streamId === streamId && item.type === type) {
-        return { ...item, currentTime, duration, watchedAt: new Date().toISOString() };
-      }
-      return item;
-    });
-    setWatchHistory(updatedHistory);
-    saveWatchHistory(updatedHistory);
+  const updateWatchProgress = useCallback(
+    (streamId, type, currentTime, duration) => {
+      // Read from ref so we always have the latest history regardless of when
+      // this callback was captured (avoids stale-closure silent no-ops)
+      const updated = watchHistoryRef.current.map((item) => {
+        if (item.streamId === streamId && item.type === type) {
+          return { ...item, currentTime, duration, watchedAt: new Date().toISOString() };
+        }
+        return item;
+      });
+      setWatchHistory(updated);
+      saveWatchHistory(updated);
 
-    if (userKey) {
-      clearTimeout(progressSyncTimer.current);
-      progressSyncTimer.current = setTimeout(() => {
-        const entry = updatedHistory.find(
+      if (userKey) {
+        clearTimeout(progressSyncTimer.current);
+        const entry = updated.find(
           (item) => item.streamId === streamId && item.type === type
         );
-        if (entry) upsertHistoryEntry(userKey, entry);
-      }, 5000);
-    }
-  };
+        progressSyncTimer.current = setTimeout(() => {
+          if (entry) upsertHistoryEntry(userKey, entry);
+        }, 5000);
+      }
+    },
+    [userKey]
+  );
 
   // ─── Video playback ───────────────────────────────────────────────────────
   const playVideo = (video) => setCurrentVideo(video);
@@ -339,20 +346,55 @@ export const AppProvider = ({ children }) => {
       fetchProfile(authUser.id).then((p) => setProfile(p));
     }
 
-    // Load IPTV accounts from Supabase
-    fetchIptvAccounts(authUser.id).then((accounts) => {
-      if (accounts.length > 0) {
-        setUsers(accounts);
-        // Restore last active user
-        const saved = localStorage.getItem("iptv_users");
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (parsed.activeUserId) setActiveUserId(parsed.activeUserId);
+    // Load IPTV accounts then auto-connect to preferred or first account
+    fetchIptvAccounts(authUser.id).then(async (remoteAccounts) => {
+      // Resolve preferred active user from localStorage
+      let savedActiveId = null;
+      try {
+        const raw = localStorage.getItem("iptv_users");
+        if (raw) savedActiveId = JSON.parse(raw)?.activeUserId || null;
+      } catch { /* ignore */ }
+
+      // Determine account list — Supabase first, localStorage fallback
+      let accountList = remoteAccounts;
+      if (remoteAccounts.length > 0) {
+        setUsers(remoteAccounts);
+      } else {
+        try {
+          const raw = localStorage.getItem("iptv_users");
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            accountList = parsed.users || [];
+            if (accountList.length > 0) setUsers(accountList);
+          }
+        } catch (err) {
+          console.error("Error loading users from localStorage:", err);
         }
+      }
+
+      // Auto-load channels from preferred or first account
+      if (accountList.length === 0) return;
+      const user = accountList.find((u) => u.id === savedActiveId) || accountList[0];
+      setActiveUserId(user.id);
+      iptvApi.setCredentials(user.host, user.username, user.password);
+      setIsLoading(true);
+      try {
+        const channelsData = await iptvApi.getLiveStreams();
+        setChannels(
+          channelsData.map((ch) => ({
+            name: ch.name,
+            url: iptvApi.buildStreamUrl("live", ch.stream_id, ch.stream_type || "ts"),
+            id: ch.stream_id,
+          }))
+        );
+      } catch (err) {
+        console.error("[AutoLoad] Failed to load channels:", err);
+      } finally {
+        setIsLoading(false);
       }
     });
 
-    // Load local channels cache
+    // Load local channels cache while fresh fetch is in progress
     loadSavedChannels();
 
     // Load and merge watch history

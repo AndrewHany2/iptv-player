@@ -410,9 +410,8 @@ const ContentBrowser = () => {
                           Math.round((item.currentTime / item.duration) * 100),
                           100,
                         )
-                      : 0;
-                  const hasProgress =
-                    item.currentTime > 0 && item.duration > 0;
+                      : null;
+                  const hasProgress = item.currentTime > 0;
 
                   return (
                     <div
@@ -446,13 +445,21 @@ const ContentBrowser = () => {
                         </div>
                         {hasProgress && (
                           <div className="continue-progress">
-                            <div className="progress-bar">
-                              <div
-                                className="progress-fill"
-                                style={{ width: `${progress}%` }}
-                              />
-                            </div>
-                            <div className="progress-text">{progress}%</div>
+                            {progress !== null ? (
+                              <>
+                                <div className="progress-bar">
+                                  <div
+                                    className="progress-fill"
+                                    style={{ width: `${progress}%` }}
+                                  />
+                                </div>
+                                <div className="progress-text">{progress}%</div>
+                              </>
+                            ) : (
+                              <div className="progress-text">
+                                {Math.floor(item.currentTime / 60)}m {Math.floor(item.currentTime % 60)}s
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>

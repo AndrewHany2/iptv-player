@@ -69,7 +69,7 @@ const VideoPlayer = () => {
         currentVideo.streamId,
         currentVideo.type,
         video.currentTime,
-        video.duration || 0,
+        Number.isFinite(video.duration) ? video.duration : 0,
       );
     }
     stopProgressTracking();
@@ -218,7 +218,7 @@ const VideoPlayer = () => {
             currentVideo.streamId,
             currentVideo.type,
             video.currentTime,
-            video.duration || 0,
+            Number.isFinite(video.duration) ? video.duration : 0,
           );
         }
       }, 10000); // Save every 10 seconds
@@ -230,7 +230,7 @@ const VideoPlayer = () => {
           currentVideo.streamId,
           currentVideo.type,
           video.currentTime,
-          video.duration || 0,
+          Number.isFinite(video.duration) ? video.duration : 0,
         );
       }
     };

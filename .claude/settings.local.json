@@ -23,7 +23,9 @@
       "Bash(git mv src/components/VideoPlayer.jsx electron/src/components/VideoPlayer.jsx)",
       "Bash(git mv electron/.vscode.tasks.json .vscode/tasks.json)",
       "Bash(git add react-native/.gitkeep)",
-      "Bash(npm install @supabase/supabase-js)"
+      "Bash(npm install @supabase/supabase-js)",
+      "Bash(ls d:/Codes/iptv-player/electron/.env*)",
+      "Bash(ls d:/Codes/iptv-player/react-native/.env*)"
     ]
   }
 }
