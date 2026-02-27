@@ -1,7 +1,8 @@
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Text } from 'react-native';
+import { Text, View, StyleSheet, TouchableOpacity } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { useApp } from '../context/AppContext';
 import { isSupabaseConfigured } from '../services/supabase';
 
@@ -16,6 +17,38 @@ import AccountsScreen from '../screens/AccountsScreen';
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
+function HeaderRight() {
+  const { users, activeUserId, profile, authUser, isSyncing } = useApp();
+  const navigation = useNavigation();
+  const activeUser = users.find((u) => u.id === activeUserId);
+  const displayName = activeUser
+    ? activeUser.nickname || activeUser.username
+    : null;
+
+  return (
+    <View style={styles.headerRight}>
+      {isSyncing && (
+        <View style={styles.syncBadge}>
+          <Text style={styles.syncText}>↻ Syncing</Text>
+        </View>
+      )}
+      {displayName && (
+        <View style={styles.userBadge}>
+          <Text style={styles.userBadgeText}>📡 {displayName}</Text>
+        </View>
+      )}
+      {authUser && profile?.username && (
+        <View style={styles.profileBadge}>
+          <Text style={styles.profileText}>👤 {profile.username}</Text>
+        </View>
+      )}
+      <TouchableOpacity onPress={() => navigation.navigate('Accounts')}>
+        <Text style={styles.accountsBtn}>⚙️</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
 function MainTabs() {
   return (
     <Tab.Navigator
@@ -25,6 +58,7 @@ function MainTabs() {
         tabBarInactiveTintColor: '#888',
         headerStyle: { backgroundColor: '#1a1a2e' },
         headerTintColor: '#fff',
+        headerRight: () => <HeaderRight />,
       }}
     >
       <Tab.Screen
@@ -105,3 +139,36 @@ export default function AppNavigator() {
     </NavigationContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginRight: 12,
+  },
+  syncBadge: {
+    backgroundColor: 'rgba(233,69,96,0.2)',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(233,69,96,0.4)',
+  },
+  syncText: { color: '#e94560', fontSize: 11, fontWeight: '600' },
+  userBadge: {
+    backgroundColor: '#2a2a4e',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  userBadgeText: { color: '#aaa', fontSize: 11 },
+  profileBadge: {
+    backgroundColor: '#1a2a1a',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  profileText: { color: '#6abf69', fontSize: 11 },
+  accountsBtn: { fontSize: 20, paddingHorizontal: 2 },
+});

@@ -1,3 +1,4 @@
+import 'react-native-url-polyfill/auto';
 import { AppProvider } from './src/context/AppContext';
 import AppNavigator from './src/navigation/AppNavigator';
 

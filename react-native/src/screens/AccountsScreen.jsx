@@ -16,7 +16,7 @@ import { useApp } from '../context/AppContext';
 import iptvApi from '../services/iptvApi';
 
 export default function AccountsScreen({ navigation }) {
-  const { users, activeUserId, setActiveUserId, saveUsers, addUser, updateUser, removeUser, setChannels } =
+  const { users, activeUserId, setActiveUserId, saveUsers, addUser, updateUser, removeUser, setChannels, authUser, profile, signOut } =
     useApp();
 
   const [showForm, setShowForm] = useState(false);
@@ -196,10 +196,43 @@ export default function AccountsScreen({ navigation }) {
     );
   }
 
+  const handleSignOut = () => {
+    Alert.alert('Sign Out', 'Sign out of your account?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Sign Out',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await signOut();
+            navigation.goBack();
+          } catch (err) {
+            Alert.alert('Error', err.message);
+          }
+        },
+      },
+    ]);
+  };
+
   return (
     <View style={styles.container}>
+      {authUser && (
+        <View style={styles.profileBar}>
+          <View style={styles.profileInfo}>
+            <Text style={styles.profileIcon}>👤</Text>
+            <View>
+              <Text style={styles.profileName}>{profile?.username ?? authUser.email}</Text>
+              <Text style={styles.profileEmail}>{authUser.email}</Text>
+            </View>
+          </View>
+          <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut}>
+            <Text style={styles.signOutText}>Sign Out</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       <TouchableOpacity style={styles.addNewBtn} onPress={handleAddNew} disabled={loading}>
-        <Text style={styles.addNewBtnText}>➕ Add Account</Text>
+        <Text style={styles.addNewBtnText}>➕ Add IPTV Account</Text>
       </TouchableOpacity>
 
       {loading && (
@@ -265,6 +298,31 @@ export default function AccountsScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0f0f23' },
+  profileBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1a1a2e',
+    marginHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 4,
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#2a2a4e',
+  },
+  profileInfo: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  profileIcon: { fontSize: 24 },
+  profileName: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  profileEmail: { color: '#888', fontSize: 12, marginTop: 1 },
+  signOutBtn: {
+    backgroundColor: 'rgba(233,69,96,0.15)',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderWidth: 1,
+    borderColor: 'rgba(233,69,96,0.3)',
+  },
+  signOutText: { color: '#e94560', fontSize: 13, fontWeight: '600' },
   addNewBtn: {
     margin: 16,
     backgroundColor: '#e94560',
