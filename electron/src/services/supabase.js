@@ -28,8 +28,6 @@ export async function signUp(username, password, email) {
 
   if (existing) throw new Error("Username is already taken.");
 
-  // Store username in user_metadata — profile row is created later in
-  // AppContext once the session is established (avoids all RLS/FK race issues)
   const { data, error } = await supabase.auth.signUp({
     email: email.toLowerCase(),
     password,
@@ -37,17 +35,33 @@ export async function signUp(username, password, email) {
       data: { username: username.toLowerCase() },
     },
   });
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (error.message?.toLowerCase().includes("rate limit")) {
+      throw new Error(
+        "Too many sign-up attempts. Please wait a few minutes and try again.",
+      );
+    }
+    throw new Error(error.message);
+  }
+
+  // If email confirmation is disabled, Supabase returns a session immediately.
+  // Upsert profile now while we have an authenticated session (RLS requires auth).
+  if (data.session && data.user) {
+    await upsertProfile(
+      data.user.id,
+      username.toLowerCase(),
+      email.toLowerCase(),
+    );
+  }
 
   return data.user;
 }
 
 export async function upsertProfile(userId, username, email) {
   if (!supabase) return;
-  const { error } = await supabase.from("profiles").upsert(
-    { user_id: userId, username, email },
-    { onConflict: "user_id" }
-  );
+  const { error } = await supabase
+    .from("profiles")
+    .upsert({ user_id: userId, username, email }, { onConflict: "user_id" });
   if (error) console.error("[Supabase] upsertProfile:", error.message);
 }
 
@@ -59,13 +73,19 @@ export async function signIn(usernameOrEmail, password) {
     email = usernameOrEmail.toLowerCase();
   } else {
     // Username login — look up the real email from profiles
-    const { data: profileRow } = await supabase
+    const { data: profileRow, error: lookupError } = await supabase
       .from("profiles")
       .select("email")
       .eq("username", usernameOrEmail.toLowerCase())
       .maybeSingle();
 
-    if (!profileRow?.email) throw new Error("Invalid username or password.");
+    if (lookupError)
+      throw new Error("Could not look up username. Please try again.");
+    if (!profileRow?.email) {
+      throw new Error(
+        "Username not found. Please sign in with your email address instead.",
+      );
+    }
     email = profileRow.email;
   }
 
@@ -73,7 +93,29 @@ export async function signIn(usernameOrEmail, password) {
     email,
     password,
   });
-  if (error) throw new Error("Invalid username or password.");
+  if (error) {
+    if (error.code === "email_not_confirmed") {
+      throw new Error(
+        "Your email is not confirmed. Please check your inbox and confirm your account.",
+      );
+    }
+    if (
+      error.message?.toLowerCase().includes("invalid login credentials") ||
+      error.code === "invalid_credentials"
+    ) {
+      throw new Error("Invalid email or password.");
+    }
+    throw new Error(error.message);
+  }
+
+  // After successful sign-in, ensure profile exists (fixes accounts created before profile fix)
+  if (data.user) {
+    const meta = data.user.user_metadata;
+    if (meta?.username) {
+      await upsertProfile(data.user.id, meta.username, data.user.email);
+    }
+  }
+
   return data.user;
 }
 
@@ -198,7 +240,7 @@ export async function upsertHistoryEntry(userKey, entry) {
       entry,
       watched_at: entry.watchedAt,
     },
-    { onConflict: "user_key,entry_id" }
+    { onConflict: "user_key,entry_id" },
   );
   if (error) console.error("[Supabase] upsertHistoryEntry:", error.message);
 }
