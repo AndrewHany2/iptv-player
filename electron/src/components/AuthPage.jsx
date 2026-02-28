@@ -29,7 +29,9 @@ const AuthPage = () => {
       return;
     }
     if (mode === "register" && !/^[a-zA-Z0-9_]{3,30}$/.test(username.trim())) {
-      setError("Username must be 3–30 characters: letters, numbers, underscores only.");
+      setError(
+        "Username must be 3–30 characters: letters, numbers, underscores only.",
+      );
       return;
     }
     if (password.length < 6) {
@@ -51,11 +53,34 @@ const AuthPage = () => {
         await signIn(username.trim(), password);
       } else {
         await signUp(username.trim(), password, email.trim());
-        // Use email directly — profile row doesn't exist yet for username lookup
+        // signUp now upserts the profile when email confirmation is disabled.
+        // onAuthStateChange in AppContext will fire automatically if a session
+        // was returned. We also call signIn to ensure the session is set.
         await signIn(email.trim(), password);
       }
     } catch (err) {
-      setError(err.message);
+      const msg = err.message || "";
+      if (msg.toLowerCase().includes("rate limit")) {
+        setError(
+          "Too many sign-up attempts. Please wait a few minutes and try again.",
+        );
+      } else if (msg.toLowerCase().includes("email not confirmed")) {
+        setError(
+          "Please check your email and confirm your account before signing in.",
+        );
+      } else if (
+        msg.toLowerCase().includes("invalid login credentials") ||
+        msg.toLowerCase().includes("invalid email or password")
+      ) {
+        setError("Invalid username/email or password.");
+      } else if (
+        msg.toLowerCase().includes("already registered") ||
+        msg.toLowerCase().includes("already been registered")
+      ) {
+        setError("This email is already registered. Please sign in instead.");
+      } else {
+        setError(msg);
+      }
     } finally {
       setLoading(false);
     }
@@ -79,7 +104,11 @@ const AuthPage = () => {
               id="auth-username"
               type="text"
               className="input-field"
-              placeholder={mode === "login" ? "your_username or you@example.com" : "your_username"}
+              placeholder={
+                mode === "login"
+                  ? "your_username or you@example.com"
+                  : "your_username"
+              }
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               autoComplete="username"
@@ -113,7 +142,9 @@ const AuthPage = () => {
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              autoComplete={mode === "login" ? "current-password" : "new-password"}
+              autoComplete={
+                mode === "login" ? "current-password" : "new-password"
+              }
               disabled={loading}
             />
           </div>
@@ -144,8 +175,8 @@ const AuthPage = () => {
             {loading
               ? "Please wait…"
               : mode === "login"
-              ? "Sign In"
-              : "Create Account"}
+                ? "Sign In"
+                : "Create Account"}
           </button>
         </form>
 
