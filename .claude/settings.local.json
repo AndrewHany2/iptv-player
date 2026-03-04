@@ -30,7 +30,8 @@
       "Bash(npx expo install --fix)",
       "Bash(npm install react@18.3.1 react-dom@18.3.1 --legacy-peer-deps)",
       "Bash(node -e \"const p = require\\(''./package.json''\\); console.log\\(''expo:'', p.dependencies.expo\\); console.log\\(''react:'', p.dependencies.react\\); console.log\\(''react-native:'', p.dependencies[''react-native'']\\); console.log\\(''expo-video:'', p.dependencies[''expo-video'']\\);\")",
-      "Bash(npx expo install --check)"
+      "Bash(npx expo install --check)",
+      "Bash(ls \"d:\\\\Codes\\\\iptv-player\\\\src\"\" 2>/dev/null || ls \"D:/Codes/iptv-player/src/ \")"
     ]
   }
 }
