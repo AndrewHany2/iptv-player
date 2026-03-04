@@ -11,7 +11,6 @@ const ContentBrowser = () => {
     setSearchQuery,
     users,
     activeUserId,
-    channels,
     setChannels,
     isLoading,
     setIsLoading,
@@ -63,26 +62,20 @@ const ContentBrowser = () => {
         });
         setChannels(formattedChannels);
 
-        // Group by category
-        const grouped = formattedChannels.reduce((acc, ch) => {
-          const cat = ch.category || "Uncategorized";
-          if (!acc[cat]) acc[cat] = [];
-          acc[cat].push(ch);
-          return acc;
-        }, {});
-
-        categoriesData = Object.keys(grouped).map((name) => ({
-          category_id: name,
-          category_name: name,
-          count: grouped[name].length,
-        }));
+        // For live TV: show all channels directly, skip categories
+        setItems(formattedChannels);
+        setView("items");
+        setCurrentCategory(null);
+        return;
       } else if (contentType === "movies") {
         categoriesData = await iptvApi.getVODCategories();
       } else if (contentType === "series") {
         categoriesData = await iptvApi.getSeriesCategories();
       }
 
-      setCategories(categoriesData || []);
+      // Prepend "All" for movies and series
+      const allEntry = { category_id: "", category_name: "All" };
+      setCategories([allEntry, ...(categoriesData || [])]);
       setView("categories");
       setItems([]);
       setCurrentCategory(null);
@@ -100,15 +93,10 @@ const ContentBrowser = () => {
     try {
       let itemsData = [];
 
-      if (contentType === "live") {
-        // Filter channels by category
-        itemsData = channels.filter(
-          (ch) => (ch.category || "Uncategorized") === category.category_name,
-        );
-      } else if (contentType === "movies") {
-        itemsData = await iptvApi.getVODStreams(category.category_id);
+      if (contentType === "movies") {
+        itemsData = await iptvApi.getVODStreams(category.category_id || undefined);
       } else if (contentType === "series") {
-        itemsData = await iptvApi.getSeries(category.category_id);
+        itemsData = await iptvApi.getSeries(category.category_id || undefined);
       }
 
       setItems(itemsData || []);

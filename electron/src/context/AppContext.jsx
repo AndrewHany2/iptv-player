@@ -13,7 +13,6 @@ import {
   fetchRemoteHistory,
   upsertHistoryEntry,
   deleteHistoryEntry,
-  mergeHistories,
   isSupabaseConfigured,
   getSession,
   signIn as supabaseSignIn,
@@ -107,7 +106,6 @@ export const AppProvider = ({ children }) => {
     setWatchHistory([]);
     localStorage.removeItem("iptv_users");
     localStorage.removeItem("iptv_channels");
-    localStorage.removeItem("iptv_watch_history");
   }, []);
 
   // ─── IPTV account operations ──────────────────────────────────────────────
@@ -184,23 +182,6 @@ export const AppProvider = ({ children }) => {
   );
 
   // ─── Watch history functions ───────────────────────────────────────────────
-  const loadWatchHistory = () => {
-    try {
-      const saved = localStorage.getItem("iptv_watch_history");
-      if (saved) setWatchHistory(JSON.parse(saved));
-    } catch (err) {
-      console.error("Error loading watch history:", err);
-    }
-  };
-
-  const saveWatchHistory = (history) => {
-    try {
-      localStorage.setItem("iptv_watch_history", JSON.stringify(history));
-    } catch (err) {
-      console.error("Error saving watch history:", err);
-    }
-  };
-
   const shouldKeepHistoryItem = (historyItem, newItem) => {
     if (newItem.type === "series" && historyItem.type === "series") {
       if (newItem.seriesId && historyItem.seriesId)
@@ -247,14 +228,12 @@ export const AppProvider = ({ children }) => {
     }
 
     setWatchHistory(newHistory);
-    saveWatchHistory(newHistory);
     if (userKey) upsertHistoryEntry(userKey, entry);
   };
 
   const removeFromWatchHistory = (id) => {
     const newHistory = watchHistoryRef.current.filter((item) => item.id !== id);
     setWatchHistory(newHistory);
-    saveWatchHistory(newHistory);
     if (userKey) deleteHistoryEntry(userKey, id);
   };
 
@@ -269,7 +248,6 @@ export const AppProvider = ({ children }) => {
         return item;
       });
       setWatchHistory(updated);
-      saveWatchHistory(updated);
 
       if (userKey) {
         clearTimeout(progressSyncTimer.current);
@@ -332,7 +310,6 @@ export const AppProvider = ({ children }) => {
     if (!isSupabaseConfigured()) {
       loadSavedUsers();
       loadSavedChannels();
-      loadWatchHistory();
       return;
     }
 
@@ -416,17 +393,10 @@ export const AppProvider = ({ children }) => {
     // Load local channels cache while fresh fetch is in progress
     loadSavedChannels();
 
-    // Load and merge watch history
-    loadWatchHistory();
+    // Load watch history from Supabase
     setIsSyncing(true);
     fetchRemoteHistory(authUser.id)
-      .then((remote) => {
-        setWatchHistory((local) => {
-          const merged = mergeHistories(local, remote);
-          saveWatchHistory(merged);
-          return merged;
-        });
-      })
+      .then((remote) => setWatchHistory(remote))
       .finally(() => setIsSyncing(false));
 
     // eslint-disable-next-line react-hooks/exhaustive-deps

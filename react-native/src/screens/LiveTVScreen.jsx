@@ -55,10 +55,7 @@ export default function LiveTVScreen({ navigation }) {
   const { users, activeUserId, channels, setChannels, saveChannels, isLoading, setIsLoading, playVideo } =
     useApp();
 
-  const [view, setView] = useState('categories'); // 'categories' | 'items'
-  const [categories, setCategories] = useState([]);
   const [items, setItems] = useState([]);
-  const [currentCategory, setCurrentCategory] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [epgCache, setEpgCache] = useState({});
   const [showAddChannel, setShowAddChannel] = useState(false);
@@ -141,35 +138,13 @@ export default function LiveTVScreen({ navigation }) {
       }));
       setChannels(formatted);
 
-      const grouped = formatted.reduce((acc, ch) => {
-        const cat = ch.category || 'Uncategorized';
-        if (!acc[cat]) acc[cat] = [];
-        acc[cat].push(ch);
-        return acc;
-      }, {});
-
-      setCategories(
-        Object.keys(grouped).map((name) => ({
-          category_id: name,
-          category_name: name,
-          count: grouped[name].length,
-        }))
-      );
+      // Show all channels directly, skip categories
+      setItems(formatted);
     } catch (err) {
       console.error('Error loading channels:', err);
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleCategoryPress = (category) => {
-    const filtered = channels.filter(
-      (ch) => (ch.category || 'Uncategorized') === category.category_name
-    );
-    setItems(filtered);
-    setCurrentCategory(category);
-    setSearchQuery('');
-    setView('items');
   };
 
   const handleChannelPress = (item) => {
@@ -183,16 +158,6 @@ export default function LiveTVScreen({ navigation }) {
     navigation.navigate('VideoPlayer');
   };
 
-  const handleBack = () => {
-    setView('categories');
-    setItems([]);
-    setCurrentCategory(null);
-    setSearchQuery('');
-  };
-
-  const filteredCategories = categories.filter((c) =>
-    c.category_name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
   const filteredItems = items.filter((i) =>
     i.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -223,57 +188,30 @@ export default function LiveTVScreen({ navigation }) {
     <View style={styles.container}>
       <TextInput
         style={styles.search}
-        placeholder={`🔍 Search ${view === 'categories' ? 'categories' : currentCategory?.category_name}...`}
+        placeholder="🔍 Search channels..."
         placeholderTextColor="#666"
         value={searchQuery}
         onChangeText={setSearchQuery}
       />
 
-      {view === 'items' && (
-        <TouchableOpacity style={styles.backBtn} onPress={handleBack}>
-          <Text style={styles.backBtnText}>← Back to Categories</Text>
-        </TouchableOpacity>
-      )}
-
-      {view === 'categories' ? (
-        <FlatList
-          data={filteredCategories}
-          keyExtractor={(item) => item.category_id}
-          numColumns={2}
-          contentContainerStyle={styles.grid}
-          renderItem={({ item }) => (
-            <TouchableOpacity style={styles.categoryCard} onPress={() => handleCategoryPress(item)}>
-              <Text style={styles.categoryIcon}>📁</Text>
-              <Text style={styles.categoryName} numberOfLines={2}>{item.category_name}</Text>
-              <Text style={styles.categoryCount}>{item.count} ch</Text>
-            </TouchableOpacity>
-          )}
-          ListEmptyComponent={
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyText}>No categories found</Text>
-            </View>
-          }
-        />
-      ) : (
-        <FlatList
-          data={filteredItems}
-          keyExtractor={(item) => String(item.id || item.stream_id)}
-          contentContainerStyle={styles.list}
-          renderItem={({ item }) => (
-            <ChannelRow
-              item={item}
-              epgCache={epgCache}
-              fetchEpg={fetchEpg}
-              onPress={handleChannelPress}
-            />
-          )}
-          ListEmptyComponent={
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyText}>No channels found</Text>
-            </View>
-          }
-        />
-      )}
+      <FlatList
+        data={filteredItems}
+        keyExtractor={(item) => String(item.id || item.stream_id)}
+        contentContainerStyle={styles.list}
+        renderItem={({ item }) => (
+          <ChannelRow
+            item={item}
+            epgCache={epgCache}
+            fetchEpg={fetchEpg}
+            onPress={handleChannelPress}
+          />
+        )}
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyText}>No channels found</Text>
+          </View>
+        }
+      />
 
       {/* Add Custom Channel Modal */}
       <Modal

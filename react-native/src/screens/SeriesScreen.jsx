@@ -43,7 +43,7 @@ export default function SeriesScreen({ navigation }) {
     try {
       iptvApi.setCredentials(user.host, user.username, user.password);
       const data = await iptvApi.getSeriesCategories();
-      setCategories(data || []);
+      setCategories([{ category_id: '', category_name: 'All' }, ...(data || [])]);
     } catch (err) {
       console.error('Error loading series categories:', err);
     } finally {
@@ -55,7 +55,7 @@ export default function SeriesScreen({ navigation }) {
     setIsLoading(true);
     setSearchQuery('');
     try {
-      const data = await iptvApi.getSeries(category.category_id);
+      const data = await iptvApi.getSeries(category.category_id || undefined);
       setSeriesList(data || []);
       setView('items');
     } catch (err) {

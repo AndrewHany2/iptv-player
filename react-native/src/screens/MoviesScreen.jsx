@@ -42,7 +42,7 @@ export default function MoviesScreen({ navigation }) {
     try {
       iptvApi.setCredentials(user.host, user.username, user.password);
       const data = await iptvApi.getVODCategories();
-      setCategories(data || []);
+      setCategories([{ category_id: '', category_name: 'All' }, ...(data || [])]);
     } catch (err) {
       console.error('Error loading movie categories:', err);
     } finally {
@@ -55,7 +55,7 @@ export default function MoviesScreen({ navigation }) {
     setIsLoading(true);
     setSearchQuery('');
     try {
-      const data = await iptvApi.getVODStreams(category.category_id);
+      const data = await iptvApi.getVODStreams(category.category_id || undefined);
       setMovies(data || []);
       setView('items');
     } catch (err) {
