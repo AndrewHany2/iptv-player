@@ -23,6 +23,9 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
+    minWidth: 800,
+    minHeight: 600,
+    useContentSize: true,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       nodeIntegration: false,
@@ -32,6 +35,8 @@ function createWindow() {
     backgroundColor: "#1a1a1a",
     title: "IPTV Player",
   });
+
+  mainWindow.maximize();
 
   if (isDev) {
     mainWindow.loadURL("http://localhost:3001");
