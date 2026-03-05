@@ -236,6 +236,8 @@ const VideoPlayer = () => {
     };
 
     const handleError = () => {
+      // HLS.js manages its own errors via hls.on(ERROR); ignore native video errors when HLS is active
+      if (hlsRef.current) return;
       setError("Failed to load video");
       setIsLoading(false);
     };
