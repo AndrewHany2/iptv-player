@@ -25,23 +25,25 @@ const TVContent = forwardRef(function TVContent({ onFocusSidebar }, ref) {
   const [currentSeries, setCurrentSeries] = useState(null);
   const [seriesSeasons, setSeriesSeasons] = useState({});
   const [gridFocusIdx, setGridFocusIdx] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const itemRefs = useRef([]);
   const containerRef = useRef(null);
+  const searchRef = useRef(null);
 
-  const displayItems =
-    view === "categories"
-      ? categories
-      : view === "episodes"
-      ? []
-      : contentType === "history"
-      ? watchHistory
-      : items;
+  const getDisplayItems = () => {
+    if (view === "categories") return categories;
+    if (view === "episodes") return [];
+    if (contentType === "history") return watchHistory;
+    return items;
+  };
+
+  const displayItems = getDisplayItems();
 
   const episodeList =
     view === "episodes"
       ? Object.keys(seriesSeasons)
-          .sort((a, b) => parseInt(a) - parseInt(b))
+          .sort((a, b) => Number.parseInt(a) - Number.parseInt(b))
           .flatMap((s) =>
             (seriesSeasons[s] || []).map((ep) => ({ ...ep, seasonNum: s }))
           )
@@ -49,20 +51,27 @@ const TVContent = forwardRef(function TVContent({ onFocusSidebar }, ref) {
 
   const allItems = view === "episodes" ? episodeList : displayItems;
 
-  // Expose focusFirst to parent (TVApp)
+  const filteredItems = searchQuery.trim()
+    ? allItems.filter((item) => {
+        const name = (item.name || item.category_name || "").toLowerCase();
+        return name.includes(searchQuery.toLowerCase());
+      })
+    : allItems;
+
   useImperativeHandle(ref, () => ({
     focusFirst() {
       setGridFocusIdx(0);
       itemRefs.current[0]?.focus();
     },
+    focusSearch() {
+      searchRef.current?.focus();
+    },
   }));
 
-  // Keep itemRefs in sync with allItems length
   useEffect(() => {
-    itemRefs.current = itemRefs.current.slice(0, allItems.length);
-  }, [allItems.length]);
+    itemRefs.current = itemRefs.current.slice(0, filteredItems.length);
+  }, [filteredItems.length]);
 
-  // Load content when contentType or active user changes
   useEffect(() => {
     setGridFocusIdx(0);
     setView("items");
@@ -70,6 +79,7 @@ const TVContent = forwardRef(function TVContent({ onFocusSidebar }, ref) {
     setItems([]);
     setCurrentSeries(null);
     setSeriesSeasons({});
+    setSearchQuery("");
     loadContent();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contentType, activeUserId]);
@@ -124,6 +134,7 @@ const TVContent = forwardRef(function TVContent({ onFocusSidebar }, ref) {
       }
       setItems(data || []);
       setView("items");
+      setSearchQuery("");
       setGridFocusIdx(0);
       itemRefs.current[0]?.focus();
     } catch (err) {
@@ -140,6 +151,7 @@ const TVContent = forwardRef(function TVContent({ onFocusSidebar }, ref) {
       setSeriesSeasons(info.episodes || {});
       setCurrentSeries({ id: item.series_id, name: item.name });
       setView("episodes");
+      setSearchQuery("");
       setGridFocusIdx(0);
       itemRefs.current[0]?.focus();
     } catch (err) {
@@ -221,13 +233,33 @@ const TVContent = forwardRef(function TVContent({ onFocusSidebar }, ref) {
     } else {
       onFocusSidebar();
     }
+    setSearchQuery("");
     setGridFocusIdx(0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, contentType, onFocusSidebar]);
 
+  const handleSearchKeyDown = useCallback(
+    (e) => {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setGridFocusIdx(0);
+        itemRefs.current[0]?.focus();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        setSearchQuery("");
+        setGridFocusIdx(0);
+        itemRefs.current[0]?.focus();
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        onFocusSidebar();
+      }
+    },
+    [onFocusSidebar]
+  );
+
   const handleKeyDown = useCallback(
     (e, idx) => {
-      const total = allItems.length;
+      const total = filteredItems.length;
       if (total === 0) return;
 
       switch (e.key) {
@@ -262,15 +294,17 @@ const TVContent = forwardRef(function TVContent({ onFocusSidebar }, ref) {
           if (prev >= 0) {
             setGridFocusIdx(prev);
             itemRefs.current[prev]?.focus();
+          } else {
+            searchRef.current?.focus();
           }
           break;
         }
         case "Enter": {
           e.preventDefault();
           if (view === "episodes") {
-            handleEpisodeSelect(allItems[idx]);
+            handleEpisodeSelect(filteredItems[idx]);
           } else {
-            handleItemSelect(allItems[idx]);
+            handleItemSelect(filteredItems[idx]);
           }
           break;
         }
@@ -283,7 +317,7 @@ const TVContent = forwardRef(function TVContent({ onFocusSidebar }, ref) {
         default:
       }
     },
-    [allItems, view, onFocusSidebar, handleItemSelect, handleEpisodeSelect, handleBack]
+    [filteredItems, view, onFocusSidebar, handleItemSelect, handleEpisodeSelect, handleBack]
   );
 
   const getContentTitle = () => {
@@ -300,8 +334,7 @@ const TVContent = forwardRef(function TVContent({ onFocusSidebar }, ref) {
 
   const formatProgress = (item) => {
     if (!item.currentTime || item.currentTime <= 0) return null;
-    const pct = item.duration > 0 ? Math.round((item.currentTime / item.duration) * 100) : null;
-    return pct;
+    return item.duration > 0 ? Math.round((item.currentTime / item.duration) * 100) : null;
   };
 
   const formatRelativeTime = (dateString) => {
@@ -314,22 +347,30 @@ const TVContent = forwardRef(function TVContent({ onFocusSidebar }, ref) {
     return `${days}d ago`;
   };
 
+  const getCardIcon = (item, isCat, isEp) => {
+    if (isCat) return "📁";
+    if (contentType === "live") return "📺";
+    if (contentType === "movies") return "🎬";
+    if (contentType === "series" && !isEp) return "📺";
+    if (contentType === "history") {
+      return item.type === "movies" ? "🎬" : "📺";
+    }
+    return "▶";
+  };
+
+  const getEmptyMessage = (userId, query) => {
+    if (!userId) return "Connect an IPTV account to get started";
+    if (query) return "No results found";
+    return "No content found";
+  };
+
   const renderCard = (item, idx) => {
     const isHistory = contentType === "history" && view !== "categories" && view !== "episodes";
     const isCat = view === "categories";
     const isEp = view === "episodes";
     const progress = isHistory ? formatProgress(item) : null;
 
-    let icon = "▶";
-    if (isCat) icon = "📁";
-    else if (contentType === "live") icon = "📺";
-    else if (contentType === "movies") icon = "🎬";
-    else if (contentType === "series" && !isEp) icon = "📺";
-    else if (isHistory) {
-      const t = item.type;
-      icon = t === "live" ? "📺" : t === "movies" ? "🎬" : "📺";
-    }
-
+    const icon = getCardIcon(item, isCat, isEp);
     const name = isEp
       ? `E${String(item.episode_num).padStart(2, "0")} — ${item.title || "Untitled"}`
       : item.name || item.category_name;
@@ -384,7 +425,7 @@ const TVContent = forwardRef(function TVContent({ onFocusSidebar }, ref) {
       {isLoading && <TVLoader message="Loading content…" />}
 
       <div className="tv-content-header">
-        {(view !== "items" || (contentType !== "live" && contentType !== "history")) && view !== "categories" && (
+        {view === "episodes" && (
           <button type="button" className="tv-back-btn" onClick={handleBack}>
             ← Back
           </button>
@@ -395,16 +436,28 @@ const TVContent = forwardRef(function TVContent({ onFocusSidebar }, ref) {
         )}
       </div>
 
-      {!isLoading && allItems.length === 0 && (
-        <div className="tv-empty">
-          {activeUserId
-            ? "No content found"
-            : "Connect an IPTV account to get started"}
-        </div>
+      <div className="tv-search-bar">
+        <input
+          ref={searchRef}
+          type="search"
+          className="tv-input tv-search-input"
+          placeholder="🔍 Search…"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          onKeyDown={handleSearchKeyDown}
+          tabIndex={-1}
+        />
+        {searchQuery && (
+          <span className="tv-search-count">{filteredItems.length} results</span>
+        )}
+      </div>
+
+      {!isLoading && filteredItems.length === 0 && (
+        <div className="tv-empty">{getEmptyMessage(activeUserId, searchQuery)}</div>
       )}
 
       <div className="tv-grid">
-        {allItems.map((item, idx) => renderCard(item, idx))}
+        {filteredItems.map((item, idx) => renderCard(item, idx))}
       </div>
     </div>
   );

@@ -21,6 +21,10 @@ import {
   onAuthStateChange,
   fetchProfile,
   upsertProfile,
+  fetchAppProfiles,
+  insertAppProfile,
+  updateAppProfile,
+  deleteAppProfile,
   fetchIptvAccounts,
   insertIptvAccount,
   updateIptvAccount as supabaseUpdateIptvAccount,
@@ -39,7 +43,11 @@ export const AppProvider = ({ children }) => {
   // ─── Auth state ───────────────────────────────────────────────────────────
   const [authUser, setAuthUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(isSupabaseConfigured());
-  const [profile, setProfile] = useState(null); // { username, email }
+  const [profile, setProfile] = useState(null);
+
+  // ─── App profiles ─────────────────────────────────────────────────────────
+  const [appProfiles, setAppProfiles] = useState([]);
+  const [activeProfileId, setActiveProfileId] = useState(null);
 
   // ─── Content type ─────────────────────────────────────────────────────────
   const [contentType, setContentType] = useState("live");
@@ -57,7 +65,6 @@ export const AppProvider = ({ children }) => {
   const [movieCategories, setMovieCategories] = useState([]);
   const [movies, setMovies] = useState([]);
   const [currentMovieCategory, setCurrentMovieCategory] = useState(null);
-
   const [seriesCategories, setSeriesCategories] = useState([]);
   const [series, setSeries] = useState([]);
   const [currentSeriesCategory, setCurrentSeriesCategory] = useState(null);
@@ -67,7 +74,7 @@ export const AppProvider = ({ children }) => {
   // ─── Watch history ────────────────────────────────────────────────────────
   const [watchHistory, setWatchHistory] = useState([]);
   const watchHistoryRef = useRef([]);
-  watchHistoryRef.current = watchHistory; // always latest, no stale closures
+  watchHistoryRef.current = watchHistory;
   const [isSyncing, setIsSyncing] = useState(false);
   const progressSyncTimer = useRef(null);
 
@@ -80,12 +87,18 @@ export const AppProvider = ({ children }) => {
   const [currentVideo, setCurrentVideo] = useState(null);
 
   // ─── Derived ──────────────────────────────────────────────────────────────
-  // userKey for watch history: auth UUID when logged in, fallback to host_user
+  // Watch-history key: profile ID when a profile is active, else auth UID, else host_user
   const userKey = useMemo(() => {
+    if (activeProfileId) return activeProfileId;
     if (authUser) return authUser.id;
     const user = users.find((u) => u.id === activeUserId);
     return user ? `${user.host}_${user.username}` : null;
-  }, [authUser, users, activeUserId]);
+  }, [activeProfileId, authUser, users, activeUserId]);
+
+  const activeProfile = useMemo(
+    () => appProfiles.find((p) => p.id === activeProfileId) ?? null,
+    [appProfiles, activeProfileId]
+  );
 
   // ─── Auth functions ───────────────────────────────────────────────────────
   const signIn = useCallback(async (username, password) => {
@@ -100,37 +113,117 @@ export const AppProvider = ({ children }) => {
     await supabaseSignOut();
     setAuthUser(null);
     setProfile(null);
+    setAppProfiles([]);
+    setActiveProfileId(null);
     setUsers([]);
     setActiveUserId(null);
     setChannels([]);
     setWatchHistory([]);
-    localStorage.removeItem("iptv_users");
-    localStorage.removeItem("iptv_channels");
+    localStorage.removeItem("iptv_active_profile");
+  }, []);
+
+  // ─── Profile operations ───────────────────────────────────────────────────
+  const addProfile = useCallback(
+    async ({ name, avatar = "👤" }) => {
+      let newProfile;
+
+      if (authUser && isSupabaseConfigured()) {
+        newProfile = await insertAppProfile(authUser.id, { name, avatar });
+      }
+
+      if (!newProfile) {
+        // Local mode fallback
+        newProfile = {
+          id: `local_${Date.now()}`,
+          name: name.trim(),
+          avatar,
+          created_at: new Date().toISOString(),
+        };
+      }
+
+      setAppProfiles((prev) => {
+        const updated = [...prev, newProfile];
+        if (!isSupabaseConfigured()) {
+          localStorage.setItem("iptv_profiles", JSON.stringify(updated));
+        }
+        return updated;
+      });
+      return newProfile;
+    },
+    [authUser]
+  );
+
+  const updateProfile = useCallback(async (profileId, { name, avatar }) => {
+    if (isSupabaseConfigured()) {
+      await updateAppProfile(profileId, { name, avatar });
+    }
+    setAppProfiles((prev) => {
+      const updated = prev.map((p) =>
+        p.id === profileId ? { ...p, name: name.trim(), avatar } : p
+      );
+      if (!isSupabaseConfigured()) {
+        localStorage.setItem("iptv_profiles", JSON.stringify(updated));
+      }
+      return updated;
+    });
+  }, []);
+
+  const removeProfile = useCallback(
+    async (profileId) => {
+      if (isSupabaseConfigured()) {
+        await deleteAppProfile(profileId);
+      }
+      setAppProfiles((prev) => {
+        const updated = prev.filter((p) => p.id !== profileId);
+        if (!isSupabaseConfigured()) {
+          localStorage.setItem("iptv_profiles", JSON.stringify(updated));
+        }
+        return updated;
+      });
+      if (activeProfileId === profileId) {
+        setActiveProfileId(null);
+        setUsers([]);
+        setActiveUserId(null);
+        setChannels([]);
+        setWatchHistory([]);
+        localStorage.removeItem("iptv_active_profile");
+      }
+    },
+    [activeProfileId]
+  );
+
+  const switchProfile = useCallback((profileId) => {
+    setActiveProfileId(profileId);
+    setUsers([]);
+    setActiveUserId(null);
+    setChannels([]);
+    setWatchHistory([]);
+    setContentType("live");
+    localStorage.setItem("iptv_active_profile", profileId);
   }, []);
 
   // ─── IPTV account operations ──────────────────────────────────────────────
+  const usersKey = activeProfileId ? `iptv_users_${activeProfileId}` : "iptv_users";
+
   const addUser = useCallback(
     async (formData) => {
       const tempId = Date.now().toString();
       const newUser = { id: tempId, ...formData };
 
-      if (authUser && isSupabaseConfigured()) {
-        const remoteId = await insertIptvAccount(authUser.id, formData);
+      if (authUser && activeProfileId && isSupabaseConfigured()) {
+        const remoteId = await insertIptvAccount(authUser.id, activeProfileId, formData);
         if (remoteId) newUser.id = remoteId;
       }
 
       setUsers((prev) => {
         const updated = [...prev, newUser];
-        localStorage.setItem(
-          "iptv_users",
-          JSON.stringify({ users: updated, activeUserId })
-        );
+        localStorage.setItem(usersKey, JSON.stringify({ users: updated, activeUserId }));
         return updated;
       });
 
       return newUser;
     },
-    [authUser, activeUserId]
+    [authUser, activeProfileId, activeUserId, usersKey]
   );
 
   const updateUser = useCallback(
@@ -139,17 +232,12 @@ export const AppProvider = ({ children }) => {
         await supabaseUpdateIptvAccount(id, formData);
       }
       setUsers((prev) => {
-        const updated = prev.map((u) =>
-          u.id === id ? { ...u, ...formData } : u
-        );
-        localStorage.setItem(
-          "iptv_users",
-          JSON.stringify({ users: updated, activeUserId })
-        );
+        const updated = prev.map((u) => (u.id === id ? { ...u, ...formData } : u));
+        localStorage.setItem(usersKey, JSON.stringify({ users: updated, activeUserId }));
         return updated;
       });
     },
-    [authUser, activeUserId]
+    [authUser, activeUserId, usersKey]
   );
 
   const removeUser = useCallback(
@@ -159,26 +247,20 @@ export const AppProvider = ({ children }) => {
       }
       setUsers((prev) => {
         const updated = prev.filter((u) => u.id !== id);
-        localStorage.setItem(
-          "iptv_users",
-          JSON.stringify({ users: updated, activeUserId })
-        );
+        localStorage.setItem(usersKey, JSON.stringify({ users: updated, activeUserId }));
         return updated;
       });
       if (activeUserId === id) setActiveUserId(null);
     },
-    [authUser, activeUserId]
+    [authUser, activeUserId, usersKey]
   );
 
   const saveUsers = useCallback(
     (overrideUsers) => {
       const list = overrideUsers ?? users;
-      localStorage.setItem(
-        "iptv_users",
-        JSON.stringify({ users: list, activeUserId })
-      );
+      localStorage.setItem(usersKey, JSON.stringify({ users: list, activeUserId }));
     },
-    [users, activeUserId]
+    [users, activeUserId, usersKey]
   );
 
   // ─── Watch history functions ───────────────────────────────────────────────
@@ -199,13 +281,20 @@ export const AppProvider = ({ children }) => {
   const addToWatchHistory = (item) => {
     const now = new Date().toISOString();
     const prev = watchHistoryRef.current;
-    // Find existing entry for same series / movie
     const existingIdx = prev.findIndex((h) => !shouldKeepHistoryItem(h, item));
 
     let entry;
     let newHistory;
-    if (existingIdx !== -1) {
-      // Update in-place: preserve id, update episode info, reset progress to startTime
+    if (existingIdx === -1) {
+      entry = {
+        ...item,
+        watchedAt: now,
+        id: `${item.type}_${item.streamId || item.id}_${Date.now()}`,
+        currentTime: item.currentTime || 0,
+        duration: item.duration || 0,
+      };
+      newHistory = [entry, ...prev].slice(0, 20);
+    } else {
       entry = {
         ...prev[existingIdx],
         ...item,
@@ -216,15 +305,6 @@ export const AppProvider = ({ children }) => {
       };
       const rest = prev.filter((_, i) => i !== existingIdx);
       newHistory = [entry, ...rest].slice(0, 20);
-    } else {
-      entry = {
-        ...item,
-        watchedAt: now,
-        id: `${item.type}_${item.streamId || item.id}_${Date.now()}`,
-        currentTime: item.currentTime || 0,
-        duration: item.duration || 0,
-      };
-      newHistory = [entry, ...prev].slice(0, 20);
     }
 
     setWatchHistory(newHistory);
@@ -239,8 +319,6 @@ export const AppProvider = ({ children }) => {
 
   const updateWatchProgress = useCallback(
     (streamId, type, currentTime, duration) => {
-      // Read from ref so we always have the latest history regardless of when
-      // this callback was captured (avoids stale-closure silent no-ops)
       const updated = watchHistoryRef.current.map((item) => {
         if (item.streamId === streamId && item.type === type) {
           return { ...item, currentTime, duration, watchedAt: new Date().toISOString() };
@@ -266,20 +344,7 @@ export const AppProvider = ({ children }) => {
   const playVideo = (video) => setCurrentVideo(video);
   const closeVideo = () => setCurrentVideo(null);
 
-  // ─── Local storage loaders (non-auth mode) ────────────────────────────────
-  const loadSavedUsers = () => {
-    try {
-      const saved = localStorage.getItem("iptv_users");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        setUsers(parsed.users || []);
-        setActiveUserId(parsed.activeUserId || null);
-      }
-    } catch (err) {
-      console.error("Error loading users:", err);
-    }
-  };
-
+  // ─── Local storage helpers ────────────────────────────────────────────────
   const loadSavedChannels = () => {
     try {
       const saved = localStorage.getItem("iptv_channels");
@@ -297,6 +362,23 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  const loadSavedUsers = (profileId) => {
+    const key = profileId ? `iptv_users_${profileId}` : "iptv_users";
+    try {
+      const saved = localStorage.getItem(key);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setUsers(parsed.users || []);
+        setActiveUserId(parsed.activeUserId || null);
+      } else {
+        setUsers([]);
+        setActiveUserId(null);
+      }
+    } catch (err) {
+      console.error("Error loading users:", err);
+    }
+  };
+
   const syncActiveUser = async () => {
     const user = users.find((u) => u.id === activeUserId);
     if (!user) return;
@@ -305,10 +387,21 @@ export const AppProvider = ({ children }) => {
 
   // ─── Effects ──────────────────────────────────────────────────────────────
 
-  // On mount: check Supabase session, subscribe to auth state changes
+  // Mount: session + auth state
   useEffect(() => {
     if (!isSupabaseConfigured()) {
-      loadSavedUsers();
+      // Load local profiles
+      try {
+        const savedProfiles = localStorage.getItem("iptv_profiles");
+        if (savedProfiles) {
+          const profiles = JSON.parse(savedProfiles);
+          setAppProfiles(profiles);
+          const savedId = localStorage.getItem("iptv_active_profile");
+          if (savedId && profiles.some((p) => p.id === savedId)) {
+            setActiveProfileId(savedId);
+          }
+        }
+      } catch { /* ignore */ }
       loadSavedChannels();
       return;
     }
@@ -327,12 +420,10 @@ export const AppProvider = ({ children }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // When auth user changes: load profile + IPTV accounts + watch history
+  // Auth user loaded → fetch auth profile + app profiles
   useEffect(() => {
     if (!authUser) return;
 
-    // Ensure profile row exists (created here after session is established,
-    // so auth.uid() is valid and RLS passes)
     const meta = authUser.user_metadata;
     if (meta?.username) {
       upsertProfile(authUser.id, meta.username, authUser.email).then(() =>
@@ -342,37 +433,68 @@ export const AppProvider = ({ children }) => {
       fetchProfile(authUser.id).then((p) => setProfile(p));
     }
 
-    // Load IPTV accounts then auto-connect to preferred or first account
-    fetchIptvAccounts(authUser.id).then(async (remoteAccounts) => {
-      // Resolve preferred active user from localStorage
-      let savedActiveId = null;
-      try {
-        const raw = localStorage.getItem("iptv_users");
-        if (raw) savedActiveId = JSON.parse(raw)?.activeUserId || null;
-      } catch { /* ignore */ }
+    fetchAppProfiles(authUser.id).then((profiles) => {
+      setAppProfiles(profiles);
+      // Restore last-used profile
+      const savedId = localStorage.getItem("iptv_active_profile");
+      if (savedId && profiles.some((p) => p.id === savedId)) {
+        setActiveProfileId(savedId);
+      } else if (profiles.length === 1) {
+        // Only one profile → auto-select
+        setActiveProfileId(profiles[0].id);
+        localStorage.setItem("iptv_active_profile", profiles[0].id);
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authUser?.id]);
 
-      // Determine account list — Supabase first, localStorage fallback
-      let accountList = remoteAccounts;
-      if (remoteAccounts.length > 0) {
-        setUsers(remoteAccounts);
-      } else {
+  // Active profile changed → load that profile's IPTV accounts + watch history
+  useEffect(() => {
+    if (!activeProfileId) return;
+
+    const loadProfileData = async () => {
+      // Load IPTV accounts
+      let accountList = [];
+
+      if (isSupabaseConfigured()) {
+        accountList = await fetchIptvAccounts(activeProfileId);
+        if (accountList.length > 0) {
+          setUsers(accountList);
+        }
+      }
+
+      // localStorage fallback / local mode
+      if (accountList.length === 0) {
         try {
-          const raw = localStorage.getItem("iptv_users");
+          const raw = localStorage.getItem(`iptv_users_${activeProfileId}`);
           if (raw) {
             const parsed = JSON.parse(raw);
             accountList = parsed.users || [];
             if (accountList.length > 0) setUsers(accountList);
           }
-        } catch (err) {
-          console.error("Error loading users from localStorage:", err);
-        }
+        } catch { /* ignore */ }
       }
 
-      // Auto-load channels from preferred or first account
-      if (accountList.length === 0) return;
-      const user = accountList.find((u) => u.id === savedActiveId) || accountList[0];
+      if (accountList.length === 0) {
+        setUsers([]);
+        setActiveUserId(null);
+        return;
+      }
+
+      // Restore preferred account
+      let savedActiveId = null;
+      try {
+        const raw = localStorage.getItem(`iptv_users_${activeProfileId}`);
+        if (raw) savedActiveId = JSON.parse(raw)?.activeUserId || null;
+      } catch { /* ignore */ }
+
+      const user =
+        accountList.find((u) => u.id === savedActiveId) || accountList[0];
       setActiveUserId(user.id);
       iptvApi.setCredentials(user.host, user.username, user.password);
+
+      // Auto-load channels
+      loadSavedChannels();
       setIsLoading(true);
       try {
         const channelsData = await iptvApi.getLiveStreams();
@@ -381,6 +503,7 @@ export const AppProvider = ({ children }) => {
             name: ch.name,
             url: iptvApi.buildStreamUrl("live", ch.stream_id, ch.stream_type || "ts"),
             id: ch.stream_id,
+            stream_id: ch.stream_id,
           }))
         );
       } catch (err) {
@@ -388,55 +511,50 @@ export const AppProvider = ({ children }) => {
       } finally {
         setIsLoading(false);
       }
-    });
+    };
 
-    // Load local channels cache while fresh fetch is in progress
-    loadSavedChannels();
+    loadProfileData();
 
-    // Load watch history from Supabase
-    setIsSyncing(true);
-    fetchRemoteHistory(authUser.id)
-      .then((remote) => setWatchHistory(remote))
-      .finally(() => setIsSyncing(false));
-
+    // Load watch history for this profile
+    if (isSupabaseConfigured()) {
+      setIsSyncing(true);
+      fetchRemoteHistory(activeProfileId)
+        .then((remote) => setWatchHistory(remote))
+        .finally(() => setIsSyncing(false));
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authUser?.id]);
+  }, [activeProfileId]);
 
-  // Auto-sync active user credentials when selection changes
+  // Active user credentials sync
   useEffect(() => {
     if (activeUserId) {
       syncActiveUser();
-      // Persist active selection locally
-      const saved = localStorage.getItem("iptv_users");
+      const saved = localStorage.getItem(usersKey);
       const parsed = saved ? JSON.parse(saved) : {};
-      localStorage.setItem(
-        "iptv_users",
-        JSON.stringify({ ...parsed, activeUserId })
-      );
+      localStorage.setItem(usersKey, JSON.stringify({ ...parsed, activeUserId }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeUserId]);
 
-  // Auto-save channels to localStorage
+  // Auto-save channels
   useEffect(() => {
     if (channels.length > 0) saveChannels();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [channels]);
 
-  // Filter channels based on search
+  // Filter channels by search
   useEffect(() => {
     if (searchQuery.trim() === "") {
       setFilteredChannels(channels);
     } else {
       const query = searchQuery.toLowerCase();
-      setFilteredChannels(
-        channels.filter((ch) => ch.name.toLowerCase().includes(query))
-      );
+      setFilteredChannels(channels.filter((ch) => ch.name.toLowerCase().includes(query)));
     }
   }, [searchQuery, channels]);
 
   // ─── Context value ────────────────────────────────────────────────────────
-  const value = {
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const value = useMemo(() => ({
     // Auth
     authUser,
     authLoading,
@@ -444,6 +562,15 @@ export const AppProvider = ({ children }) => {
     signIn,
     signUp,
     signOut,
+
+    // App profiles
+    appProfiles,
+    activeProfileId,
+    activeProfile,
+    switchProfile,
+    addProfile,
+    updateProfile,
+    removeProfile,
 
     // Content type
     contentType,
@@ -508,7 +635,14 @@ export const AppProvider = ({ children }) => {
     saveChannels,
     loadSavedUsers,
     loadSavedChannels,
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [authUser, authLoading, profile, appProfiles, activeProfileId, activeProfile,
+    contentType, channels, filteredChannels, currentChannelIndex,
+    users, activeUserId, watchHistory, isSyncing, currentVideo,
+    searchQuery, isLoading, error,
+    signIn, signUp, signOut, switchProfile, addProfile, updateProfile, removeProfile,
+    addUser, updateUser, removeUser, saveUsers, saveChannels,
+    addToWatchHistory, updateWatchProgress, removeFromWatchHistory, playVideo, closeVideo]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };

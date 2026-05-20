@@ -5,6 +5,8 @@ const NAV_ITEMS = [
   { type: "movies", icon: "🎬", label: "Movies" },
   { type: "series", icon: "📺", label: "Series" },
   { type: "history", icon: "🕘", label: "History" },
+  { type: "accounts", icon: "📡", label: "Accounts" },
+  { type: "profiles", icon: "👤", label: "Profiles" },
 ];
 
 const TVSidebar = ({
@@ -14,6 +16,7 @@ const TVSidebar = ({
   onSelect,
   onKeyDown,
   profile,
+  activeProfileName,
   onSignOut,
   signOutRef,
 }) => {
@@ -39,7 +42,13 @@ const TVSidebar = ({
       </div>
 
       <div className="tv-sidebar-footer">
-        {profile && (
+        {activeProfileName && (
+          <div className="tv-sidebar-profile">
+            <span className="tv-sidebar-profile-label">Profile</span>
+            <span className="tv-sidebar-username">{activeProfileName}</span>
+          </div>
+        )}
+        {profile && !activeProfileName && (
           <div className="tv-sidebar-profile">
             <span className="tv-sidebar-username">@{profile.username}</span>
           </div>
@@ -67,6 +76,7 @@ TVSidebar.propTypes = {
   onSelect: PropTypes.func.isRequired,
   onKeyDown: PropTypes.func.isRequired,
   profile: PropTypes.object,
+  activeProfileName: PropTypes.string,
   onSignOut: PropTypes.func.isRequired,
   signOutRef: PropTypes.object.isRequired,
 };

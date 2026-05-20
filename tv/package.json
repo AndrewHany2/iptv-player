@@ -6,17 +6,21 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview --port 3003",
-    "build:native": "node scripts/build-native.js"
+    "create:icons": "node scripts/create-icons.js",
+    "build:native": "node scripts/create-icons.js && node scripts/build-native.js",
+    "deploy:lg": "npm run build:native && ares-package packaging/lg -o packaging/lg/out --no-minify && ares-install --device tv packaging/lg/out/com.andrewhany.iptvplayer_1.0.0_all.ipk && ares-launch --device tv com.andrewhany.iptvplayer"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.97.0"
   },
   "devDependencies": {
+    "@vitejs/plugin-legacy": "^7.2.1",
     "@vitejs/plugin-react": "^5.1.4",
     "hls.js": "^1.6.15",
     "prop-types": "^15.8.1",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "terser": "^5.47.1",
     "vite": "^7.3.1"
   }
 }

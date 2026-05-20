@@ -1,8 +1,8 @@
 import PropTypes from "prop-types";
 import { useApp } from "../context/AppContext";
 
-const Header = ({ onOpenUsers }) => {
-  const { users, activeUserId, authUser, profile, signOut, isSyncing } = useApp();
+const Header = ({ onOpenUsers, onOpenProfiles }) => {
+  const { users, activeUserId, authUser, profile, activeProfile, signOut, isSyncing } = useApp();
 
   const activeUser = users.find((u) => u.id === activeUserId);
   const displayName = activeUser
@@ -26,6 +26,12 @@ const Header = ({ onOpenUsers }) => {
           👥 IPTV Accounts
         </button>
 
+        {activeProfile && (
+          <button type="button" className="btn btn-secondary" onClick={onOpenProfiles}>
+            {activeProfile.avatar} {activeProfile.name}
+          </button>
+        )}
+
         {authUser && (
           <div className="auth-user-section">
             <span className="auth-email">
@@ -47,6 +53,7 @@ const Header = ({ onOpenUsers }) => {
 
 Header.propTypes = {
   onOpenUsers: PropTypes.func.isRequired,
+  onOpenProfiles: PropTypes.func.isRequired,
 };
 
 export default Header;

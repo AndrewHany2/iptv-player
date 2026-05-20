@@ -1795,3 +1795,152 @@ body {
 .btn-danger:hover {
   background: #a93226;
 }
+
+/* ── Profile selector ────────────────────────────────────── */
+.profile-selector-overlay {
+  position: fixed;
+  inset: 0;
+  background: #0f0f0f;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.profile-selector {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 32px;
+  padding: 48px;
+  max-width: 900px;
+  width: 100%;
+}
+
+.profile-selector-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0;
+}
+
+.profile-cards {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.profile-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  background: #1a1a1a;
+  border: 2px solid #2a2a2a;
+  border-radius: 14px;
+  padding: 24px 20px;
+  min-width: 130px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  color: #f3f4f6;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.profile-card:hover {
+  background: #222;
+  border-color: #4d9fff;
+}
+
+.profile-card-add {
+  border-style: dashed;
+  color: #6b7280;
+}
+
+.profile-card-avatar {
+  font-size: 48px;
+  line-height: 1;
+}
+
+.profile-card-name {
+  font-size: 14px;
+}
+
+.profile-manage-link {
+  background: none;
+  border: none;
+  color: #4d9fff;
+  font-size: 14px;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+/* Profile add/edit form inside selector */
+.profile-add-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 400px;
+}
+
+.profile-form-subtitle {
+  font-size: 20px;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0;
+}
+
+.profile-form-error {
+  color: #ef4444;
+  font-size: 14px;
+  margin: 0;
+}
+
+.profile-form-label,
+.form-label {
+  font-size: 13px;
+  color: #9ca3af;
+}
+
+.profile-form-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+/* Avatar grid */
+.profile-avatar-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 6px;
+}
+
+.profile-avatar-btn {
+  font-size: 24px;
+  padding: 6px;
+  border-radius: 6px;
+  background: #1a1a1a;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: border-color 0.1s;
+}
+
+.profile-avatar-btn:hover {
+  background: #222;
+}
+
+.profile-avatar-btn.selected {
+  border-color: #4d9fff;
+  background: #1a1a2e;
+}
+
+/* Active profile card highlight */
+.user-card.active-profile {
+  border-color: #4d9fff;
+}
+
+.confirm-text {
+  font-size: 12px;
+  color: #f59e0b;
+}
