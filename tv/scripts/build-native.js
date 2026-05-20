@@ -1,6 +1,6 @@
 import { execSync } from "child_process";
 import { cpSync, mkdirSync, rmSync, existsSync } from "fs";
-import { join, dirname } from "path";
+import { join, dirname, basename } from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -16,7 +16,7 @@ function copyDist(src, dest, keepFiles) {
   cpSync(src, dest, {
     recursive: true,
     filter: (srcPath) => {
-      const name = srcPath.split("/").pop();
+      const name = basename(srcPath);
       return !keepFiles.has(name);
     },
   });

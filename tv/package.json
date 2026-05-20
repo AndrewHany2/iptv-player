@@ -8,7 +8,8 @@
     "preview": "vite preview --port 3003",
     "create:icons": "node scripts/create-icons.js",
     "build:native": "node scripts/create-icons.js && node scripts/build-native.js",
-    "deploy:lg": "npm run build:native && ares-package packaging/lg -o packaging/lg/out --no-minify && ares-install --device tv packaging/lg/out/com.andrewhany.iptvplayer_1.0.0_all.ipk && ares-launch --device tv com.andrewhany.iptvplayer"
+    "deploy:lg": "npm run build:native && ares-package packaging/lg -o packaging/lg/out --no-minify && ares-install --device tv packaging/lg/out/*.ipk && ares-launch --device tv com.andrewhany.iptvplayer",
+    "deploy:lg:debug": "npm run build:native && ares-package packaging/lg -o packaging/lg/out --no-minify && ares-install --device tv packaging/lg/out/*.ipk && ares-launch --device tv com.andrewhany.iptvplayer --inspect && ares-inspect --device tv --app com.andrewhany.iptvplayer --open"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.97.0"

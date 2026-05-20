@@ -1,26 +1,34 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import legacy from "@vitejs/plugin-legacy";
+
+// TV devices load files via file:// protocol which blocks type="module" scripts.
+// Strip it from the built HTML so the IIFE bundle loads without MIME errors.
+const removeModuleType = () => ({
+  name: "remove-module-type",
+  transformIndexHtml(html, ctx) {
+    if (!ctx.bundle) return html; // dev server — leave type="module" intact
+    return html.replaceAll(`<script type="module"`, "<script defer");
+  },
+});
 
 export default defineConfig({
-  plugins: [
-    react(),
-    legacy({
-      // Targets older webOS (Chromium 38+) and other TV browsers
-      targets: ["chrome >= 38", "not dead"],
-      // Polyfill modern APIs used by React 19 + Supabase
-      additionalLegacyPolyfills: ["regenerator-runtime/runtime"],
-      modernPolyfills: true,
-    }),
-  ],
-  // Relative asset paths so the app loads correctly from file:// protocol
-  // (Android assets, Samsung .wgt, LG .ipk — no web server needed)
+  plugins: [react(), removeModuleType()],
+
   base: "./",
-  server: {
-    port: 3002,
-    host: true,
-  },
+
   build: {
     outDir: "dist",
+
+    target: "es2015",
+    minify: "esbuild",
+
+    sourcemap: false,
+
+    rollupOptions: {
+      output: {
+        format: "iife",
+        name: "TVApp",
+      },
+    },
   },
 });

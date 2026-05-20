@@ -14,7 +14,6 @@ const ASPECT_RATIOS = [
 
 // Settings panel state machine
 // null → no panel  |  'menu' → main list  |  'quality'/'speed'/'audio'/'subtitles'/'aspect' → sub-list
-const MENU_ITEMS = ["quality", "speed", "audio", "subtitles", "aspect"];
 
 const TVVideoPlayer = () => {
   const { currentVideo, closeVideo, updateWatchProgress, addToWatchHistory, playVideo } = useApp();
@@ -23,8 +22,10 @@ const TVVideoPlayer = () => {
   const lastUrlRef = useRef(null);
   const progressIntervalRef = useRef(null);
   const controlsTimerRef = useRef(null);
+  const cursorTimerRef = useRef(null);
 
   const [isLoading, setIsLoading] = useState(true);
+  const [cursorVisible, setCursorVisible] = useState(true);
   const [error, setError] = useState(null);
   const [showControls, setShowControls] = useState(true);
   const [isPaused, setIsPaused] = useState(false);
@@ -69,8 +70,32 @@ const TVVideoPlayer = () => {
         Number.isFinite(video.duration) ? video.duration : 0);
     }
     stopProgress();
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     closeVideo();
   }, [currentVideo, updateWatchProgress, stopProgress, closeVideo]);
+
+  // Enter fullscreen when player opens, exit when it closes
+  useEffect(() => {
+    if (!currentVideo) return;
+    const el = document.documentElement;
+    const req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen;
+    if (req) req.call(el).catch(() => {});
+  }, [currentVideo]);
+
+  // Show cursor on mouse move, auto-hide after 3s of inactivity
+  useEffect(() => {
+    if (!currentVideo) return;
+    const onMove = () => {
+      setCursorVisible(true);
+      clearTimeout(cursorTimerRef.current);
+      cursorTimerRef.current = setTimeout(() => setCursorVisible(false), 3000);
+    };
+    document.addEventListener("mousemove", onMove);
+    return () => {
+      document.removeEventListener("mousemove", onMove);
+      clearTimeout(cursorTimerRef.current);
+    };
+  }, [currentVideo]);
 
   // Init HLS
   useEffect(() => {
@@ -302,9 +327,39 @@ const TVVideoPlayer = () => {
     else if (e.key === "Escape" || e.key === "Backspace") setSettingsPanel("menu");
   }, [settingsPanel, menuFocusIdx, getMenuItems, closeSettings]);
 
+  const seekBy = useCallback((video, delta) => {
+    if (delta < 0) {
+      video.currentTime = Math.max(0, video.currentTime + delta);
+    } else if (Number.isFinite(video.duration)) {
+      video.currentTime = Math.min(video.duration, video.currentTime + delta);
+    } else {
+      video.currentTime = video.currentTime + delta;
+    }
+    setSeekDelta(delta);
+    setTimeout(() => setSeekDelta(null), 800);
+  }, []);
+
+  // Returns true if the event was a handled LG remote media key
+  const handleRemoteKey = useCallback((e, video) => {
+    const kc = e.keyCode;
+    if (kc === 412 || e.key === "MediaRewind") { e.preventDefault(); seekBy(video, -10); return true; }
+    if (kc === 417 || e.key === "MediaFastForward") { e.preventDefault(); seekBy(video, +10); return true; }
+    if (kc === 415 || e.key === "MediaPlay") { e.preventDefault(); video.play(); return true; }
+    if (kc === 19 || e.key === "MediaPause") { e.preventDefault(); video.pause(); return true; }
+    if (kc === 10252 || e.key === "MediaPlayPause") {
+      e.preventDefault();
+      if (video.paused) { video.play(); } else { video.pause(); }
+      return true;
+    }
+    if (kc === 461) { e.preventDefault(); handleClose(); return true; } // LG Back button
+    return false;
+  }, [seekBy, handleClose]);
+
   // Playback key handler
   const handlePlaybackKey = useCallback((e, video) => {
     showControlsTemporarily();
+    if (handleRemoteKey(e, video)) return;
+
     switch (e.key) {
       case " ":
       case "Enter":
@@ -313,6 +368,7 @@ const TVVideoPlayer = () => {
         if (video.paused) video.play(); else video.pause();
         break;
       case "Escape":
+      case "Backspace":
         e.preventDefault();
         handleClose();
         break;
@@ -411,10 +467,10 @@ const TVVideoPlayer = () => {
   if (!currentVideo) return null;
 
   return (
-    <section className="tv-player" aria-label="Video player">
+    <section className="tv-player" style={{ cursor: cursorVisible ? "default" : "none" }} aria-label="Video player">
       {/* Transparent click-catcher to show controls on mouse click */}
       <button type="button" className="tv-player-click-catcher" aria-label="Show controls"
-        onClick={showControlsTemporarily} />
+        style={{ cursor: "inherit" }} onClick={showControlsTemporarily} />
       <video ref={videoRef} className="tv-player-video" autoPlay playsInline
         crossOrigin="anonymous" style={getAspectStyle()}>
         <track kind="captions" />
