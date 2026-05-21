@@ -1,257 +1,212 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import PropTypes from "prop-types";
 import { useApp } from "../context/AppContext";
 import iptvApi from "../services/iptvApi";
 
+const itemShape = PropTypes.shape({
+  cover: PropTypes.string,
+  stream_icon: PropTypes.string,
+  backdrop_path: PropTypes.string,
+  poster: PropTypes.string,
+  cover_big: PropTypes.string,
+  name: PropTypes.string,
+  rating: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+});
+
+const PosterCard = ({ item, onClick }) => {
+  const imageUrl =
+    item.cover || item.stream_icon || item.backdrop_path ||
+    item.poster || item.cover_big;
+  const [imgFailed, setImgFailed] = useState(false);
+
+  return (
+    <button type="button" className="series-card" onClick={onClick}>
+      <div className="series-poster">
+        {imageUrl && !imgFailed ? (
+          <img src={imageUrl} alt={item.name} onError={() => setImgFailed(true)} />
+        ) : (
+          <div className="series-poster-fallback">📺</div>
+        )}
+      </div>
+      <div className="series-info">
+        <div className="series-title">{item.name}</div>
+        {item.rating && <div className="series-rating">{item.rating} ⭐</div>}
+      </div>
+    </button>
+  );
+};
+PosterCard.propTypes = { item: itemShape.isRequired, onClick: PropTypes.func.isRequired };
+
 const SeriesContent = () => {
   const {
-    seriesCategories,
-    setSeriesCategories,
-    series,
-    setSeries,
-    setCurrentSeriesCategory,
-    currentSeries,
-    setCurrentSeries,
-    seriesSeasons,
-    setSeriesSeasons,
-    users,
-    activeUserId,
+    seriesCategories, setSeriesCategories,
+    series, setSeries,
+    currentSeries, setCurrentSeries,
+    seriesSeasons, setSeriesSeasons,
+    users, activeUserId,
   } = useApp();
 
-  const [view, setView] = useState("categories"); // 'categories', 'series', 'episodes'
+  const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [view, setView] = useState("series"); // 'series' | 'episodes'
 
-  const loadCategories = useCallback(async () => {
+  const loadAll = useCallback(async () => {
     const user = users.find((u) => u.id === activeUserId);
     if (!user) return;
-
+    iptvApi.setCredentials(user.host, user.username, user.password);
+    setLoading(true);
     try {
-      iptvApi.setCredentials(user.host, user.username, user.password);
-      const categories = await iptvApi.getSeriesCategories();
-      setSeriesCategories(categories || []);
-    } catch (error) {
-      console.error("Error loading series categories:", error);
+      const [cats, allSeries] = await Promise.all([
+        iptvApi.getSeriesCategories(),
+        iptvApi.getAllSeries(),
+      ]);
+      setSeriesCategories(cats || []);
+      setSeries(allSeries || []);
+    } catch (err) {
+      console.error("Error loading series:", err);
+    } finally {
+      setLoading(false);
     }
-  }, [users, activeUserId, setSeriesCategories]);
+  }, [users, activeUserId, setSeriesCategories, setSeries]);
 
   useEffect(() => {
-    if (seriesCategories.length === 0 && activeUserId) {
-      loadCategories();
-    }
-  }, [activeUserId, seriesCategories.length, loadCategories]);
+    if (activeUserId && series.length === 0) loadAll();
+  }, [activeUserId, series.length, loadAll]);
 
-  const loadSeries = async (categoryId, categoryName) => {
-    try {
-      const seriesList = await iptvApi.getSeries(categoryId);
-      setSeries(seriesList || []);
-      setCurrentSeriesCategory({ id: categoryId, name: categoryName });
-      setView("series");
-    } catch (error) {
-      console.error("Error loading series:", error);
+  const filtered = useMemo(() => {
+    let list = series;
+    if (categoryFilter !== "all") {
+      list = list.filter((s) => String(s.category_id) === categoryFilter);
     }
-  };
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter((s) => s.name?.toLowerCase().includes(q));
+    }
+    return list;
+  }, [series, categoryFilter, search]);
 
-  const loadEpisodes = async (seriesId, seriesName) => {
+  const openSeries = async (show) => {
+    setLoading(true);
     try {
-      const info = await iptvApi.getSeriesInfo(seriesId);
+      const info = await iptvApi.getSeriesInfo(show.series_id);
       setSeriesSeasons(info.episodes || {});
-      setCurrentSeries({ id: seriesId, name: seriesName });
+      setCurrentSeries({ id: show.series_id, name: show.name });
       setView("episodes");
-    } catch (error) {
-      console.error("Error loading episodes:", error);
+    } catch (err) {
+      console.error("Error loading episodes:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleBackToCategories = () => {
-    setView("categories");
-    setSeries([]);
-    setCurrentSeriesCategory(null);
-  };
-
-  const handleBackToSeries = () => {
+  const handleBack = () => {
     setView("series");
     setSeriesSeasons({});
     setCurrentSeries(null);
   };
 
-  // Helper function to extract episode number from title
   const getEpisodeNumber = (episode) => {
-    let episodeNum = episode.episode_num;
     if (episode.title) {
-      // Match patterns like "S01E00", "S1E1", "E00", etc.
-      const match =
-        episode.title.match(/S\d+E(\d+)/i) || episode.title.match(/E(\d+)/i);
-      if (match && match[1]) {
-        episodeNum = match[1]; // Get the episode number (already a string with leading zeros)
-      }
+      const match = episode.title.match(/S\d+E(\d+)/i) || episode.title.match(/E(\d+)/i);
+      if (match?.[1]) return match[1];
     }
-    return episodeNum;
+    return episode.episode_num;
   };
 
   const handleEpisodeClick = async (episode, seasonNum) => {
     const user = users.find((u) => u.id === activeUserId);
     if (!user) return;
-
-    const streamUrl = iptvApi.buildStreamUrl(
-      "series",
-      episode.id,
-      episode.container_extension || "mp4",
-    );
-
-    const episodeNum = getEpisodeNumber(episode);
-    const episodeName = `${currentSeries.name} - S${String(seasonNum).padStart(2, "0")}E${String(episodeNum).padStart(2, "0")}`;
-
+    const streamUrl = iptvApi.buildStreamUrl("series", episode.id, episode.container_extension || "mp4");
+    const epNum = getEpisodeNumber(episode);
+    const name = `${currentSeries.name} - S${String(seasonNum).padStart(2, "0")}E${String(epNum).padStart(2, "0")}`;
     try {
-      await globalThis.electron.openInVLC(streamUrl, { name: episodeName });
-    } catch (error) {
-      console.error("Error opening VLC:", error);
+      await globalThis.electron.openInVLC(streamUrl, { name });
+    } catch (err) {
+      console.error("Error opening VLC:", err);
       // eslint-disable-next-line no-alert
       alert("Failed to open VLC. Make sure VLC is installed.");
     }
   };
 
-  if (view === "categories") {
-    if (seriesCategories.length === 0) {
-      return (
-        <div className="empty-state">
-          <p>No series categories found</p>
-          <p className="hint">Connect to an IPTV service to load series</p>
-        </div>
-      );
-    }
-
-    return (
-      <div className="category-list">
-        {seriesCategories.map((category) => (
-          <button
-            key={category.category_id}
-            type="button"
-            className="category-item"
-            onClick={() =>
-              loadSeries(category.category_id, category.category_name)
-            }
-          >
-            <span className="category-name">📁 {category.category_name}</span>
-          </button>
-        ))}
-      </div>
-    );
-  }
-
-  if (view === "series") {
+  // ── Episodes view ──────────────────────────────────────────────────────────
+  if (view === "episodes") {
+    const seasons = Object.keys(seriesSeasons).sort((a, b) => Number.parseInt(a, 10) - Number.parseInt(b, 10));
     return (
       <div className="items-list">
-        <button
-          type="button"
-          className="back-button"
-          onClick={handleBackToCategories}
-        >
-          ← Back to Categories
-        </button>
-
-        {series.length === 0 ? (
-          <div className="empty-state">
-            <p>No series found in this category</p>
-          </div>
+        <button type="button" className="back-button" onClick={handleBack}>← Back to Series</button>
+        {seasons.length === 0 ? (
+          <div className="empty-state"><p>No episodes found</p></div>
         ) : (
-          <div className="series-grid">
-            {series.map((show) => {
-              const imageUrl =
-                show.cover ||
-                show.stream_icon ||
-                show.backdrop_path ||
-                show.poster ||
-                show.cover_big;
-
-              return (
-                <button
-                  key={show.series_id}
-                  type="button"
-                  className="series-card"
-                  onClick={() => loadEpisodes(show.series_id, show.name)}
-                >
-                  <div className="series-poster">
-                    {imageUrl ? (
-                      <img
-                        src={imageUrl}
-                        alt={show.name}
-                        onError={(e) => {
-                          e.target.style.display = "none";
-                          e.target.nextSibling.style.display = "flex";
-                        }}
-                      />
-                    ) : null}
-                    <div
-                      className="series-poster-fallback"
-                      style={{ display: imageUrl ? "none" : "flex" }}
-                    >
-                      📺
-                    </div>
+          seasons.map((seasonNum) => (
+            <div key={seasonNum} style={{ marginBottom: 20 }}>
+              <h3 style={{ padding: "10px 15px", background: "#3d3d3d", borderRadius: 6, marginBottom: 5 }}>
+                Season {seasonNum}
+              </h3>
+              {seriesSeasons[seasonNum].map((episode) => (
+                <button key={episode.id} type="button" className="item-card"
+                  onClick={() => handleEpisodeClick(episode, seasonNum)}>
+                  <div className="item-title">
+                    ▶️ Episode {getEpisodeNumber(episode)}: {episode.title || "Untitled"}
                   </div>
-                  <div className="series-info">
-                    <div className="series-title">{show.name}</div>
-                    {show.rating && (
-                      <div className="series-rating">{show.rating} ⭐</div>
-                    )}
-                  </div>
+                  {episode.info?.duration && <div className="item-info">{episode.info.duration}</div>}
                 </button>
-              );
-            })}
-          </div>
+              ))}
+            </div>
+          ))
         )}
       </div>
     );
   }
 
-  // Episodes view
-  const seasons = Object.keys(seriesSeasons).sort(
-    (a, b) => parseInt(a, 10) - parseInt(b, 10),
-  );
+  // ── Poster grid view ───────────────────────────────────────────────────────
+  if (loading) {
+    return <div className="empty-state"><p>Loading series…</p></div>;
+  }
+
+  if (!activeUserId) {
+    return (
+      <div className="empty-state">
+        <p>No series found</p>
+        <p className="hint">Connect to an IPTV service to load series</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="items-list">
-      <button
-        type="button"
-        className="back-button"
-        onClick={handleBackToSeries}
-      >
-        ← Back to Series
-      </button>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
+      <div style={{ display: "flex", gap: 10, padding: "12px 16px", background: "#2d2d2d", flexShrink: 0 }}>
+        <input
+          type="search"
+          placeholder="Search series…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{ flex: 1, padding: "8px 12px", borderRadius: 6, border: "1px solid #4d4d4d", background: "#1a1a1a", color: "#fff", fontSize: 14 }}
+        />
+        <select
+          value={categoryFilter}
+          onChange={(e) => setCategoryFilter(e.target.value)}
+          style={{ padding: "8px 12px", borderRadius: 6, border: "1px solid #4d4d4d", background: "#1a1a1a", color: "#fff", fontSize: 14, minWidth: 180 }}
+        >
+          <option value="all">All Categories ({series.length})</option>
+          {seriesCategories.map((c) => (
+            <option key={c.category_id} value={String(c.category_id)}>{c.category_name}</option>
+          ))}
+        </select>
+        <button type="button" className="btn btn-secondary" onClick={loadAll} style={{ flexShrink: 0 }}>↺ Refresh</button>
+      </div>
 
-      {seasons.length === 0 ? (
-        <div className="empty-state">
-          <p>No episodes found</p>
-        </div>
-      ) : (
-        seasons.map((seasonNum) => (
-          <div key={seasonNum} style={{ marginBottom: "20px" }}>
-            <h3
-              style={{
-                padding: "10px 15px",
-                background: "#3d3d3d",
-                borderRadius: "6px",
-                marginBottom: "5px",
-              }}
-            >
-              Season {seasonNum}
-            </h3>
-            {seriesSeasons[seasonNum].map((episode) => (
-              <button
-                key={episode.id}
-                type="button"
-                className="item-card"
-                onClick={() => handleEpisodeClick(episode, seasonNum)}
-              >
-                <div className="item-title">
-                  ▶️ Episode {getEpisodeNumber(episode)}:{" "}
-                  {episode.title || "Untitled"}
-                </div>
-                {episode.info?.duration && (
-                  <div className="item-info">{episode.info.duration}</div>
-                )}
-              </button>
+      <div style={{ flex: 1, overflowY: "auto" }}>
+        {filtered.length === 0 ? (
+          <div className="empty-state"><p>No series found</p></div>
+        ) : (
+          <div className="series-grid">
+            {filtered.map((show) => (
+              <PosterCard key={show.series_id} item={show} onClick={() => openSeries(show)} />
             ))}
           </div>
-        ))
-      )}
+        )}
+      </div>
     </div>
   );
 };

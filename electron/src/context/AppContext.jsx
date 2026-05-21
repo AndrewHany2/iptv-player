@@ -396,10 +396,6 @@ export const AppProvider = ({ children }) => {
         if (savedProfiles) {
           const profiles = JSON.parse(savedProfiles);
           setAppProfiles(profiles);
-          const savedId = localStorage.getItem("iptv_active_profile");
-          if (savedId && profiles.some((p) => p.id === savedId)) {
-            setActiveProfileId(savedId);
-          }
         }
       } catch { /* ignore */ }
       loadSavedChannels();
@@ -435,15 +431,6 @@ export const AppProvider = ({ children }) => {
 
     fetchAppProfiles(authUser.id).then((profiles) => {
       setAppProfiles(profiles);
-      // Restore last-used profile
-      const savedId = localStorage.getItem("iptv_active_profile");
-      if (savedId && profiles.some((p) => p.id === savedId)) {
-        setActiveProfileId(savedId);
-      } else if (profiles.length === 1) {
-        // Only one profile → auto-select
-        setActiveProfileId(profiles[0].id);
-        localStorage.setItem("iptv_active_profile", profiles[0].id);
-      }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authUser?.id]);
@@ -511,6 +498,10 @@ export const AppProvider = ({ children }) => {
       } finally {
         setIsLoading(false);
       }
+
+      // Preload categories in background so tab switches are instant
+      iptvApi.getVODCategories().catch(() => {});
+      iptvApi.getSeriesCategories().catch(() => {});
     };
 
     loadProfileData();

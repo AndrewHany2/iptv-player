@@ -412,6 +412,147 @@ body {
   display: none !important;
 }
 
+/* Skeleton shimmer */
+@keyframes skeleton-shimmer {
+  0%   { background-position: -600px 0; }
+  100% { background-position:  600px 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #2a2a2a 25%, #3a3a3a 50%, #2a2a2a 75%);
+  background-size: 1200px 100%;
+  animation: skeleton-shimmer 1.4s infinite linear;
+  border-radius: 6px;
+}
+
+/* Category card skeleton */
+.skeleton-category-card {
+  background: #2d2d2d;
+  border: 2px solid #3d3d3d;
+  border-radius: 12px;
+  padding: 30px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.skeleton-category-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+}
+
+.skeleton-category-name {
+  height: 16px;
+  width: 70%;
+}
+
+.skeleton-category-count {
+  height: 13px;
+  width: 40%;
+}
+
+/* Poster card skeleton */
+.skeleton-poster-card {
+  background: #2d2d2d;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.skeleton-poster-image {
+  width: 100%;
+  padding-top: 150%;
+  position: relative;
+}
+
+.skeleton-poster-image .skeleton {
+  position: absolute;
+  inset: 0;
+  border-radius: 0;
+}
+
+.skeleton-poster-info {
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.skeleton-poster-title {
+  height: 13px;
+  width: 85%;
+}
+
+.skeleton-poster-sub {
+  height: 11px;
+  width: 50%;
+}
+
+/* Item card skeleton (live TV) */
+.skeleton-item-card {
+  background: #2d2d2d;
+  border: 2px solid #3d3d3d;
+  border-radius: 10px;
+  padding: 20px 15px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.skeleton-item-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+}
+
+.skeleton-item-name {
+  height: 14px;
+  width: 75%;
+}
+
+/* History card skeleton */
+.skeleton-history-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  background: #333;
+  border-radius: 8px;
+}
+
+.skeleton-history-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.skeleton-history-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.skeleton-history-title {
+  height: 14px;
+  width: 65%;
+}
+
+.skeleton-history-meta {
+  height: 12px;
+  width: 40%;
+}
+
+.skeleton-history-bar {
+  height: 6px;
+  width: 100%;
+  border-radius: 3px;
+}
+
 /* Loader Component */
 .loader-overlay {
   position: fixed;
@@ -888,10 +1029,13 @@ body {
 
 .search-bar {
   margin-bottom: 20px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
 }
 
 .search-bar .search-input {
-  width: 100%;
+  flex: 1;
   padding: 12px 20px;
   font-size: 16px;
   background: #2d2d2d;
@@ -901,6 +1045,23 @@ body {
 }
 
 .search-bar .search-input:focus {
+  outline: none;
+  border-color: #0066cc;
+}
+
+.category-filter-select {
+  padding: 12px 16px;
+  font-size: 14px;
+  background: #2d2d2d;
+  border: 2px solid #3d3d3d;
+  border-radius: 8px;
+  color: #fff;
+  cursor: pointer;
+  min-width: 200px;
+  flex-shrink: 0;
+}
+
+.category-filter-select:focus {
   outline: none;
   border-color: #0066cc;
 }
@@ -1249,7 +1410,7 @@ body {
   padding: 12px;
 }
 
-.series-title {
+.series-info .series-title {
   font-weight: 500;
   font-size: 14px;
   margin-bottom: 6px;
@@ -1391,6 +1552,231 @@ body {
 .progress-text {
   font-size: 11px;
   color: #999;
+}
+
+/* ─── Netflix-style history ──────────────────────────────────────────────── */
+.nf-search {
+  padding: 0 4px 20px;
+}
+
+.nf-row {
+  margin-bottom: 36px;
+}
+
+.nf-row-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #e5e5e5;
+  margin-bottom: 14px;
+  padding: 0 4px;
+  letter-spacing: 0.3px;
+}
+
+/* Horizontal scroll strip */
+.nf-scroll {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 10px;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+
+.nf-scroll::-webkit-scrollbar {
+  height: 4px;
+}
+
+.nf-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.nf-scroll::-webkit-scrollbar-thumb {
+  background: #444;
+  border-radius: 2px;
+}
+
+/* Individual history card */
+.nf-card {
+  flex: 0 0 160px;
+  scroll-snap-align: start;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  transition: transform 0.2s ease;
+}
+
+.nf-card:hover {
+  transform: scale(1.06);
+  z-index: 2;
+}
+
+.nf-card-poster {
+  position: relative;
+  width: 160px;
+  height: 240px;
+  border-radius: 6px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nf-card-icon {
+  font-size: 52px;
+  opacity: 0.6;
+  user-select: none;
+}
+
+/* Hover overlay */
+.nf-card-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.nf-card:hover .nf-card-overlay {
+  opacity: 1;
+}
+
+.nf-play-btn {
+  font-size: 42px;
+  color: #fff;
+  filter: drop-shadow(0 2px 8px rgba(0,0,0,0.8));
+}
+
+/* Remove button */
+.nf-remove-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: rgba(0,0,0,0.6);
+  border: none;
+  color: #ccc;
+  font-size: 13px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+  z-index: 3;
+}
+
+.nf-card:hover .nf-remove-btn {
+  opacity: 1;
+}
+
+.nf-remove-btn:hover {
+  color: #ff4444;
+}
+
+/* Red progress bar at the bottom of poster */
+.nf-progress-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: rgba(255,255,255,0.2);
+}
+
+.nf-progress-fill {
+  height: 100%;
+  background: #e50914;
+  border-radius: 0 2px 2px 0;
+}
+
+/* Card text below poster */
+.nf-card-info {
+  padding: 8px 2px 0;
+}
+
+.nf-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #e5e5e5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 156px;
+  margin-bottom: 4px;
+}
+
+.nf-card-meta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 11px;
+  color: #999;
+}
+
+.nf-card-badge {
+  background: #333;
+  border-radius: 3px;
+  padding: 1px 5px;
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  color: #aaa;
+}
+
+.nf-card-pct {
+  font-size: 11px;
+  color: #aaa;
+  margin-top: 3px;
+}
+
+/* Explore More suggestion cards */
+.nf-suggestions {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.nf-suggestion-card {
+  flex: 1 1 180px;
+  min-width: 160px;
+  max-width: 260px;
+  border: none;
+  border-radius: 10px;
+  padding: 28px 20px;
+  cursor: pointer;
+  text-align: left;
+  transition: transform 0.2s, box-shadow 0.2s;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.nf-suggestion-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+}
+
+.nf-suggestion-icon {
+  font-size: 36px;
+  margin-bottom: 4px;
+}
+
+.nf-suggestion-label {
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.nf-suggestion-desc {
+  font-size: 13px;
+  color: rgba(255,255,255,0.6);
 }
 
 /* Video Player Overlay */
@@ -1735,6 +2121,18 @@ body {
   font-weight: 400;
 }
 
+/* ─── Sync loading (full content area, no tabs) ──────────────────────────── */
+.sync-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 16px;
+  color: #aaa;
+  font-size: 14px;
+}
+
 /* ─── Auth loading spinner ───────────────────────────────────────────────── */
 .auth-loading {
   display: flex;
@@ -1943,4 +2341,64 @@ body {
 .confirm-text {
   font-size: 12px;
   color: #f59e0b;
+}
+
+/* ── Category rows (Netflix-style) ──────────────────────────────────────── */
+.category-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  padding: 8px 0 24px;
+}
+
+.category-row {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.category-row-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 4px;
+}
+
+.category-row-count {
+  font-size: 12px;
+  font-weight: 400;
+  color: #9ca3af;
+  background: #2d2d2d;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.category-row-scroll {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: #4d4d4d transparent;
+}
+
+.category-row-scroll::-webkit-scrollbar {
+  height: 4px;
+}
+
+.category-row-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.category-row-scroll::-webkit-scrollbar-thumb {
+  background: #4d4d4d;
+  border-radius: 2px;
+}
+
+.category-row-scroll .series-card {
+  flex-shrink: 0;
+  width: 150px;
 }
