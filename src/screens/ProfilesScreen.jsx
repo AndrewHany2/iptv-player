@@ -8,7 +8,7 @@ import { useApp } from '../context/AppContext';
 const AVATARS = ['👤','👨','👩','👦','👧','👴','👵','🧑','🎮','🎬','🍿','⚽','🎵','🦸','🎨','🐱'];
 
 export default function ProfilesScreen() {
-  const { appProfiles, activeProfileId, switchProfile, addProfile, updateProfile, removeProfile } = useApp();
+  const { appProfiles, activeProfileId, switchProfile, addProfile, updateProfile, removeProfile, signOut, authUser } = useApp();
 
   const [view, setView] = useState('select'); // 'select' | 'manage' | 'form'
   const [editingId, setEditingId] = useState(null);
@@ -217,11 +217,18 @@ export default function ProfilesScreen() {
         </TouchableOpacity>
       </ScrollView>
 
-      {appProfiles.length > 0 && (
-        <TouchableOpacity onPress={() => setView('manage')} style={styles.manageLink}>
-          <Text style={styles.manageLinkText}>Manage Profiles</Text>
-        </TouchableOpacity>
-      )}
+      <View style={styles.bottomRow}>
+        {appProfiles.length > 0 && (
+          <TouchableOpacity onPress={() => setView('manage')} style={styles.manageLink}>
+            <Text style={styles.manageLinkText}>Manage Profiles</Text>
+          </TouchableOpacity>
+        )}
+        {authUser && (
+          <TouchableOpacity onPress={signOut} style={styles.signOutLink}>
+            <Text style={styles.signOutLinkText}>Sign Out</Text>
+          </TouchableOpacity>
+        )}
+      </View>
     </View>
   );
 }
@@ -239,8 +246,11 @@ const styles = StyleSheet.create({
   profileCardPlusIcon: { fontSize: 36, color: '#888' },
   profileCardName: { color: '#ccc', fontSize: 14, textAlign: 'center', fontWeight: '500' },
   profileCardAdd: { opacity: 0.7 },
-  manageLink: { alignSelf: 'center', marginTop: 20, padding: 10 },
-  manageLinkText: { color: '#888', fontSize: 14, textDecoration: 'underline' },
+  bottomRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 32, marginTop: 20, marginBottom: 40 },
+  manageLink: { padding: 10 },
+  manageLinkText: { color: '#888', fontSize: 14, textDecorationLine: 'underline' },
+  signOutLink: { padding: 10 },
+  signOutLinkText: { color: '#e94560', fontSize: 14, fontWeight: '600' },
 
   // Manage
   manageHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 20, paddingBottom: 12 },

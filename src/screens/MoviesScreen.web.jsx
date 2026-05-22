@@ -1,10 +1,180 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, ActivityIndicator, Image,
+  StyleSheet, ActivityIndicator, Image, TextInput,
 } from 'react-native';
 import { useApp } from '../context/AppContext';
 import iptvApi from '../services/iptvApi';
+
+const formatTimeLeft = (cur, dur) => {
+  if (!dur || !cur) return null;
+  const left = dur - cur;
+  if (left <= 60) return null;
+  const h = Math.floor(left / 3600);
+  const m = Math.floor((left % 3600) / 60);
+  return h > 0 ? `${h}h ${m}m left` : `${m}m left`;
+};
+
+/* ─── Continue Watching Card ─── */
+function CWCard({ item, onPress }) {
+  const progress = item.duration > 0 ? Math.min((item.currentTime / item.duration) * 100, 100) : 15;
+  const timeLeft = formatTimeLeft(item.currentTime, item.duration);
+  const bg = item.cover || item.movie_image || item.stream_icon || null;
+
+  return (
+    <TouchableOpacity style={cwStyles.card} onPress={onPress} {...({ className: 'lumen-cw-card' })}>
+      <View style={cwStyles.inner}>
+        {bg ? (
+          <Image source={{ uri: bg }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+        ) : (
+          <View style={[StyleSheet.absoluteFillObject, cwStyles.noBg]} />
+        )}
+        <View style={[StyleSheet.absoluteFillObject, { background: 'linear-gradient(to top right, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.1) 60%, rgba(0,0,0,0) 100%)' }]} />
+        <div className="lumen-cw-play">▶</div>
+        <View style={cwStyles.bottom}>
+          <Text style={cwStyles.title} numberOfLines={1}>{item.name?.toUpperCase()}</Text>
+          <View style={cwStyles.bar}><View style={[cwStyles.barFill, { width: `${progress}%` }]} /></View>
+        </View>
+      </View>
+      <View style={cwStyles.meta}>
+        <Text style={cwStyles.name} numberOfLines={1}>{item.name}</Text>
+        {timeLeft && <Text style={cwStyles.timeLeft}>{timeLeft}</Text>}
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+const cwStyles = StyleSheet.create({
+  card: { width: 320, flexShrink: 0 },
+  inner: { width: 320, height: 180, borderRadius: 8, backgroundColor: '#16213e', overflow: 'hidden' },
+  noBg: { backgroundColor: '#16213e' },
+  bottom: { position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 4, paddingHorizontal: 12 },
+  title: { color: '#fff', fontSize: 13, fontWeight: '800', letterSpacing: 0.3, marginBottom: 6 },
+  bar: { height: 3, backgroundColor: 'rgba(255,255,255,0.18)' },
+  barFill: { height: '100%', backgroundColor: '#e94560' },
+  meta: { paddingTop: 10, paddingHorizontal: 2 },
+  name: { color: '#fff', fontSize: 13, fontWeight: '600', marginBottom: 2 },
+  timeLeft: { color: '#888', fontSize: 12 },
+});
+
+const getTrailerUrl = (trailer) => {
+  if (!trailer) return null;
+  const match = trailer.match(/(?:v=|youtu\.be\/|embed\/)([A-Za-z0-9_-]{11})/);
+  if (match) return `https://www.youtube-nocookie.com/embed/${match[1]}`;
+  if (/^[A-Za-z0-9_-]{11}$/.test(trailer.trim()))
+    return `https://www.youtube-nocookie.com/embed/${trailer.trim()}`;
+  return null;
+};
+
+/* ─── Movie Details Page ─── */
+function DetailsPage({ item, info, onBack, onPlay, resumeTime = 0 }) {
+  const [showTrailer, setShowTrailer] = useState(false);
+  const data = info?.info || {};
+  const backdrop = data.backdrop_path?.[0] || data.cover_big || item.stream_icon || item.cover || item.movie_image || null;
+  const trailer = getTrailerUrl(data.youtube_trailer);
+  const year = (data.releasedate || data.release_date || '').slice(0, 4);
+  const isLoading = info === null;
+
+  return (
+    <ScrollView style={detailStyles.root} contentContainerStyle={detailStyles.scroll}>
+      {/* Hero */}
+      <View style={detailStyles.hero}>
+        {backdrop
+          ? <Image source={{ uri: backdrop }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+          : <View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#16213e' }]} />
+        }
+        <View style={[StyleSheet.absoluteFillObject, { background: 'linear-gradient(to top, #0f0f23 0%, rgba(15,15,35,0.6) 55%, rgba(15,15,35,0.15) 100%)' }]} />
+        <TouchableOpacity style={detailStyles.backBtn} onPress={onBack}>
+          <Text style={detailStyles.backText}>← Back</Text>
+        </TouchableOpacity>
+        <View style={detailStyles.heroBody}>
+          <Text style={detailStyles.title}>{item.name}</Text>
+          {isLoading ? (
+            <ActivityIndicator color="#e94560" style={{ marginVertical: 12 }} />
+          ) : (
+            <>
+              <View style={detailStyles.chips}>
+                {year ? <View style={detailStyles.chip}><Text style={detailStyles.chipText}>{year}</Text></View> : null}
+                {data.genre ? <View style={detailStyles.chip}><Text style={detailStyles.chipText}>{data.genre.split(',')[0].trim()}</Text></View> : null}
+                {data.rating ? <Text style={detailStyles.rating}>⭐ {parseFloat(data.rating).toFixed(1)}</Text> : null}
+                {data.age ? <View style={[detailStyles.chip, { borderColor: '#e94560' }]}><Text style={[detailStyles.chipText, { color: '#e94560' }]}>{data.age}</Text></View> : null}
+              </View>
+            </>
+          )}
+          <View style={detailStyles.actions}>
+            {resumeTime > 0 ? (
+              <>
+                <TouchableOpacity style={detailStyles.playBtn} onPress={() => onPlay(resumeTime)}>
+                  <Text style={detailStyles.playBtnText}>▶  Continue</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={detailStyles.trailerBtn} onPress={() => onPlay(0)}>
+                  <Text style={detailStyles.trailerBtnText}>↺  From Start</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <TouchableOpacity style={detailStyles.playBtn} onPress={() => onPlay(0)}>
+                <Text style={detailStyles.playBtnText}>▶  Play Now</Text>
+              </TouchableOpacity>
+            )}
+            {trailer && (
+              <TouchableOpacity style={detailStyles.trailerBtn} onPress={() => setShowTrailer(v => !v)}>
+                <Text style={detailStyles.trailerBtnText}>{showTrailer ? '✕  Close' : '🎬  Trailer'}</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      </View>
+
+      {/* Trailer embed */}
+      {showTrailer && trailer && (
+        <View style={detailStyles.trailerWrap}>
+          <iframe
+            src={`${trailer}?autoplay=1`}
+            allow="autoplay; encrypted-media; picture-in-picture"
+            allowFullScreen
+            style={{ width: '100%', height: 420, border: 'none', borderRadius: 8 }}
+          />
+        </View>
+      )}
+
+      {/* Cast / director */}
+      {(data.description || data.plot || data.overview || data.cast || data.director) && (
+        <View style={detailStyles.meta}>
+          {(data.description || data.plot || data.overview) ? (
+            <Text style={detailStyles.metaPlot}>{data.description || data.plot || data.overview}</Text>
+          ) : null}
+          {data.cast ? <Text style={detailStyles.metaRow}><Text style={detailStyles.metaLabel}>Cast  </Text>{data.cast}</Text> : null}
+          {data.director ? <Text style={detailStyles.metaRow}><Text style={detailStyles.metaLabel}>Director  </Text>{data.director}</Text> : null}
+        </View>
+      )}
+    </ScrollView>
+  );
+}
+
+const detailStyles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: '#0f0f23' },
+  scroll: { paddingBottom: 80 },
+  hero: { width: '100%', height: 520, position: 'relative' },
+  backBtn: { position: 'absolute', top: 20, left: 48, zIndex: 10, paddingVertical: 8, paddingHorizontal: 14, backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 8 },
+  backText: { color: '#e94560', fontSize: 14, fontWeight: '600' },
+  heroBody: { position: 'absolute', bottom: 0, left: 48, right: 48, zIndex: 5, paddingBottom: 40 },
+  title: { color: '#fff', fontSize: 40, fontWeight: '900', letterSpacing: -1, marginBottom: 12 },
+  chips: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14, flexWrap: 'wrap' },
+  chip: { borderWidth: 1, borderColor: '#3a3a5e', borderRadius: 4, paddingHorizontal: 8, paddingVertical: 3 },
+  chipText: { color: '#aaa', fontSize: 12 },
+  rating: { color: '#ffd700', fontSize: 13, fontWeight: '600' },
+  desc: { color: '#ccc', fontSize: 15, lineHeight: 23, marginBottom: 24, maxWidth: 640 },
+  actions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  playBtn: { backgroundColor: '#fff', paddingHorizontal: 28, paddingVertical: 13, borderRadius: 8 },
+  playBtnText: { color: '#000', fontSize: 15, fontWeight: '700' },
+  trailerBtn: { backgroundColor: 'rgba(40,40,60,0.85)', paddingHorizontal: 22, paddingVertical: 13, borderRadius: 8, borderWidth: 1, borderColor: '#3a3a5e' },
+  trailerBtnText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  trailerWrap: { paddingHorizontal: 48, paddingTop: 8, paddingBottom: 24 },
+  meta: { paddingHorizontal: 48, paddingTop: 24, gap: 10 },
+  metaPlot: { color: '#ccc', fontSize: 15, lineHeight: 24, marginBottom: 12 },
+  metaRow: { color: '#aaa', fontSize: 14, lineHeight: 20 },
+  metaLabel: { color: '#fff', fontWeight: '700' },
+});
 
 /* ─── Poster Card ─── */
 function PosterCard({ item, onPress }) {
@@ -44,60 +214,21 @@ function PosterCard({ item, onPress }) {
   );
 }
 
-/* ─── Hero Banner ─── */
-function Hero({ item, onPlay }) {
-  if (!item) return null;
-  const bg = item.movie_image || item.cover || item.stream_icon || null;
-  const desc = item.plot || item.description || null;
-  return (
-    <View style={styles.hero} {...({ className: 'lumen-hero' })}>
-      {bg && <Image source={{ uri: bg }} style={[StyleSheet.absoluteFillObject, { objectFit: 'cover', objectPosition: 'center top' }]} resizeMode="cover" />}
-      <View style={StyleSheet.absoluteFillObject} {...({ className: 'lumen-hero-overlay' })} />
-
-      <View style={styles.heroBody}>
-        <Text style={styles.heroTagline}>MOVIES</Text>
-        <Text style={styles.heroTitle} numberOfLines={2}>{item.name}</Text>
-
-        <View style={styles.heroMeta}>
-          {item.rating ? <Text style={styles.heroRating}>⭐ {item.rating}</Text> : null}
-          {item.year ? <View style={styles.chip}><Text style={styles.chipText}>{item.year}</Text></View> : null}
-          {item.rating_5based ? <View style={styles.chip}><Text style={styles.chipText}>{Number(item.rating_5based).toFixed(1)} / 5</Text></View> : null}
-        </View>
-
-        {desc ? <Text style={styles.heroDesc} numberOfLines={3}>{desc}</Text> : null}
-
-        <View style={styles.heroActions}>
-          <TouchableOpacity style={styles.btnPlay} onPress={() => onPlay(item)} {...({ className: 'lumen-btn-play' })}>
-            <Text style={styles.btnPlayText}>▶  Play</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.btnInfo} {...({ className: 'lumen-btn-info' })}>
-            <Text style={styles.btnInfoText}>ⓘ  More Info</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.btnAdd} {...({ className: 'lumen-btn-add' })}>
-            <Text style={styles.btnAddText}>+</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </View>
-  );
-}
 
 const SHELF_PAGE = typeof window !== 'undefined' ? Math.ceil(window.innerWidth / 200) + 2 : 10;
+const GRID_PAGE = 40;
 
-/* ─── Shelf — lazy-loads when visible, renders more as user scrolls right ─── */
-function Shelf({ catId, title, items, onVisible, onPlay, onTitlePress }) {
+/* ─── Shelf — lazy-loads when visible, parent drives pagination ─── */
+function Shelf({ catId, title, items, totalCount, hasMore, loadingMore, onVisible, onPlay, onTitlePress, onLoadMore, manual }) {
   const sentinelRef = useRef(null);
   const railRef = useRef(null);
   const isDragging = useRef(false);
   const dragStartX = useRef(0);
   const dragStartLeft = useRef(0);
   const hasDragged = useRef(false);
-  const [displayCount, setDisplayCount] = useState(SHELF_PAGE);
-
-  useEffect(() => { setDisplayCount(SHELF_PAGE); }, [catId]);
-
   useEffect(() => {
     if (items !== null) return;
+    if (manual) return;
     const el = sentinelRef.current;
     if (!el || typeof IntersectionObserver === 'undefined') { onVisible(catId); return; }
     const obs = new IntersectionObserver(
@@ -106,11 +237,9 @@ function Shelf({ catId, title, items, onVisible, onPlay, onTitlePress }) {
     );
     obs.observe(el);
     return () => obs.disconnect();
-  }, [catId, items, onVisible]);
+  }, [catId, items, onVisible, manual]);
 
   if (items !== null && !items?.length) return null;
-
-  const displayed = items ? items.slice(0, displayCount) : null;
 
   useEffect(() => {
     const el = railRef.current;
@@ -141,7 +270,7 @@ function Shelf({ catId, title, items, onVisible, onPlay, onTitlePress }) {
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
     };
-  }, [displayed !== null]); // re-runs when rail mounts after data loads
+  }, [items !== null]);
 
   const scrollBy = (delta) => {
     const el = railRef.current;
@@ -149,11 +278,9 @@ function Shelf({ catId, title, items, onVisible, onPlay, onTitlePress }) {
   };
 
   const handleScroll = (e) => {
-    if (!items || displayCount >= items.length) return;
+    if (!hasMore || loadingMore) return;
     const { scrollLeft, scrollWidth, clientWidth } = e.target;
-    if (scrollWidth - scrollLeft - clientWidth < 500) {
-      setDisplayCount((c) => Math.min(c + SHELF_PAGE, items.length));
-    }
+    if (scrollWidth - scrollLeft - clientWidth < 500) onLoadMore(catId);
   };
 
   return (
@@ -163,11 +290,20 @@ function Shelf({ catId, title, items, onVisible, onPlay, onTitlePress }) {
         <TouchableOpacity onPress={() => onTitlePress && onTitlePress(catId, title)} {...({ className: 'lumen-shelf-title-btn' })}>
           <Text style={styles.shelfTitle}>{title} <Text style={styles.shelfTitleArrow}>›</Text></Text>
         </TouchableOpacity>
-        {items && <Text style={styles.shelfCount}>{items.length}</Text>}
+        {totalCount != null && <Text style={styles.shelfCount}>{totalCount}</Text>}
       </View>
-      {displayed === null ? (
+      {items === null ? (
         <View style={styles.shelfLoading}>
-          <ActivityIndicator size="small" color="#e94560" />
+          {manual ? (
+            <TouchableOpacity
+              style={styles.loadAllBtn}
+              onPress={() => onTitlePress && onTitlePress(catId, title)}
+            >
+              <Text style={styles.loadAllBtnText}>Load All</Text>
+            </TouchableOpacity>
+          ) : (
+            <ActivityIndicator size="small" color="#e94560" />
+          )}
         </View>
       ) : (
         <div style={{ position: 'relative' }} className="lumen-shelf-rail">
@@ -177,9 +313,14 @@ function Shelf({ catId, title, items, onVisible, onPlay, onTitlePress }) {
             onScroll={handleScroll}
             style={{ display: 'flex', overflowX: 'auto', gap: 8, paddingLeft: 48, paddingRight: 48, scrollbarWidth: 'none', msOverflowStyle: 'none', cursor: 'grab' }}
           >
-            {displayed.map((item) => (
+            {items.map((item) => (
               <PosterCard key={String(item.stream_id)} item={item} onPress={onPlay} />
             ))}
+            {loadingMore && (
+              <View style={[styles.seeMoreCard, { justifyContent: 'center', alignItems: 'center' }]}>
+                <ActivityIndicator size="small" color="#e94560" />
+              </View>
+            )}
           </div>
           <button className="lumen-shelf-nav right" onClick={() => scrollBy(800)}>›</button>
         </div>
@@ -188,8 +329,25 @@ function Shelf({ catId, title, items, onVisible, onPlay, onTitlePress }) {
   );
 }
 
-/* ─── Category Page ─── */
+/* ─── Category Page — paginates 40 items at a time, with search ─── */
 function CategoryPage({ name, items, onBack, onPlay }) {
+  const [displayCount, setDisplayCount] = useState(GRID_PAGE);
+  const [search, setSearch] = useState('');
+
+  const filtered = items
+    ? (search.trim() ? items.filter((i) => i.name?.toLowerCase().includes(search.toLowerCase())) : items)
+    : null;
+  const displayed = filtered ? filtered.slice(0, displayCount) : null;
+  const hasMore = filtered && displayCount < filtered.length;
+
+  useEffect(() => { setDisplayCount(GRID_PAGE); }, [search]);
+
+  const handleScroll = ({ nativeEvent: { layoutMeasurement, contentOffset, contentSize } }) => {
+    if (hasMore && contentSize.height - contentOffset.y - layoutMeasurement.height < 800) {
+      setDisplayCount((c) => Math.min(c + GRID_PAGE, filtered.length));
+    }
+  };
+
   return (
     <View style={styles.root}>
       <View style={styles.catHeader}>
@@ -197,17 +355,33 @@ function CategoryPage({ name, items, onBack, onPlay }) {
           <Text style={styles.catBackText}>← Back</Text>
         </TouchableOpacity>
         <Text style={styles.catPageTitle}>{name}</Text>
-        {items && <Text style={styles.catCount}>{items.length} titles</Text>}
+        {filtered != null && (
+          <View style={styles.catCountBadge}>
+            <Text style={styles.catCount}>{filtered.length.toLocaleString()}</Text>
+          </View>
+        )}
+        <TextInput
+          style={styles.catSearch}
+          placeholder="Search titles..."
+          placeholderTextColor="#555"
+          value={search}
+          onChangeText={setSearch}
+        />
       </View>
-      {!items ? (
+      {!displayed ? (
         <View style={styles.center}><ActivityIndicator size="large" color="#e94560" /></View>
       ) : (
-        <ScrollView contentContainerStyle={styles.catGrid}>
+        <ScrollView contentContainerStyle={styles.catGrid} onScroll={handleScroll} scrollEventThrottle={200}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, 200px)', gap: 12, justifyContent: 'center' }}>
-            {items.map((item) => (
+            {displayed.map((item) => (
               <PosterCard key={String(item.stream_id)} item={item} onPress={onPlay} />
             ))}
           </div>
+          {hasMore && (
+            <View style={{ alignItems: 'center', paddingVertical: 24 }}>
+              <ActivityIndicator size="small" color="#e94560" />
+            </View>
+          )}
         </ScrollView>
       )}
     </View>
@@ -216,13 +390,15 @@ function CategoryPage({ name, items, onBack, onPlay }) {
 
 /* ─── Screen ─── */
 export default function MoviesScreen({ navigation }) {
-  const { users, activeUserId, playVideo } = useApp();
+  const { users, activeUserId, playVideo, watchHistory } = useApp();
 
   const [loading, setLoading] = useState(false);
   const [shelves, setShelves] = useState([]);
-  const [heroItem, setHeroItem] = useState(null);
   const [currentCategory, setCurrentCategory] = useState(null);
+  const [categoryItems, setCategoryItems] = useState(null);
+  const [currentMovieDetail, setCurrentMovieDetail] = useState(null);
   const loadedRef = useRef(new Set());
+  const allShuffledRef = useRef([]);
 
   useEffect(() => { if (activeUserId) load(); }, [activeUserId]);
 
@@ -232,12 +408,14 @@ export default function MoviesScreen({ navigation }) {
     setLoading(true);
     loadedRef.current.clear();
     setShelves([]);
-    setHeroItem(null);
     try {
       iptvApi.setCredentials(user.host, user.username, user.password);
       const cats = await iptvApi.getVODCategories();
       if (!cats?.length) { setLoading(false); return; }
-      setShelves(cats.map((c) => ({ id: c.category_id, name: c.category_name, items: null })));
+      setShelves([
+        { id: 'all', name: 'All', items: null, totalCount: null, hasMore: false, loadingMore: false },
+        ...cats.map((c) => ({ id: c.category_id, name: c.category_name, items: null, totalCount: null, hasMore: false, loadingMore: false })),
+      ]);
     } catch (err) {
       console.error('Error loading movies:', err);
     } finally {
@@ -245,30 +423,82 @@ export default function MoviesScreen({ navigation }) {
     }
   };
 
-  // Called by each Shelf when it enters the viewport
+  // Loads first page only into state; full result stays in iptvApi cache
   const handleShelfVisible = useCallback(async (catId) => {
     if (loadedRef.current.has(catId)) return;
     loadedRef.current.add(catId);
     try {
-      const streams = await iptvApi.getVODStreams(catId);
-      setShelves((prev) => prev.map((s) => s.id === catId ? { ...s, items: streams || [] } : s));
-      setHeroItem((prev) => prev || (streams || []).find((m) => m.movie_image || m.cover || m.stream_icon) || null);
+      let all;
+      if (catId === 'all') {
+        const streams = await iptvApi.getAllVODStreams();
+        all = [...(streams || [])].sort(() => Math.random() - 0.5);
+        allShuffledRef.current = all;
+      } else {
+        const streams = await iptvApi.getVODStreams(catId);
+        all = streams || [];
+      }
+      const firstPage = all.slice(0, SHELF_PAGE);
+      setShelves((prev) => prev.map((s) => s.id === catId
+        ? { ...s, items: firstPage, totalCount: all.length, hasMore: all.length > SHELF_PAGE }
+        : s
+      ));
     } catch {
-      setShelves((prev) => prev.map((s) => s.id === catId ? { ...s, items: [] } : s));
+      setShelves((prev) => prev.map((s) => s.id === catId ? { ...s, items: [], totalCount: 0, hasMore: false } : s));
     }
   }, []);
 
-  const handlePlay = (item) => {
+  // Re-calls API (instant cache hit) or uses shuffled ref to append next page
+  const handleLoadMore = useCallback(async (catId) => {
+    setShelves((prev) => prev.map((s) => s.id === catId ? { ...s, loadingMore: true } : s));
+    try {
+      const all = catId === 'all' ? allShuffledRef.current : await iptvApi.getVODStreams(catId);
+      setShelves((prev) => prev.map((s) => {
+        if (s.id !== catId) return s;
+        const nextItems = (all || []).slice(0, (s.items?.length || 0) + SHELF_PAGE);
+        return { ...s, items: nextItems, hasMore: nextItems.length < (all?.length || 0), loadingMore: false };
+      }));
+    } catch {
+      setShelves((prev) => prev.map((s) => s.id === catId ? { ...s, loadingMore: false } : s));
+    }
+  }, []);
+
+  const handleMoviePress = async (item) => {
+    setCurrentMovieDetail({ item, info: null });
+    try {
+      const info = await iptvApi.getVODInfo(item.stream_id);
+      setCurrentMovieDetail({ item, info });
+    } catch {
+      setCurrentMovieDetail({ item, info: {} });
+    }
+  };
+
+  const handlePlay = (item, startTime = 0) => {
     const url = iptvApi.buildStreamUrl('movie', item.stream_id, item.container_extension || 'mp4');
-    playVideo({ type: 'movies', streamId: item.stream_id, name: item.name, url });
+    playVideo({ type: 'movies', streamId: item.stream_id, name: item.name, url, cover: item.stream_icon || item.cover || item.movie_image, startTime });
     navigation.navigate('VideoPlayer');
   };
 
-  const handleTitlePress = (catId, name) => {
-    handleShelfVisible(catId);
+  // Fetches all items for the category grid (cache hit after shelf loaded)
+  const handleTitlePress = async (catId, name) => {
     setCurrentCategory({ catId, name });
+    setCategoryItems(null);
+    try {
+      let all;
+      if (catId === 'all') {
+        if (!allShuffledRef.current.length) {
+          const streams = await iptvApi.getAllVODStreams();
+          allShuffledRef.current = [...(streams || [])].sort(() => Math.random() - 0.5);
+        }
+        all = allShuffledRef.current;
+      } else {
+        all = await iptvApi.getVODStreams(catId);
+        if (!loadedRef.current.has(catId)) handleShelfVisible(catId);
+      }
+      setCategoryItems(all || []);
+    } catch {
+      setCategoryItems([]);
+    }
   };
-
 
   if (loading) {
     return (
@@ -292,25 +522,79 @@ export default function MoviesScreen({ navigation }) {
     );
   }
 
-  if (currentCategory) {
-    const shelf = shelves.find((s) => s.id === currentCategory.catId);
+  if (currentMovieDetail) {
     return (
-      <CategoryPage
-        name={currentCategory.name}
-        items={shelf?.items ?? null}
-        onBack={() => setCurrentCategory(null)}
-        onPlay={handlePlay}
+      <DetailsPage
+        item={currentMovieDetail.item}
+        info={currentMovieDetail.info}
+        resumeTime={currentMovieDetail.resumeTime || 0}
+        onBack={() => setCurrentMovieDetail(null)}
+        onPlay={(startTime) => { handlePlay(currentMovieDetail.item, startTime); setCurrentMovieDetail(null); }}
       />
     );
   }
 
+  if (currentCategory) {
+    return (
+      <CategoryPage
+        name={currentCategory.name}
+        items={categoryItems}
+        onBack={() => { setCurrentCategory(null); setCategoryItems(null); }}
+        onPlay={handleMoviePress}
+      />
+    );
+  }
+
+  const continueWatching = watchHistory.filter((item) =>
+    item.type === 'movies' && item.currentTime > 0 &&
+    (item.duration <= 0 || item.currentTime / item.duration < 0.95)
+  );
+
+  const handleCWPress = async (cwItem) => {
+    const item = { stream_id: cwItem.streamId, name: cwItem.name, stream_icon: cwItem.cover, cover: cwItem.cover, movie_image: cwItem.cover };
+    setCurrentMovieDetail({ item, info: null, resumeTime: cwItem.currentTime || 0 });
+    try {
+      const info = await iptvApi.getVODInfo(cwItem.streamId);
+      setCurrentMovieDetail({ item, info, resumeTime: cwItem.currentTime || 0 });
+    } catch {
+      setCurrentMovieDetail({ item, info: {}, resumeTime: cwItem.currentTime || 0 });
+    }
+  };
+
   return (
     <ScrollView style={styles.root} contentContainerStyle={styles.scroll}>
-      <Hero item={heroItem} onPlay={handlePlay} />
+      {continueWatching.length > 0 && (
+        <View style={styles.cwSection}>
+          <View style={styles.cwHeader}>
+            <Text style={styles.cwSectionTitle}>Continue Watching</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('mylist')}>
+              <Text style={styles.seeHistory}>See history ›</Text>
+            </TouchableOpacity>
+          </View>
+          <div style={{ display: 'flex', overflowX: 'auto', gap: 12, paddingLeft: 48, paddingRight: 48, scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            {continueWatching.map((item) => (
+              <CWCard key={item.id} item={item} onPress={() => handleCWPress(item)} />
+            ))}
+          </div>
+        </View>
+      )}
       <View style={styles.pageBody}>
         {shelves.length > 0 ? (
           shelves.map((shelf) => (
-            <Shelf key={shelf.id} catId={shelf.id} title={shelf.name} items={shelf.items} onVisible={handleShelfVisible} onPlay={handlePlay} onTitlePress={handleTitlePress} />
+            <Shelf
+              key={shelf.id}
+              catId={shelf.id}
+              title={shelf.name}
+              items={shelf.items}
+              totalCount={shelf.totalCount}
+              hasMore={shelf.hasMore}
+              loadingMore={shelf.loadingMore}
+              onVisible={handleShelfVisible}
+              onPlay={handleMoviePress}
+              onTitlePress={handleTitlePress}
+              onLoadMore={handleLoadMore}
+              manual={shelf.id === 'all'}
+            />
           ))
         ) : (
           <View style={styles.emptyState}>
@@ -364,22 +648,31 @@ const styles = StyleSheet.create({
   btnAddText: { color: '#fff', fontSize: 18 },
 
   /* ── Page body ── */
-  pageBody: { paddingTop: 20 },
+  pageBody: { paddingTop: 0 },
+  cwSection: { paddingTop: 28, paddingBottom: 8 },
+  cwHeader: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', paddingHorizontal: 48, marginBottom: 14 },
+  cwSectionTitle: { color: '#fff', fontSize: 22, fontWeight: '700', letterSpacing: -0.3 },
+  seeHistory: { color: '#888', fontSize: 13 },
   catHeader: {
-    flexDirection: 'row', alignItems: 'center', gap: 16,
-    paddingHorizontal: 48, paddingVertical: 20,
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    paddingHorizontal: 48, paddingVertical: 18,
     borderBottomWidth: 1, borderBottomColor: '#2a2a4e',
   },
-  catBackBtn: { paddingVertical: 8, paddingHorizontal: 14, backgroundColor: '#1a1a2e', borderRadius: 8 },
+  catBackBtn: { paddingVertical: 8, paddingHorizontal: 14, backgroundColor: '#1a1a2e', borderRadius: 8, flexShrink: 0 },
   catBackText: { color: '#e94560', fontSize: 14, fontWeight: '600' },
-  catPageTitle: { color: '#fff', fontSize: 22, fontWeight: '700', flex: 1 },
-  catCount: { color: '#555', fontSize: 13 },
+  catPageTitle: { color: '#fff', fontSize: 22, fontWeight: '700', flexShrink: 0 },
+  catCountBadge: { backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4, flexShrink: 0 },
+  catCount: { color: '#888', fontSize: 12, fontWeight: '600' },
   catGrid: { paddingHorizontal: 48, paddingVertical: 32 },
+  catSearchRow: { paddingHorizontal: 48, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#1e1e38' },
+  catSearch: { flex: 1, backgroundColor: '#1a1a2e', color: '#fff', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, fontSize: 14, borderWidth: 1, borderColor: '#2a2a4e', minWidth: 0 },
   shelfTitleArrow: { color: '#e94560', fontSize: 18 },
 
   /* ── Shelf ── */
   shelf: { paddingTop: 28, paddingBottom: 8, overflow: 'visible' },
   shelfLoading: { paddingHorizontal: 48, paddingVertical: 18 },
+  loadAllBtn: { alignSelf: 'flex-start', backgroundColor: '#e94560', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
+  loadAllBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
   shelfHead: {
     flexDirection: 'row', alignItems: 'baseline',
     justifyContent: 'space-between',

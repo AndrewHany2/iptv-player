@@ -89,6 +89,12 @@ class IPTVApi {
     return this._cached('vod_streams_all', TTL.streams, () => this.fetch(this.buildUrl('get_vod_streams')));
   }
 
+  getVODInfo(vodId) {
+    return this._cached(`vod_info_${vodId}`, TTL.seriesInfo, () =>
+      this.fetch(this.buildUrl('get_vod_info', { vod_id: vodId }))
+    );
+  }
+
   getSeriesCategories() {
     return this._cached('series_categories', TTL.categories, () => this.fetch(this.buildUrl('get_series_categories')));
   }

@@ -9,11 +9,18 @@ try {
   process.exit(1);
 }
 
-const { app, BrowserWindow, ipcMain, dialog, session } = electron;
+const { app, BrowserWindow, ipcMain, dialog, session, protocol } = electron;
 const path = require("path");
 const fs = require("fs");
 const { exec } = require("child_process");
 const os = require("os");
+
+// Must be called before app.whenReady — registers app:// as a secure standard scheme
+// so root-relative paths in the expo build (/_expo/...) resolve within the scheme
+// instead of resolving to file:///C:/_expo/... (filesystem root)
+protocol.registerSchemesAsPrivileged([
+  { scheme: "app", privileges: { secure: true, standard: true, stream: true, supportFetchAPI: true } },
+]);
 
 let mainWindow;
 
@@ -39,9 +46,9 @@ function createWindow() {
   mainWindow.maximize();
 
   if (isDev) {
-    mainWindow.loadURL("http://localhost:3001"); // expo start --web --port 3001
+    mainWindow.loadURL("http://localhost:3001");
   } else {
-    mainWindow.loadFile(path.join(__dirname, "../dist/index.html")); // expo export output
+    mainWindow.loadURL("app://localhost/index.html");
   }
 
   mainWindow.on("closed", () => {
@@ -50,6 +57,16 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  const distPath = path.join(__dirname, "../dist");
+
+  // Serve built expo web assets via app:// — standard scheme parses URLs like http,
+  // so use URL.pathname to get the file path (strips scheme + host correctly)
+  protocol.registerFileProtocol("app", (request, callback) => {
+    const { pathname } = new URL(request.url);
+    const filePath = pathname === "/" ? "index.html" : pathname.replace(/^\//, "");
+    callback({ path: path.join(distPath, filePath) });
+  });
+
   // Inject IPTV-compatible headers for all outgoing requests
   session.defaultSession.webRequest.onBeforeSendHeaders(
     { urls: ["http://*/*", "https://*/*"] },

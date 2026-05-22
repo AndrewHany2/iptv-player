@@ -8,7 +8,4 @@ iptv-player-win32-x64
 .env
 .env.local
 .claude
-ios/
-android/
-electron/
 design/

@@ -13,9 +13,9 @@ import HistoryScreen from '../screens/HistoryScreen';
 import AccountsScreen from '../screens/AccountsScreen';
 import VideoPlayerScreen from '../screens/VideoPlayerScreen';
 
-if (typeof document !== 'undefined' && !document.getElementById('lumen-global')) {
-  const style = document.createElement('style');
-  style.id = 'lumen-global';
+if (typeof document !== 'undefined') {
+  let style = document.getElementById('lumen-global');
+  if (!style) { style = document.createElement('style'); style.id = 'lumen-global'; document.head.appendChild(style); }
   style.textContent = `
     *, *::before, *::after { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; background: #0f0f23; }
@@ -102,9 +102,9 @@ if (typeof document !== 'undefined' && !document.getElementById('lumen-global'))
         linear-gradient(to top, #0f0f23 0%, rgba(15,15,35,0.2) 45%, transparent 85%);
     }
     .lumen-hero {
-      height: 78vh !important;
-      min-height: 560px !important;
-      max-height: 820px !important;
+      height: 90vh !important;
+      min-height: 680px !important;
+      max-height: 1080px !important;
     }
     .lumen-poster-gradient {
       background: linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.6) 38%, rgba(0,0,0,0) 68%);
@@ -152,7 +152,6 @@ if (typeof document !== 'undefined' && !document.getElementById('lumen-global'))
     .lumen-shelf-title-btn { cursor: pointer !important; }
     .lumen-shelf-title-btn:hover span, .lumen-shelf-title-btn:hover div { opacity: 0.8; }
   `;
-  document.head.appendChild(style);
 }
 
 const NAV_ITEMS = [
@@ -251,7 +250,10 @@ export default function AppNavigator() {
 
   const webNavigation = {
     setOptions: () => {},
-    navigate: (screen) => { if (screen === 'Accounts') setShowAccounts(true); },
+    navigate: (screen) => {
+      if (screen === 'Accounts') { setShowAccounts(true); return; }
+      if (CONTENT_MAP[screen]) { setActiveTab(screen); return; }
+    },
     goBack: () => setShowAccounts(false),
   };
 

@@ -1,10 +1,182 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, ActivityIndicator, Image, SectionList,
+  StyleSheet, ActivityIndicator, Image, SectionList, TextInput,
 } from 'react-native';
 import { useApp } from '../context/AppContext';
 import iptvApi from '../services/iptvApi';
+
+const formatTimeLeft = (cur, dur) => {
+  if (!dur || !cur) return null;
+  const left = dur - cur;
+  if (left <= 60) return null;
+  const h = Math.floor(left / 3600);
+  const m = Math.floor((left % 3600) / 60);
+  return h > 0 ? `${h}h ${m}m left` : `${m}m left`;
+};
+
+/* ─── Continue Watching Card ─── */
+function CWCard({ item, onPress }) {
+  const progress = item.duration > 0 ? Math.min((item.currentTime / item.duration) * 100, 100) : 15;
+  const timeLeft = formatTimeLeft(item.currentTime, item.duration);
+  const epLabel = item.seasonNum && item.episodeNum
+    ? `S${item.seasonNum} · E${String(item.episodeNum).padStart(2, '0')}` : null;
+  const bg = item.cover || item.movie_image || item.stream_icon || null;
+  const showTitle = item.seriesName || item.name;
+
+  return (
+    <TouchableOpacity style={cwStyles.card} onPress={onPress} {...({ className: 'lumen-cw-card' })}>
+      <View style={cwStyles.inner}>
+        {bg ? (
+          <Image source={{ uri: bg }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+        ) : (
+          <View style={[StyleSheet.absoluteFillObject, cwStyles.noBg]} />
+        )}
+        <View style={[StyleSheet.absoluteFillObject, { background: 'linear-gradient(to top right, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.1) 60%, rgba(0,0,0,0) 100%)' }]} />
+        {item.seasonNum && (
+          <View style={cwStyles.season}><Text style={cwStyles.seasonText}>S{item.seasonNum}</Text></View>
+        )}
+        <div className="lumen-cw-play">▶</div>
+        <View style={cwStyles.bottom}>
+          <Text style={cwStyles.title} numberOfLines={1}>{showTitle?.toUpperCase()}</Text>
+          <View style={cwStyles.bar}><View style={[cwStyles.barFill, { width: `${progress}%` }]} /></View>
+        </View>
+      </View>
+      <View style={cwStyles.meta}>
+        <Text style={cwStyles.name} numberOfLines={1}>{showTitle}</Text>
+        {epLabel && <Text style={cwStyles.epLine}>{epLabel}</Text>}
+        {timeLeft && <Text style={cwStyles.timeLeft}>{timeLeft}</Text>}
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+const cwStyles = StyleSheet.create({
+  card: { width: 320, flexShrink: 0 },
+  inner: { width: 320, height: 180, borderRadius: 8, backgroundColor: '#16213e', overflow: 'hidden' },
+  noBg: { backgroundColor: '#16213e' },
+  season: { position: 'absolute', top: 10, left: 12, zIndex: 4 },
+  seasonText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  bottom: { position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 4, paddingHorizontal: 12 },
+  title: { color: '#fff', fontSize: 13, fontWeight: '800', letterSpacing: 0.3, marginBottom: 6 },
+  bar: { height: 3, backgroundColor: 'rgba(255,255,255,0.18)' },
+  barFill: { height: '100%', backgroundColor: '#e94560' },
+  meta: { paddingTop: 10, paddingHorizontal: 2 },
+  name: { color: '#fff', fontSize: 13, fontWeight: '600', marginBottom: 2 },
+  epLine: { color: '#888', fontSize: 12, marginBottom: 2 },
+  timeLeft: { color: '#888', fontSize: 12 },
+});
+
+const getTrailerUrl = (trailer) => {
+  if (!trailer) return null;
+  const match = trailer.match(/(?:v=|youtu\.be\/|embed\/)([A-Za-z0-9_-]{11})/);
+  if (match) return `https://www.youtube-nocookie.com/embed/${match[1]}`;
+  if (/^[A-Za-z0-9_-]{11}$/.test(trailer.trim()))
+    return `https://www.youtube-nocookie.com/embed/${trailer.trim()}`;
+  return null;
+};
+
+/* ─── Series Details Page ─── */
+function SeriesDetailsPage({ series, seriesInfo, loading, onBack, onBrowseEpisodes, cwItem, onContinue }) {
+  const [showTrailer, setShowTrailer] = useState(false);
+  const data = seriesInfo || {};
+  const backdrop = data.backdrop_path?.[0] || data.cover || series.cover || null;
+  const trailer = getTrailerUrl(data.youtube_trailer);
+  const year = (data.release_date || data.releasedate || '').slice(0, 4);
+
+  return (
+    <ScrollView style={detailStyles.root} contentContainerStyle={detailStyles.scroll}>
+      <View style={detailStyles.hero}>
+        {backdrop
+          ? <Image source={{ uri: backdrop }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+          : <View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#16213e' }]} />
+        }
+        <View style={[StyleSheet.absoluteFillObject, { background: 'linear-gradient(to top, #0f0f23 0%, rgba(15,15,35,0.6) 55%, rgba(15,15,35,0.15) 100%)' }]} />
+        <TouchableOpacity style={detailStyles.backBtn} onPress={onBack}>
+          <Text style={detailStyles.backText}>← Back</Text>
+        </TouchableOpacity>
+        <View style={detailStyles.heroBody}>
+          <Text style={detailStyles.title}>{series.name}</Text>
+          {loading ? (
+            <ActivityIndicator color="#e94560" style={{ marginVertical: 12 }} />
+          ) : (
+            <>
+              <View style={detailStyles.chips}>
+                {year ? <View style={detailStyles.chip}><Text style={detailStyles.chipText}>{year}</Text></View> : null}
+                {data.genre ? <View style={detailStyles.chip}><Text style={detailStyles.chipText}>{data.genre.split(',')[0].trim()}</Text></View> : null}
+                {data.rating ? <Text style={detailStyles.rating}>⭐ {parseFloat(data.rating).toFixed(1)}</Text> : null}
+              </View>
+            </>
+          )}
+          <View style={detailStyles.actions}>
+            {cwItem && onContinue && (
+              <TouchableOpacity style={detailStyles.playBtn} onPress={onContinue}>
+                <Text style={detailStyles.playBtnText}>
+                  {'▶  Continue'}
+                  {cwItem.seasonNum ? ` S${cwItem.seasonNum}E${String(cwItem.episodeNum).padStart(2, '0')}` : ''}
+                </Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={cwItem ? detailStyles.trailerBtn : detailStyles.playBtn} onPress={onBrowseEpisodes}>
+              <Text style={cwItem ? detailStyles.trailerBtnText : detailStyles.playBtnText}>▶  Browse Episodes</Text>
+            </TouchableOpacity>
+            {!loading && trailer && (
+              <TouchableOpacity style={detailStyles.trailerBtn} onPress={() => setShowTrailer(v => !v)}>
+                <Text style={detailStyles.trailerBtnText}>{showTrailer ? '✕  Close' : '🎬  Trailer'}</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      </View>
+
+      {showTrailer && trailer && (
+        <View style={detailStyles.trailerWrap}>
+          <iframe
+            src={`${trailer}?autoplay=1`}
+            allow="autoplay; encrypted-media; picture-in-picture"
+            allowFullScreen
+            style={{ width: '100%', height: 420, border: 'none', borderRadius: 8 }}
+          />
+        </View>
+      )}
+
+      {(data.plot || data.description || data.overview || data.cast || data.director) && (
+        <View style={detailStyles.meta}>
+          {(data.plot || data.description || data.overview) ? (
+            <Text style={detailStyles.metaPlot}>{data.plot || data.description || data.overview}</Text>
+          ) : null}
+          {data.cast ? <Text style={detailStyles.metaRow}><Text style={detailStyles.metaLabel}>Cast  </Text>{data.cast}</Text> : null}
+          {data.director ? <Text style={detailStyles.metaRow}><Text style={detailStyles.metaLabel}>Director  </Text>{data.director}</Text> : null}
+        </View>
+      )}
+    </ScrollView>
+  );
+}
+
+const detailStyles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: '#0f0f23' },
+  scroll: { paddingBottom: 80 },
+  hero: { width: '100%', height: 520, position: 'relative' },
+  backBtn: { position: 'absolute', top: 20, left: 48, zIndex: 10, paddingVertical: 8, paddingHorizontal: 14, backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 8 },
+  backText: { color: '#e94560', fontSize: 14, fontWeight: '600' },
+  heroBody: { position: 'absolute', bottom: 0, left: 48, right: 48, zIndex: 5, paddingBottom: 40 },
+  title: { color: '#fff', fontSize: 40, fontWeight: '900', letterSpacing: -1, marginBottom: 12 },
+  chips: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14, flexWrap: 'wrap' },
+  chip: { borderWidth: 1, borderColor: '#3a3a5e', borderRadius: 4, paddingHorizontal: 8, paddingVertical: 3 },
+  chipText: { color: '#aaa', fontSize: 12 },
+  rating: { color: '#ffd700', fontSize: 13, fontWeight: '600' },
+  desc: { color: '#ccc', fontSize: 15, lineHeight: 23, marginBottom: 24, maxWidth: 640 },
+  actions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  playBtn: { backgroundColor: '#fff', paddingHorizontal: 28, paddingVertical: 13, borderRadius: 8 },
+  playBtnText: { color: '#000', fontSize: 15, fontWeight: '700' },
+  trailerBtn: { backgroundColor: 'rgba(40,40,60,0.85)', paddingHorizontal: 22, paddingVertical: 13, borderRadius: 8, borderWidth: 1, borderColor: '#3a3a5e' },
+  trailerBtnText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  trailerWrap: { paddingHorizontal: 48, paddingTop: 8, paddingBottom: 24 },
+  meta: { paddingHorizontal: 48, paddingTop: 24, gap: 10 },
+  metaPlot: { color: '#ccc', fontSize: 15, lineHeight: 24, marginBottom: 12 },
+  metaRow: { color: '#aaa', fontSize: 14, lineHeight: 20 },
+  metaLabel: { color: '#fff', fontWeight: '700' },
+});
 
 /* ─── Poster Card ─── */
 function PosterCard({ item, onPress }) {
@@ -36,55 +208,21 @@ function PosterCard({ item, onPress }) {
   );
 }
 
-/* ─── Hero Banner ─── */
-function Hero({ item, onPress }) {
-  if (!item) return null;
-  const bg = item.backdrop_path || item.cover || null;
-  const desc = item.plot || item.description || null;
-  return (
-    <View style={styles.hero} {...({ className: 'lumen-hero' })}>
-      {bg && <Image source={{ uri: bg }} style={[StyleSheet.absoluteFillObject, { objectFit: 'cover', objectPosition: 'center top' }]} resizeMode="cover" />}
-      <View style={StyleSheet.absoluteFillObject} {...({ className: 'lumen-hero-overlay' })} />
-      <View style={styles.heroBody}>
-        <Text style={styles.heroTagline}>SERIES</Text>
-        <Text style={styles.heroTitle} numberOfLines={2}>{item.name}</Text>
-        <View style={styles.heroMeta}>
-          {item.rating ? <Text style={styles.heroRating}>⭐ {item.rating}</Text> : null}
-          {item.release_date ? <View style={styles.chip}><Text style={styles.chipText}>{item.release_date.slice(0, 4)}</Text></View> : null}
-        </View>
-        {desc ? <Text style={styles.heroDesc} numberOfLines={3}>{desc}</Text> : null}
-        <View style={styles.heroActions}>
-          <TouchableOpacity style={styles.btnPlay} onPress={() => onPress(item)} {...({ className: 'lumen-btn-play' })}>
-            <Text style={styles.btnPlayText}>▶  Episodes</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.btnInfo} {...({ className: 'lumen-btn-info' })}>
-            <Text style={styles.btnInfoText}>ⓘ  More Info</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.btnAdd} {...({ className: 'lumen-btn-add' })}>
-            <Text style={styles.btnAddText}>+</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </View>
-  );
-}
 
 const SHELF_PAGE = typeof window !== 'undefined' ? Math.ceil(window.innerWidth / 200) + 2 : 10;
+const GRID_PAGE = 40;
 
-/* ─── Shelf — lazy-loads when visible, renders more as user scrolls right ─── */
-function Shelf({ catId, title, items, onVisible, onPress, onTitlePress }) {
+/* ─── Shelf — lazy-loads when visible, parent drives pagination ─── */
+function Shelf({ catId, title, items, totalCount, hasMore, loadingMore, onVisible, onPress, onTitlePress, onLoadMore, manual }) {
   const sentinelRef = useRef(null);
   const railRef = useRef(null);
   const isDragging = useRef(false);
   const dragStartX = useRef(0);
   const dragStartLeft = useRef(0);
   const hasDragged = useRef(false);
-  const [displayCount, setDisplayCount] = useState(SHELF_PAGE);
-
-  useEffect(() => { setDisplayCount(SHELF_PAGE); }, [catId]);
-
   useEffect(() => {
     if (items !== null) return;
+    if (manual) return;
     const el = sentinelRef.current;
     if (!el || typeof IntersectionObserver === 'undefined') { onVisible(catId); return; }
     const obs = new IntersectionObserver(
@@ -93,11 +231,9 @@ function Shelf({ catId, title, items, onVisible, onPress, onTitlePress }) {
     );
     obs.observe(el);
     return () => obs.disconnect();
-  }, [catId, items, onVisible]);
+  }, [catId, items, onVisible, manual]);
 
   if (items !== null && !items?.length) return null;
-
-  const displayed = items ? items.slice(0, displayCount) : null;
 
   useEffect(() => {
     const el = railRef.current;
@@ -128,7 +264,7 @@ function Shelf({ catId, title, items, onVisible, onPress, onTitlePress }) {
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
     };
-  }, [displayed !== null]);
+  }, [items !== null]);
 
   const scrollBy = (delta) => {
     const el = railRef.current;
@@ -136,11 +272,9 @@ function Shelf({ catId, title, items, onVisible, onPress, onTitlePress }) {
   };
 
   const handleScroll = (e) => {
-    if (!items || displayCount >= items.length) return;
+    if (!hasMore || loadingMore) return;
     const { scrollLeft, scrollWidth, clientWidth } = e.target;
-    if (scrollWidth - scrollLeft - clientWidth < 500) {
-      setDisplayCount((c) => Math.min(c + SHELF_PAGE, items.length));
-    }
+    if (scrollWidth - scrollLeft - clientWidth < 500) onLoadMore(catId);
   };
 
   return (
@@ -150,11 +284,20 @@ function Shelf({ catId, title, items, onVisible, onPress, onTitlePress }) {
         <TouchableOpacity onPress={() => onTitlePress && onTitlePress(catId, title)} {...({ className: 'lumen-shelf-title-btn' })}>
           <Text style={styles.shelfTitle}>{title} <Text style={styles.shelfTitleArrow}>›</Text></Text>
         </TouchableOpacity>
-        {items && <Text style={styles.shelfCount}>{items.length}</Text>}
+        {totalCount != null && <Text style={styles.shelfCount}>{totalCount}</Text>}
       </View>
-      {displayed === null ? (
+      {items === null ? (
         <View style={styles.shelfLoading}>
-          <ActivityIndicator size="small" color="#e94560" />
+          {manual ? (
+            <TouchableOpacity
+              style={styles.loadAllBtn}
+              onPress={() => onTitlePress && onTitlePress(catId, title)}
+            >
+              <Text style={styles.loadAllBtnText}>Load All</Text>
+            </TouchableOpacity>
+          ) : (
+            <ActivityIndicator size="small" color="#e94560" />
+          )}
         </View>
       ) : (
         <div style={{ position: 'relative' }} className="lumen-shelf-rail">
@@ -164,9 +307,14 @@ function Shelf({ catId, title, items, onVisible, onPress, onTitlePress }) {
             onScroll={handleScroll}
             style={{ display: 'flex', overflowX: 'auto', gap: 8, paddingLeft: 48, paddingRight: 48, scrollbarWidth: 'none', msOverflowStyle: 'none', cursor: 'grab' }}
           >
-            {displayed.map((item) => (
+            {items.map((item) => (
               <PosterCard key={String(item.series_id)} item={item} onPress={onPress} />
             ))}
+            {loadingMore && (
+              <View style={[styles.seeMoreCard, { justifyContent: 'center', alignItems: 'center' }]}>
+                <ActivityIndicator size="small" color="#e94560" />
+              </View>
+            )}
           </div>
           <button className="lumen-shelf-nav right" onClick={() => scrollBy(800)}>›</button>
         </div>
@@ -184,8 +332,25 @@ const getEpisodeNumber = (episode) => {
   return num;
 };
 
-/* ─── Category Page ─── */
+/* ─── Category Page — paginates 40 items at a time, with search ─── */
 function CategoryPage({ name, items, onBack, onPress }) {
+  const [displayCount, setDisplayCount] = useState(GRID_PAGE);
+  const [search, setSearch] = useState('');
+
+  const filtered = items
+    ? (search.trim() ? items.filter((i) => i.name?.toLowerCase().includes(search.toLowerCase())) : items)
+    : null;
+  const displayed = filtered ? filtered.slice(0, displayCount) : null;
+  const hasMore = filtered && displayCount < filtered.length;
+
+  useEffect(() => { setDisplayCount(GRID_PAGE); }, [search]);
+
+  const handleScroll = ({ nativeEvent: { layoutMeasurement, contentOffset, contentSize } }) => {
+    if (hasMore && contentSize.height - contentOffset.y - layoutMeasurement.height < 800) {
+      setDisplayCount((c) => Math.min(c + GRID_PAGE, filtered.length));
+    }
+  };
+
   return (
     <View style={styles.root}>
       <View style={styles.catHeader}>
@@ -193,17 +358,33 @@ function CategoryPage({ name, items, onBack, onPress }) {
           <Text style={styles.catBackText}>← Back</Text>
         </TouchableOpacity>
         <Text style={styles.catPageTitle}>{name}</Text>
-        {items && <Text style={styles.catCount}>{items.length} titles</Text>}
+        {filtered != null && (
+          <View style={styles.catCountBadge}>
+            <Text style={styles.catCount}>{filtered.length.toLocaleString()}</Text>
+          </View>
+        )}
+        <TextInput
+          style={styles.catSearch}
+          placeholder="Search titles..."
+          placeholderTextColor="#555"
+          value={search}
+          onChangeText={setSearch}
+        />
       </View>
-      {!items ? (
+      {!displayed ? (
         <View style={styles.center}><ActivityIndicator size="large" color="#e94560" /></View>
       ) : (
-        <ScrollView contentContainerStyle={styles.catGrid}>
+        <ScrollView contentContainerStyle={styles.catGrid} onScroll={handleScroll} scrollEventThrottle={200}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, 200px)', gap: 12, justifyContent: 'center' }}>
-            {items.map((item) => (
+            {displayed.map((item) => (
               <PosterCard key={String(item.series_id)} item={item} onPress={onPress} />
             ))}
           </div>
+          {hasMore && (
+            <View style={{ alignItems: 'center', paddingVertical: 24 }}>
+              <ActivityIndicator size="small" color="#e94560" />
+            </View>
+          )}
         </ScrollView>
       )}
     </View>
@@ -212,16 +393,18 @@ function CategoryPage({ name, items, onBack, onPress }) {
 
 /* ─── Screen ─── */
 export default function SeriesScreen({ navigation }) {
-  const { users, activeUserId, playVideo } = useApp();
+  const { users, activeUserId, playVideo, watchHistory } = useApp();
 
   const [loading, setLoading] = useState(false);
   const [shelves, setShelves] = useState([]);
-  const [heroItem, setHeroItem] = useState(null);
   const [currentCategory, setCurrentCategory] = useState(null);
+  const [categoryItems, setCategoryItems] = useState(null);
   const [currentSeries, setCurrentSeries] = useState(null);
   const [seriesSeasons, setSeriesSeasons] = useState({});
   const [episodeLoading, setEpisodeLoading] = useState(false);
+  const [showEpisodeList, setShowEpisodeList] = useState(false);
   const loadedRef = useRef(new Set());
+  const allShuffledRef = useRef([]);
 
   useEffect(() => { if (activeUserId) load(); }, [activeUserId]);
 
@@ -231,12 +414,14 @@ export default function SeriesScreen({ navigation }) {
     setLoading(true);
     loadedRef.current.clear();
     setShelves([]);
-    setHeroItem(null);
     try {
       iptvApi.setCredentials(user.host, user.username, user.password);
       const cats = await iptvApi.getSeriesCategories();
       if (!cats?.length) { setLoading(false); return; }
-      setShelves(cats.map((c) => ({ id: c.category_id, name: c.category_name, items: null })));
+      setShelves([
+        { id: 'all', name: 'All', items: null, totalCount: null, hasMore: false, loadingMore: false },
+        ...cats.map((c) => ({ id: c.category_id, name: c.category_name, items: null, totalCount: null, hasMore: false, loadingMore: false })),
+      ]);
     } catch (err) {
       console.error('Error loading series:', err);
     } finally {
@@ -244,32 +429,78 @@ export default function SeriesScreen({ navigation }) {
     }
   };
 
-  // Called by each Shelf when it enters the viewport
+  // Loads first page only into state; full result stays in iptvApi cache
   const handleShelfVisible = useCallback(async (catId) => {
     if (loadedRef.current.has(catId)) return;
     loadedRef.current.add(catId);
     try {
-      const series = await iptvApi.getSeries(catId);
-      setShelves((prev) => prev.map((s) => s.id === catId ? { ...s, items: series || [] } : s));
-      setHeroItem((prev) => prev || (series || []).find((s) => s.cover || s.backdrop_path) || null);
+      let all;
+      if (catId === 'all') {
+        const series = await iptvApi.getAllSeries();
+        all = [...(series || [])].sort(() => Math.random() - 0.5);
+        allShuffledRef.current = all;
+      } else {
+        const series = await iptvApi.getSeries(catId);
+        all = series || [];
+      }
+      const firstPage = all.slice(0, SHELF_PAGE);
+      setShelves((prev) => prev.map((s) => s.id === catId
+        ? { ...s, items: firstPage, totalCount: all.length, hasMore: all.length > SHELF_PAGE }
+        : s
+      ));
     } catch {
-      setShelves((prev) => prev.map((s) => s.id === catId ? { ...s, items: [] } : s));
+      setShelves((prev) => prev.map((s) => s.id === catId ? { ...s, items: [], totalCount: 0, hasMore: false } : s));
     }
   }, []);
 
-  const handleTitlePress = (catId, name) => {
-    handleShelfVisible(catId);
+  // Re-calls API (instant cache hit) or uses shuffled ref to append next page
+  const handleLoadMore = useCallback(async (catId) => {
+    setShelves((prev) => prev.map((s) => s.id === catId ? { ...s, loadingMore: true } : s));
+    try {
+      const all = catId === 'all' ? allShuffledRef.current : await iptvApi.getSeries(catId);
+      setShelves((prev) => prev.map((s) => {
+        if (s.id !== catId) return s;
+        const nextItems = (all || []).slice(0, (s.items?.length || 0) + SHELF_PAGE);
+        return { ...s, items: nextItems, hasMore: nextItems.length < (all?.length || 0), loadingMore: false };
+      }));
+    } catch {
+      setShelves((prev) => prev.map((s) => s.id === catId ? { ...s, loadingMore: false } : s));
+    }
+  }, []);
+
+  // Fetches all items for the category grid (cache hit after shelf loaded)
+  const handleTitlePress = async (catId, name) => {
     setCurrentCategory({ catId, name });
+    setCategoryItems(null);
+    try {
+      let all;
+      if (catId === 'all') {
+        if (!allShuffledRef.current.length) {
+          const series = await iptvApi.getAllSeries();
+          allShuffledRef.current = [...(series || [])].sort(() => Math.random() - 0.5);
+        }
+        all = allShuffledRef.current;
+      } else {
+        all = await iptvApi.getSeries(catId);
+        if (!loadedRef.current.has(catId)) handleShelfVisible(catId);
+      }
+      setCategoryItems(all || []);
+    } catch {
+      setCategoryItems([]);
+    }
   };
 
   const handleSeriesPress = async (item) => {
+    setCurrentSeries({ id: item.series_id, name: item.name, cover: item.cover, seriesInfo: null });
+    setShowEpisodeList(false);
     setEpisodeLoading(true);
     try {
       const info = await iptvApi.getSeriesInfo(item.series_id);
       setSeriesSeasons(info.episodes || {});
-      setCurrentSeries({ id: item.series_id, name: item.name, cover: item.cover });
+      setCurrentSeries({ id: item.series_id, name: item.name, cover: item.cover, seriesInfo: info.info || {} });
     } catch (err) {
-      console.error('Error loading episodes:', err);
+      console.error('Error loading series info:', err);
+      setCurrentSeries(prev => prev ? { ...prev, seriesInfo: {} } : null);
     } finally {
       setEpisodeLoading(false);
     }
@@ -281,7 +512,7 @@ export default function SeriesScreen({ navigation }) {
     const name = `${currentSeries.name} — S${String(seasonNum).padStart(2, '0')}E${String(epNum).padStart(2, '0')}`;
     playVideo({
       type: 'series', streamId: episode.id, seriesId: currentSeries.id,
-      seriesName: currentSeries.name, name, url,
+      seriesName: currentSeries.name, name, url, cover: currentSeries.cover,
       seasonNum, episodeNum: epNum, seriesSeasons,
     });
     navigation.navigate('VideoPlayer');
@@ -310,8 +541,27 @@ export default function SeriesScreen({ navigation }) {
     );
   }
 
+  /* ── Series details view ── */
+  if (currentSeries && !showEpisodeList) {
+    return (
+      <SeriesDetailsPage
+        series={currentSeries}
+        seriesInfo={currentSeries.seriesInfo}
+        loading={episodeLoading}
+        onBack={() => { setCurrentSeries(null); setSeriesSeasons({}); setShowEpisodeList(false); }}
+        onBrowseEpisodes={() => setShowEpisodeList(true)}
+        cwItem={currentSeries.cwItem || null}
+        onContinue={currentSeries.cwItem ? () => {
+          const cw = currentSeries.cwItem;
+          playVideo({ ...cw, startTime: cw.currentTime || 0 });
+          navigation.navigate('VideoPlayer');
+        } : null}
+      />
+    );
+  }
+
   /* ── Episode drill-down view ── */
-  if (currentSeries) {
+  if (currentSeries && showEpisodeList) {
     const seasonSections = Object.keys(seriesSeasons)
       .sort((a, b) => parseInt(a) - parseInt(b))
       .map((seasonNum) => ({
@@ -323,66 +573,107 @@ export default function SeriesScreen({ navigation }) {
     return (
       <View style={styles.root}>
         <View style={styles.episodeHeader}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => { setCurrentSeries(null); setSeriesSeasons({}); }}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => setShowEpisodeList(false)}>
             <Text style={styles.backBtnText}>← Back</Text>
           </TouchableOpacity>
           <Text style={styles.episodeSeriesTitle} numberOfLines={1}>{currentSeries.name}</Text>
         </View>
-
-        {episodeLoading ? (
-          <View style={styles.center}><ActivityIndicator size="large" color="#e94560" /></View>
-        ) : (
-          <SectionList
-            sections={seasonSections}
-            keyExtractor={(item) => String(item.id)}
-            contentContainerStyle={styles.episodeList}
-            renderSectionHeader={({ section: { title } }) => (
-              <View style={styles.seasonHeader}>
-                <Text style={styles.seasonTitle}>{title}</Text>
+        <SectionList
+          sections={seasonSections}
+          keyExtractor={(item) => String(item.id)}
+          contentContainerStyle={styles.episodeList}
+          renderSectionHeader={({ section: { title } }) => (
+            <View style={styles.seasonHeader}>
+              <Text style={styles.seasonTitle}>{title}</Text>
+            </View>
+          )}
+          renderItem={({ item, section }) => (
+            <TouchableOpacity
+              style={styles.episodeRow}
+              onPress={() => handleEpisodePress(item, section.seasonNum)}
+            >
+              <View style={styles.epBadge}>
+                <Text style={styles.epNum}>E{getEpisodeNumber(item)}</Text>
               </View>
-            )}
-            renderItem={({ item, section }) => (
-              <TouchableOpacity
-                style={styles.episodeRow}
-                onPress={() => handleEpisodePress(item, section.seasonNum)}
-              >
-                <View style={styles.epBadge}>
-                  <Text style={styles.epNum}>E{getEpisodeNumber(item)}</Text>
-                </View>
-                <View style={styles.epInfo}>
-                  <Text style={styles.epTitle} numberOfLines={1}>{item.title || 'Untitled'}</Text>
-                  {item.info?.duration && <Text style={styles.epDuration}>{item.info.duration}</Text>}
-                </View>
-                <Text style={styles.playIcon}>▶</Text>
-              </TouchableOpacity>
-            )}
-          />
-        )}
+              <View style={styles.epInfo}>
+                <Text style={styles.epTitle} numberOfLines={1}>{item.title || 'Untitled'}</Text>
+                {item.info?.duration && <Text style={styles.epDuration}>{item.info.duration}</Text>}
+              </View>
+              <Text style={styles.playIcon}>▶</Text>
+            </TouchableOpacity>
+          )}
+        />
       </View>
     );
   }
 
   /* ── Category page ── */
   if (currentCategory) {
-    const shelf = shelves.find((s) => s.id === currentCategory.catId);
     return (
       <CategoryPage
         name={currentCategory.name}
-        items={shelf?.items ?? null}
-        onBack={() => setCurrentCategory(null)}
+        items={categoryItems}
+        onBack={() => { setCurrentCategory(null); setCategoryItems(null); }}
         onPress={handleSeriesPress}
       />
     );
   }
 
   /* ── Browse view ── */
+  const continueWatching = watchHistory.filter((item) =>
+    item.type === 'series' && item.currentTime > 0 &&
+    (item.duration <= 0 || item.currentTime / item.duration < 0.95)
+  );
+
+  const handleCWPress = async (cwItem) => {
+    setCurrentSeries({ id: cwItem.seriesId, name: cwItem.seriesName || cwItem.name, cover: cwItem.cover, seriesInfo: null, cwItem });
+    setShowEpisodeList(false);
+    setEpisodeLoading(true);
+    try {
+      const info = await iptvApi.getSeriesInfo(cwItem.seriesId);
+      setSeriesSeasons(info.episodes || {});
+      setCurrentSeries(prev => prev ? { ...prev, seriesInfo: info.info || {} } : null);
+    } catch {
+      setCurrentSeries(prev => prev ? { ...prev, seriesInfo: {} } : null);
+    } finally {
+      setEpisodeLoading(false);
+    }
+  };
+
   return (
     <ScrollView style={styles.root} contentContainerStyle={styles.scroll}>
-      <Hero item={heroItem} onPress={handleSeriesPress} />
+      {continueWatching.length > 0 && (
+        <View style={styles.cwSection}>
+          <View style={styles.cwHeader}>
+            <Text style={styles.cwSectionTitle}>Continue Watching</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('mylist')}>
+              <Text style={styles.seeHistory}>See history ›</Text>
+            </TouchableOpacity>
+          </View>
+          <div style={{ display: 'flex', overflowX: 'auto', gap: 12, paddingLeft: 48, paddingRight: 48, scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            {continueWatching.map((item) => (
+              <CWCard key={item.id} item={item} onPress={() => handleCWPress(item)} />
+            ))}
+          </div>
+        </View>
+      )}
       <View style={styles.pageBody}>
         {shelves.length > 0 ? (
           shelves.map((shelf) => (
-            <Shelf key={shelf.id} catId={shelf.id} title={shelf.name} items={shelf.items} onVisible={handleShelfVisible} onPress={handleSeriesPress} onTitlePress={handleTitlePress} />
+            <Shelf
+              key={shelf.id}
+              catId={shelf.id}
+              title={shelf.name}
+              items={shelf.items}
+              totalCount={shelf.totalCount}
+              hasMore={shelf.hasMore}
+              loadingMore={shelf.loadingMore}
+              onVisible={handleShelfVisible}
+              onPress={handleSeriesPress}
+              onTitlePress={handleTitlePress}
+              onLoadMore={handleLoadMore}
+              manual={shelf.id === 'all'}
+            />
           ))
         ) : (
           <View style={styles.emptyState}>
@@ -436,22 +727,31 @@ const styles = StyleSheet.create({
   btnAddText: { color: '#fff', fontSize: 18 },
 
   /* ── Page body ── */
-  pageBody: { paddingTop: 20 },
+  pageBody: { paddingTop: 0 },
+  cwSection: { paddingTop: 28, paddingBottom: 8 },
+  cwHeader: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', paddingHorizontal: 48, marginBottom: 14 },
+  cwSectionTitle: { color: '#fff', fontSize: 22, fontWeight: '700', letterSpacing: -0.3 },
+  seeHistory: { color: '#888', fontSize: 13 },
   catHeader: {
-    flexDirection: 'row', alignItems: 'center', gap: 16,
-    paddingHorizontal: 48, paddingVertical: 20,
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    paddingHorizontal: 48, paddingVertical: 18,
     borderBottomWidth: 1, borderBottomColor: '#2a2a4e',
   },
-  catBackBtn: { paddingVertical: 8, paddingHorizontal: 14, backgroundColor: '#1a1a2e', borderRadius: 8 },
+  catBackBtn: { paddingVertical: 8, paddingHorizontal: 14, backgroundColor: '#1a1a2e', borderRadius: 8, flexShrink: 0 },
   catBackText: { color: '#e94560', fontSize: 14, fontWeight: '600' },
-  catPageTitle: { color: '#fff', fontSize: 22, fontWeight: '700', flex: 1 },
-  catCount: { color: '#555', fontSize: 13 },
+  catPageTitle: { color: '#fff', fontSize: 22, fontWeight: '700', flexShrink: 0 },
+  catCountBadge: { backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4, flexShrink: 0 },
+  catCount: { color: '#888', fontSize: 12, fontWeight: '600' },
   catGrid: { paddingHorizontal: 48, paddingVertical: 32 },
+  catSearchRow: { paddingHorizontal: 48, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#1e1e38' },
+  catSearch: { flex: 1, backgroundColor: '#1a1a2e', color: '#fff', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, fontSize: 14, borderWidth: 1, borderColor: '#2a2a4e', minWidth: 0 },
   shelfTitleArrow: { color: '#e94560', fontSize: 18 },
 
   /* ── Shelf ── */
   shelf: { paddingTop: 28, paddingBottom: 8, overflow: 'visible' },
   shelfLoading: { paddingHorizontal: 48, paddingVertical: 18 },
+  loadAllBtn: { alignSelf: 'flex-start', backgroundColor: '#e94560', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
+  loadAllBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
   shelfHead: {
     flexDirection: 'row', alignItems: 'baseline',
     justifyContent: 'space-between', paddingHorizontal: 48, marginBottom: 14,
