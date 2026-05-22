@@ -2,6 +2,7 @@
   "expo": {
     "name": "IPTV Player",
     "slug": "iptv-player",
+    "scheme": "iptv-player",
     "version": "1.0.0",
     "orientation": "default",
     "icon": "./react-native/assets/icon.png",
