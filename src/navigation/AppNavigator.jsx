@@ -7,6 +7,7 @@ import { useApp } from '../context/AppContext';
 import { isSupabaseConfigured } from '../services/supabase';
 
 import AuthScreen from '../screens/AuthScreen';
+import ProfilesScreen from '../screens/ProfilesScreen';
 import LiveTVScreen from '../screens/LiveTVScreen';
 import MoviesScreen from '../screens/MoviesScreen';
 import SeriesScreen from '../screens/SeriesScreen';
@@ -53,8 +54,10 @@ function MainTabs() {
 }
 
 export default function AppNavigator() {
-  const { authUser, authLoading } = useApp();
+  const { authUser, authLoading, activeProfileId } = useApp();
   if (authLoading) return null;
+
+  if (!activeProfileId) return <ProfilesScreen />;
 
   return (
     <NavigationContainer>

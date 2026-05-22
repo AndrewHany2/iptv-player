@@ -4,6 +4,7 @@ import { useApp } from '../context/AppContext';
 import { isSupabaseConfigured } from '../services/supabase';
 
 import AuthScreen from '../screens/AuthScreen';
+import ProfilesScreen from '../screens/ProfilesScreen';
 import LiveTVScreen from '../screens/LiveTVScreen';
 import MoviesScreen from '../screens/MoviesScreen';
 import SeriesScreen from '../screens/SeriesScreen';
@@ -25,7 +26,7 @@ const CONTENT_MAP = {
   history: HistoryScreen,
 };
 
-function Sidebar({ active, focusedIdx, itemRefs, onSelect, onKeyDown, profile, signOut, signOutRef }) {
+function Sidebar({ active, focusedIdx, itemRefs, onSelect, onKeyDown, profile, activeProfile, onSwitchProfile, signOut, signOutRef }) {
   return (
     <YStack
       width={200}
@@ -64,11 +65,31 @@ function Sidebar({ active, focusedIdx, itemRefs, onSelect, onKeyDown, profile, s
 
       <YStack flex={1} />
 
+      {activeProfile && (
+        <YStack paddingVertical="$2" paddingHorizontal="$3">
+          <Text color="#aaa" fontSize="$2">{activeProfile.avatar} {activeProfile.name}</Text>
+        </YStack>
+      )}
+
       {profile?.username && (
         <YStack paddingVertical="$2" paddingHorizontal="$3">
           <Text color="#6abf69" fontSize="$2">👤 {profile.username}</Text>
         </YStack>
       )}
+
+      <YStack
+        tabIndex={0}
+        focusable
+        paddingVertical="$3"
+        paddingHorizontal="$3"
+        borderRadius="$3"
+        hoverStyle={{ backgroundColor: '#2a2a4e' }}
+        focusStyle={{ backgroundColor: '#2a2a4e', outlineWidth: 0 }}
+        cursor="pointer"
+        onPress={onSwitchProfile}
+      >
+        <Text color="#888" fontSize="$4">🔀  Switch Profile</Text>
+      </YStack>
 
       <YStack
         ref={signOutRef}
@@ -90,7 +111,7 @@ function Sidebar({ active, focusedIdx, itemRefs, onSelect, onKeyDown, profile, s
 }
 
 export default function AppNavigator() {
-  const { authUser, authLoading, profile, signOut, currentVideo } = useApp();
+  const { authUser, authLoading, profile, signOut, currentVideo, activeProfileId, activeProfile, switchProfile } = useApp();
   const [activeTab, setActiveTab] = useState('live');
   const [showAccounts, setShowAccounts] = useState(false);
   const [focusedIdx, setFocusedIdx] = useState(0);
@@ -142,6 +163,8 @@ export default function AppNavigator() {
 
   if (isSupabaseConfigured() && !authUser) return <AuthScreen />;
 
+  if (!activeProfileId) return <ProfilesScreen />;
+
   const ContentComponent = CONTENT_MAP[activeTab] || LiveTVScreen;
 
   return (
@@ -154,6 +177,8 @@ export default function AppNavigator() {
         onSelect={setActiveTab}
         onKeyDown={handleKeyDown}
         profile={profile}
+        activeProfile={activeProfile}
+        onSwitchProfile={() => switchProfile(null)}
         signOut={signOut}
       />
 

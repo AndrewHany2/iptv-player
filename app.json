@@ -5,17 +5,17 @@
     "scheme": "iptv-player",
     "version": "1.0.0",
     "orientation": "default",
-    "icon": "./react-native/assets/icon.png",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "splash": {
-      "image": "./react-native/assets/splash-icon.png",
+      "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#0f0f23"
     },
     "web": {
       "bundler": "metro",
       "output": "single",
-      "favicon": "./react-native/assets/icon.png"
+      "favicon": "./assets/icon.png"
     },
     "ios": {
       "supportsTablet": true,
@@ -31,9 +31,9 @@
       "usesCleartextTraffic": true,
       "adaptiveIcon": {
         "backgroundColor": "#0f0f23",
-        "foregroundImage": "./react-native/assets/android-icon-foreground.png",
-        "backgroundImage": "./react-native/assets/android-icon-background.png",
-        "monochromeImage": "./react-native/assets/android-icon-monochrome.png"
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "package": "com.andrew1h1.iptvplayer"
     },
