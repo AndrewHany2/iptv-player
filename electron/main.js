@@ -39,9 +39,9 @@ function createWindow() {
   mainWindow.maximize();
 
   if (isDev) {
-    mainWindow.loadURL("http://localhost:3001");
+    mainWindow.loadURL("http://localhost:3001"); // expo start --web --port 3001
   } else {
-    mainWindow.loadFile(path.join(__dirname, "dist/index.html"));
+    mainWindow.loadFile(path.join(__dirname, "../dist/index.html")); // expo export output
   }
 
   mainWindow.on("closed", () => {

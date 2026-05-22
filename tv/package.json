@@ -12,7 +12,10 @@
     "deploy:lg:debug": "npm run build:native && ares-package packaging/lg -o packaging/lg/out --no-minify && ares-install --device tv packaging/lg/out/*.ipk && ares-launch --device tv com.andrewhany.iptvplayer --inspect && ares-inspect --device tv --app com.andrewhany.iptvplayer --open"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.97.0"
+    "@iptv/shared": "*",
+    "@supabase/supabase-js": "^2.97.0",
+    "react-native-web": "^0.21.2",
+    "tamagui": "^2.0.0-rc.42"
   },
   "devDependencies": {
     "@vitejs/plugin-legacy": "^7.2.1",

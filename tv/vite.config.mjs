@@ -14,6 +14,12 @@ const removeModuleType = () => ({
 export default defineConfig({
   plugins: [react(), removeModuleType()],
 
+  resolve: {
+    alias: {
+      "react-native": "react-native-web",
+    },
+  },
+
   base: "./",
 
   build: {

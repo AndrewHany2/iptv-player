@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { createSupabaseApi } from "@iptv/shared";
 
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || "";
 const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || "";
@@ -16,148 +17,22 @@ export const supabase =
       })
     : null;
 
-export const isSupabaseConfigured = () => !!supabase;
+export const {
+  isSupabaseConfigured,
+  getSession,
+  signUp,
+  upsertProfile,
+  signIn,
+  signOut,
+  onAuthStateChange,
+  fetchProfile,
+  fetchRemoteHistory,
+  upsertHistoryEntry,
+  deleteHistoryEntry,
+  mergeHistories,
+} = createSupabaseApi(supabase);
 
-// ─── Auth ────────────────────────────────────────────────────────────────────
-
-export async function getSession() {
-  if (!supabase) return null;
-  const { data } = await supabase.auth.getSession();
-  return data.session;
-}
-
-export async function signUp(username, password, email) {
-  const { data: existing } = await supabase
-    .from("profiles")
-    .select("username")
-    .eq("username", username.toLowerCase())
-    .maybeSingle();
-
-  if (existing) throw new Error("Username is already taken.");
-
-  const { data, error } = await supabase.auth.signUp({
-    email: email.toLowerCase(),
-    password,
-    options: {
-      data: { username: username.toLowerCase() },
-    },
-  });
-  if (error) {
-    if (error.message?.toLowerCase().includes("rate limit")) {
-      throw new Error(
-        "Too many sign-up attempts. Please wait a few minutes and try again.",
-      );
-    }
-    throw new Error(error.message);
-  }
-
-  // If email confirmation is disabled, Supabase returns a session immediately.
-  // We must sign in to get an authenticated session before upserting the profile,
-  // because RLS blocks anonymous inserts into the profiles table.
-  if (data.session && data.user) {
-    // Session is already set — upsert profile now (we are authenticated)
-    await upsertProfile(
-      data.user.id,
-      username.toLowerCase(),
-      email.toLowerCase(),
-    );
-  } else if (data.user && !data.session) {
-    // Email confirmation is required — sign in after confirmation
-    // Profile will be upserted by AppContext's onAuthStateChange handler
-  }
-
-  return data.user;
-}
-
-export async function upsertProfile(userId, username, email) {
-  if (!supabase) return;
-  const { error } = await supabase
-    .from("profiles")
-    .upsert({ user_id: userId, username, email }, { onConflict: "user_id" });
-  if (error) console.error("[Supabase] upsertProfile:", error.message);
-}
-
-export async function signIn(usernameOrEmail, password) {
-  let email;
-
-  if (usernameOrEmail.includes("@")) {
-    email = usernameOrEmail.toLowerCase();
-  } else {
-    // Look up email by username in profiles table
-    const { data: profileRow, error: lookupError } = await supabase
-      .from("profiles")
-      .select("email")
-      .eq("username", usernameOrEmail.toLowerCase())
-      .maybeSingle();
-
-    if (lookupError)
-      throw new Error("Could not look up username. Please try again.");
-
-    if (!profileRow?.email) {
-      // Profile not found — this can happen if the user registered before
-      // profile creation was fixed. Ask them to use their email to sign in.
-      throw new Error(
-        "Username not found. Please sign in with your email address instead.",
-      );
-    }
-    email = profileRow.email;
-  }
-
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
-  if (error) {
-    if (error.code === "email_not_confirmed") {
-      throw new Error(
-        "Your email is not confirmed. Please check your inbox and confirm your account.",
-      );
-    }
-    if (
-      error.message?.toLowerCase().includes("invalid login credentials") ||
-      error.code === "invalid_credentials"
-    ) {
-      throw new Error("Invalid email or password.");
-    }
-    throw new Error(error.message);
-  }
-
-  // After successful sign-in, ensure profile exists (fixes accounts created before profile fix)
-  if (data.user) {
-    const meta = data.user.user_metadata;
-    if (meta?.username) {
-      await upsertProfile(data.user.id, meta.username, data.user.email);
-    }
-  }
-
-  return data.user;
-}
-
-export async function signOut() {
-  const { error } = await supabase.auth.signOut();
-  if (error) throw new Error(error.message);
-}
-
-export function onAuthStateChange(callback) {
-  if (!supabase) return () => {};
-  const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-    callback(session?.user ?? null);
-  });
-  return () => data.subscription.unsubscribe();
-}
-
-export async function fetchProfile(userId) {
-  if (!supabase) return null;
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("username, email")
-    .eq("user_id", userId)
-    .single();
-  if (error) return null;
-  return data;
-}
-
-// ─── IPTV Accounts ───────────────────────────────────────────────────────────
+// ─── IPTV Accounts (scoped to user_id) ───────────────────────────────────────
 
 export async function fetchIptvAccounts(userId) {
   if (!supabase) return [];
@@ -166,11 +41,7 @@ export async function fetchIptvAccounts(userId) {
     .select("*")
     .eq("user_id", userId)
     .order("created_at", { ascending: true });
-
-  if (error) {
-    console.error("[Supabase] fetchIptvAccounts:", error.message);
-    return [];
-  }
+  if (error) { console.error("[Supabase] fetchIptvAccounts:", error.message); return []; }
   return data.map((row) => ({
     id: row.id,
     nickname: row.nickname || "",
@@ -193,11 +64,7 @@ export async function insertIptvAccount(userId, account) {
     })
     .select()
     .single();
-
-  if (error) {
-    console.error("[Supabase] insertIptvAccount:", error.message);
-    return null;
-  }
+  if (error) { console.error("[Supabase] insertIptvAccount:", error.message); return null; }
   return data.id;
 }
 
@@ -222,60 +89,4 @@ export async function deleteIptvAccount(accountId) {
     .delete()
     .eq("id", accountId);
   if (error) console.error("[Supabase] deleteIptvAccount:", error.message);
-}
-
-// ─── Watch History ────────────────────────────────────────────────────────────
-
-export async function fetchRemoteHistory(userKey) {
-  if (!supabase) return [];
-  const { data, error } = await supabase
-    .from("watch_history")
-    .select("entry")
-    .eq("user_key", userKey)
-    .order("watched_at", { ascending: false })
-    .limit(50);
-
-  if (error) {
-    console.error("[Supabase] fetchRemoteHistory:", error.message);
-    return [];
-  }
-  return data.map((row) => row.entry);
-}
-
-export async function upsertHistoryEntry(userKey, entry) {
-  if (!supabase) return;
-  const { error } = await supabase.from("watch_history").upsert(
-    {
-      user_key: userKey,
-      entry_id: entry.id,
-      entry,
-      watched_at: entry.watchedAt,
-    },
-    { onConflict: "user_key,entry_id" },
-  );
-  if (error) console.error("[Supabase] upsertHistoryEntry:", error.message);
-}
-
-export async function deleteHistoryEntry(userKey, entryId) {
-  if (!supabase) return;
-  const { error } = await supabase
-    .from("watch_history")
-    .delete()
-    .eq("user_key", userKey)
-    .eq("entry_id", entryId);
-  if (error) console.error("[Supabase] deleteHistoryEntry:", error.message);
-}
-
-export function mergeHistories(local, remote) {
-  const map = new Map();
-  for (const item of local) map.set(item.id, item);
-  for (const item of remote) {
-    const existing = map.get(item.id);
-    if (!existing || new Date(item.watchedAt) > new Date(existing.watchedAt)) {
-      map.set(item.id, item);
-    }
-  }
-  return Array.from(map.values())
-    .sort((a, b) => new Date(b.watchedAt) - new Date(a.watchedAt))
-    .slice(0, 20);
 }

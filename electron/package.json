@@ -22,8 +22,11 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@iptv/shared": "*",
     "@supabase/supabase-js": "^2.97.0",
-    "express": "^4.22.1"
+    "express": "^4.22.1",
+    "react-native-web": "^0.21.2",
+    "tamagui": "^2.0.0-rc.42"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^5.1.4",
