@@ -371,20 +371,20 @@ const styles = StyleSheet.create({
 
   /* ── Live card ── */
   card: {
-    width: 240,
+    width: 160,
     backgroundColor: '#1a1a2e',
     borderWidth: 1, borderColor: '#2a2a4e',
-    borderRadius: 10, padding: 14, flexShrink: 0,
+    borderRadius: 10, padding: 10, flexShrink: 0,
   },
-  cardHead: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
-  cardLogo: { width: 36, height: 36, borderRadius: 6, backgroundColor: '#0f0f23' },
+  cardHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  cardLogo: { width: 28, height: 28, borderRadius: 5, backgroundColor: '#0f0f23' },
   cardAbbrev: {
-    width: 36, height: 36, borderRadius: 6,
+    width: 28, height: 28, borderRadius: 5,
     backgroundColor: '#16213e', borderWidth: 1, borderColor: '#2a2a4e',
     justifyContent: 'center', alignItems: 'center', flexShrink: 0,
   },
-  cardAbbrevText: { color: '#e94560', fontWeight: '800', fontSize: 11, letterSpacing: 0.5 },
-  cardName: { flex: 1, color: '#fff', fontSize: 13, fontWeight: '600' },
+  cardAbbrevText: { color: '#e94560', fontWeight: '800', fontSize: 10, letterSpacing: 0.5 },
+  cardName: { flex: 1, color: '#fff', fontSize: 12, fontWeight: '600' },
   liveBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     backgroundColor: 'rgba(233,69,96,0.15)',

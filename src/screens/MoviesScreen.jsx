@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, memo } from 'react';
 import {
   View,
   Text,
@@ -10,13 +10,28 @@ import {
   ActivityIndicator,
   Image,
   SectionList,
+  Linking,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useApp } from '../context/AppContext';
+
+const GradientOverlay = memo(({ style }) => (
+  <View style={style} pointerEvents="none">
+    <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, top: '45%', backgroundColor: 'rgba(0,0,0,0.82)' }} />
+  </View>
+));
 import iptvApi from '../services/iptvApi';
 
 const SHELF_PAGE = 12;
 const GRID_PAGE = 40;
+
+const getTrailerUrl = (trailer) => {
+  if (!trailer) return null;
+  const match = trailer.match(/(?:v=|youtu\.be\/|embed\/)([A-Za-z0-9_-]{11})/);
+  if (match) return `https://www.youtube.com/watch?v=${match[1]}`;
+  if (/^[A-Za-z0-9_-]{11}$/.test(trailer.trim()))
+    return `https://www.youtube.com/watch?v=${trailer.trim()}`;
+  return null;
+};
 
 const formatTimeLeft = (cur, dur) => {
   if (!dur || !cur) return null;
@@ -28,7 +43,7 @@ const formatTimeLeft = (cur, dur) => {
 };
 
 /* ─── Poster Card ─── */
-function PosterCard({ item, onPress }) {
+const PosterCard = memo(function PosterCard({ item, onPress }) {
   const poster = item.stream_icon || item.cover || item.movie_image || null;
   return (
     <TouchableOpacity style={styles.poster} onPress={() => onPress(item)} activeOpacity={0.8}>
@@ -37,10 +52,7 @@ function PosterCard({ item, onPress }) {
       ) : (
         <View style={[StyleSheet.absoluteFillObject, styles.posterNoBg]} />
       )}
-      <LinearGradient
-        colors={['transparent', 'rgba(0,0,0,0.6)', 'rgba(0,0,0,0.9)']}
-        style={[StyleSheet.absoluteFillObject, { justifyContent: 'flex-end' }]}
-      />
+      <GradientOverlay style={StyleSheet.absoluteFillObject} />
       <View style={styles.hdBadge}>
         <Text style={styles.hdText}>HD</Text>
       </View>
@@ -51,10 +63,10 @@ function PosterCard({ item, onPress }) {
       </View>
     </TouchableOpacity>
   );
-}
+});
 
 /* ─── Continue Watching Card ─── */
-function CWCard({ item, onPress }) {
+const CWCard = memo(function CWCard({ item, onPress }) {
   const progress = item.duration > 0 ? Math.min((item.currentTime / item.duration) * 100, 100) : 15;
   const timeLeft = formatTimeLeft(item.currentTime, item.duration);
   const bg = item.cover || item.movie_image || item.stream_icon || null;
@@ -67,10 +79,7 @@ function CWCard({ item, onPress }) {
         ) : (
           <View style={[StyleSheet.absoluteFillObject, cwStyles.noBg]} />
         )}
-        <LinearGradient
-          colors={['transparent', 'rgba(0,0,0,0.75)']}
-          style={StyleSheet.absoluteFillObject}
-        />
+        <GradientOverlay style={StyleSheet.absoluteFillObject} />
         <View style={cwStyles.playOverlay}>
           <Text style={cwStyles.playIcon}>▶</Text>
         </View>
@@ -87,7 +96,7 @@ function CWCard({ item, onPress }) {
       </View>
     </TouchableOpacity>
   );
-}
+});
 
 const cwStyles = StyleSheet.create({
   card: { width: 260, flexShrink: 0 },
@@ -148,6 +157,7 @@ function Shelf({ shelf, onVisible, onPress, onTitlePress, onLoadMore }) {
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
+          removeClippedSubviews
           contentContainerStyle={styles.shelfTrack}
           onScroll={(e) => {
             if (!shelf.hasMore || shelf.loadingMore) return;
@@ -176,6 +186,7 @@ function Shelf({ shelf, onVisible, onPress, onTitlePress, onLoadMore }) {
 function DetailsPage({ item, info, onBack, onPlay, resumeTime = 0 }) {
   const data = info?.info || {};
   const backdrop = data.backdrop_path?.[0] || data.cover_big || item.stream_icon || item.cover || item.movie_image || null;
+  const trailer = getTrailerUrl(data.youtube_trailer);
   const year = (data.releasedate || data.release_date || '').slice(0, 4);
   const isLoading = info === null;
 
@@ -188,10 +199,7 @@ function DetailsPage({ item, info, onBack, onPlay, resumeTime = 0 }) {
         ) : (
           <View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#16213e' }]} />
         )}
-        <LinearGradient
-          colors={['rgba(15,15,35,0.15)', 'rgba(15,15,35,0.65)', '#0f0f23']}
-          style={StyleSheet.absoluteFillObject}
-        />
+        <GradientOverlay style={StyleSheet.absoluteFillObject} />
         <TouchableOpacity style={detailStyles.backBtn} onPress={onBack}>
           <Text style={detailStyles.backText}>← Back</Text>
         </TouchableOpacity>
@@ -220,6 +228,11 @@ function DetailsPage({ item, info, onBack, onPlay, resumeTime = 0 }) {
             ) : (
               <TouchableOpacity style={detailStyles.playBtn} onPress={() => onPlay(0)}>
                 <Text style={detailStyles.playBtnText}>▶  Play Now</Text>
+              </TouchableOpacity>
+            )}
+            {!isLoading && !!trailer && (
+              <TouchableOpacity style={detailStyles.secondaryBtn} onPress={() => Linking.openURL(trailer)}>
+                <Text style={detailStyles.secondaryBtnText}>🎬  Trailer</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -508,45 +521,49 @@ export default function MoviesScreen({ navigation }) {
     }
   };
 
-  return (
-    <ScrollView style={styles.root} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-      {/* Continue Watching */}
-      {continueWatching.length > 0 && (
-        <View style={styles.cwSection}>
-          <View style={styles.cwHeader}>
-            <Text style={styles.cwSectionTitle}>Continue Watching</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('mylist')}>
-              <Text style={styles.seeHistory}>See history ›</Text>
-            </TouchableOpacity>
-          </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.cwTrack}>
-            {continueWatching.map((item) => (
-              <CWCard key={item.id} item={item} onPress={() => handleCWPress(item)} />
-            ))}
-          </ScrollView>
-        </View>
-      )}
-
-      {/* Category shelves */}
-      <View style={styles.pageBody}>
-        {shelves.length > 0 ? (
-          shelves.map((shelf) => (
-            <Shelf
-              key={shelf.id}
-              shelf={shelf}
-              onVisible={handleShelfVisible}
-              onPress={handleMoviePress}
-              onTitlePress={handleTitlePress}
-              onLoadMore={handleLoadMore}
-            />
-          ))
-        ) : (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>No movies found</Text>
-          </View>
-        )}
+  const cwHeader = continueWatching.length > 0 ? (
+    <View style={styles.cwSection}>
+      <View style={styles.cwHeader}>
+        <Text style={styles.cwSectionTitle}>Continue Watching</Text>
+        <TouchableOpacity onPress={() => navigation.navigate('mylist')}>
+          <Text style={styles.seeHistory}>See history ›</Text>
+        </TouchableOpacity>
       </View>
-    </ScrollView>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} removeClippedSubviews contentContainerStyle={styles.cwTrack}>
+        {continueWatching.map((item) => (
+          <CWCard key={item.id} item={item} onPress={() => handleCWPress(item)} />
+        ))}
+      </ScrollView>
+    </View>
+  ) : null;
+
+  return (
+    <FlatList
+      style={styles.root}
+      contentContainerStyle={styles.scroll}
+      showsVerticalScrollIndicator={false}
+      data={shelves}
+      keyExtractor={(item) => String(item.id)}
+      ListHeaderComponent={cwHeader}
+      renderItem={({ item }) => (
+        <Shelf
+          shelf={item}
+          onVisible={handleShelfVisible}
+          onPress={handleMoviePress}
+          onTitlePress={handleTitlePress}
+          onLoadMore={handleLoadMore}
+        />
+      )}
+      ListEmptyComponent={
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyText}>No movies found</Text>
+        </View>
+      }
+      windowSize={5}
+      maxToRenderPerBatch={3}
+      initialNumToRender={3}
+      removeClippedSubviews
+    />
   );
 }
 

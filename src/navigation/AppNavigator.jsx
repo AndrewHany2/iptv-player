@@ -57,20 +57,15 @@ export default function AppNavigator() {
   const { authUser, authLoading, activeProfileId } = useApp();
   if (authLoading) return null;
 
+  if (isSupabaseConfigured() && !authUser) return <AuthScreen />;
   if (!activeProfileId) return <ProfilesScreen />;
 
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerStyle: { backgroundColor: '#1a1a2e' }, headerTintColor: '#fff', contentStyle: { backgroundColor: '#0f0f23' } }}>
-        {isSupabaseConfigured() && !authUser ? (
-          <Stack.Screen name="Auth" component={AuthScreen} options={{ headerShown: false }} />
-        ) : (
-          <>
-            <Stack.Screen name="Main"        component={MainTabs}        options={{ headerShown: false }} />
-            <Stack.Screen name="VideoPlayer" component={VideoPlayerScreen} options={{ headerShown: false, presentation: 'fullScreenModal' }} />
-            <Stack.Screen name="Accounts"    component={AccountsScreen}   options={{ title: 'IPTV Accounts', presentation: 'modal', headerStyle: { backgroundColor: '#1a1a2e' }, headerTintColor: '#fff' }} />
-          </>
-        )}
+        <Stack.Screen name="Main"        component={MainTabs}        options={{ headerShown: false }} />
+        <Stack.Screen name="VideoPlayer" component={VideoPlayerScreen} options={{ headerShown: false, presentation: 'fullScreenModal' }} />
+        <Stack.Screen name="Accounts"    component={AccountsScreen}   options={{ title: 'IPTV Accounts', presentation: 'modal', headerStyle: { backgroundColor: '#1a1a2e' }, headerTintColor: '#fff' }} />
       </Stack.Navigator>
     </NavigationContainer>
   );
