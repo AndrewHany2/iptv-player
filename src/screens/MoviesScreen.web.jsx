@@ -7,57 +7,6 @@ import { useApp } from '../context/AppContext';
 import iptvApi from '../services/iptvApi';
 import tmdbApi from '../services/tmdbApi';
 
-const formatTimeLeft = (cur, dur) => {
-  if (!dur || !cur) return null;
-  const left = dur - cur;
-  if (left <= 60) return null;
-  const h = Math.floor(left / 3600);
-  const m = Math.floor((left % 3600) / 60);
-  return h > 0 ? `${h}h ${m}m left` : `${m}m left`;
-};
-
-/* ─── Continue Watching Card ─── */
-function CWCard({ item, onPress }) {
-  const progress = item.duration > 0 ? Math.min((item.currentTime / item.duration) * 100, 100) : 15;
-  const timeLeft = formatTimeLeft(item.currentTime, item.duration);
-  const bg = item.cover || item.movie_image || item.stream_icon || null;
-
-  return (
-    <TouchableOpacity style={cwStyles.card} onPress={onPress} {...({ className: 'lumen-cw-card' })}>
-      <View style={cwStyles.inner}>
-        {bg ? (
-          <Image source={{ uri: bg }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
-        ) : (
-          <View style={[StyleSheet.absoluteFillObject, cwStyles.noBg]} />
-        )}
-        <View style={[StyleSheet.absoluteFillObject, { background: 'linear-gradient(to top right, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.1) 60%, rgba(0,0,0,0) 100%)' }]} />
-        <div className="lumen-cw-play">▶</div>
-        <View style={cwStyles.bottom}>
-          <Text style={cwStyles.title} numberOfLines={1}>{item.name?.toUpperCase()}</Text>
-          <View style={cwStyles.bar}><View style={[cwStyles.barFill, { width: `${progress}%` }]} /></View>
-        </View>
-      </View>
-      <View style={cwStyles.meta}>
-        <Text style={cwStyles.name} numberOfLines={1}>{item.name}</Text>
-        {timeLeft && <Text style={cwStyles.timeLeft}>{timeLeft}</Text>}
-      </View>
-    </TouchableOpacity>
-  );
-}
-
-const cwStyles = StyleSheet.create({
-  card: { width: 320, flexShrink: 0 },
-  inner: { width: 320, height: 180, borderRadius: 8, backgroundColor: '#16213e', overflow: 'hidden' },
-  noBg: { backgroundColor: '#16213e' },
-  bottom: { position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 4, paddingHorizontal: 12 },
-  title: { color: '#fff', fontSize: 13, fontWeight: '800', letterSpacing: 0.3, marginBottom: 6 },
-  bar: { height: 3, backgroundColor: 'rgba(255,255,255,0.18)' },
-  barFill: { height: '100%', backgroundColor: '#e94560' },
-  meta: { paddingTop: 10, paddingHorizontal: 2 },
-  name: { color: '#fff', fontSize: 13, fontWeight: '600', marginBottom: 2 },
-  timeLeft: { color: '#888', fontSize: 12 },
-});
-
 const getTrailerUrl = (trailer) => {
   if (!trailer) return null;
   const match = trailer.match(/(?:v=|youtu\.be\/|embed\/)([A-Za-z0-9_-]{11})/);
@@ -69,12 +18,22 @@ const getTrailerUrl = (trailer) => {
 
 /* ─── Movie Details Page ─── */
 function DetailsPage({ item, info, onBack, onPlay, resumeTime = 0 }) {
+  const { addToMyList, removeFromMyList, isInMyList } = useApp();
   const [showTrailer, setShowTrailer] = useState(false);
   const data = info?.info || {};
   const backdrop = data.backdrop_path?.[0] || data.cover_big || item.stream_icon || item.cover || item.movie_image || null;
   const trailer = getTrailerUrl(data.youtube_trailer);
   const year = (data.releasedate || data.release_date || '').slice(0, 4);
   const isLoading = info === null;
+  const streamId = item.stream_id ?? item.streamId;
+  const inFav = isInMyList('movies', streamId);
+  const toggleFav = () => {
+    if (inFav) {
+      removeFromMyList(`mylist_movies_${streamId}`);
+    } else {
+      addToMyList({ type: 'movies', streamId, name: item.name, cover: item.stream_icon || item.cover || item.movie_image });
+    }
+  };
 
   return (
     <ScrollView style={detailStyles.root} contentContainerStyle={detailStyles.scroll}>
@@ -122,6 +81,9 @@ function DetailsPage({ item, info, onBack, onPlay, resumeTime = 0 }) {
                 <Text style={detailStyles.trailerBtnText}>{showTrailer ? '✕  Close' : '🎬  Trailer'}</Text>
               </TouchableOpacity>
             )}
+            <TouchableOpacity style={[detailStyles.trailerBtn, inFav && detailStyles.favActive]} onPress={toggleFav}>
+              <Text style={detailStyles.trailerBtnText}>{inFav ? '♥  Saved' : '♡  Favorites'}</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -170,6 +132,7 @@ const detailStyles = StyleSheet.create({
   playBtnText: { color: '#000', fontSize: 15, fontWeight: '700' },
   trailerBtn: { backgroundColor: 'rgba(40,40,60,0.85)', paddingHorizontal: 22, paddingVertical: 13, borderRadius: 8, borderWidth: 1, borderColor: '#3a3a5e' },
   trailerBtnText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  favActive: { borderColor: '#e94560', backgroundColor: 'rgba(233,69,96,0.15)' },
   trailerWrap: { paddingHorizontal: 48, paddingTop: 8, paddingBottom: 24 },
   meta: { paddingHorizontal: 48, paddingTop: 24, gap: 10 },
   metaPlot: { color: '#ccc', fontSize: 15, lineHeight: 24, marginBottom: 12 },
@@ -235,7 +198,7 @@ async function prefetchTopRated() {
 }
 
 /* ─── Shelf — lazy-loads when visible, parent drives pagination ─── */
-function Shelf({ catId, title, items, totalCount, hasMore, loadingMore, onVisible, onPlay, onTitlePress, onLoadMore, manual }) {
+function Shelf({ catId, title, items, totalCount, hasMore, loadingMore, onVisible, onPlay, onTitlePress, onLoadMore, manual, savedScrollX = 0, onScrollX }) {
   const sentinelRef = useRef(null);
   const railRef = useRef(null);
   const isDragging = useRef(false);
@@ -254,6 +217,13 @@ function Shelf({ catId, title, items, totalCount, hasMore, loadingMore, onVisibl
     obs.observe(el);
     return () => obs.disconnect();
   }, [catId, items, onVisible, manual]);
+
+  // Restore horizontal scroll when items load
+  useEffect(() => {
+    if (items !== null && savedScrollX > 0 && railRef.current) {
+      requestAnimationFrame(() => { railRef.current.scrollLeft = savedScrollX; });
+    }
+  }, [items !== null]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const el = railRef.current;
@@ -294,6 +264,7 @@ function Shelf({ catId, title, items, totalCount, hasMore, loadingMore, onVisibl
   };
 
   const handleScroll = (e) => {
+    onScrollX?.(e.target.scrollLeft);
     if (!hasMore || loadingMore) return;
     const { scrollLeft, scrollWidth, clientWidth } = e.target;
     if (scrollWidth - scrollLeft - clientWidth < 500) onLoadMore(catId);
@@ -337,9 +308,10 @@ function Shelf({ catId, title, items, totalCount, hasMore, loadingMore, onVisibl
 }
 
 /* ─── Category Page — paginates 40 items at a time, with search ─── */
-function CategoryPage({ name, items, onBack, onPlay, onLoadMore, hasRemote, loadingMore }) {
+function CategoryPage({ name, items, onBack, onPlay, onLoadMore, hasRemote, loadingMore, savedScrollY = 0, onScrollY }) {
   const [displayCount, setDisplayCount] = useState(GRID_PAGE);
   const [search, setSearch] = useState('');
+  const scrollRef = useRef(null);
 
   const filtered = items
     ? (search.trim() ? items.filter((i) => i.name?.toLowerCase().includes(search.toLowerCase())) : items)
@@ -350,7 +322,18 @@ function CategoryPage({ name, items, onBack, onPlay, onLoadMore, hasRemote, load
 
   useEffect(() => { setDisplayCount(GRID_PAGE); }, [search]);
 
+  // Restore scroll when returning from a detail — multi-retry for web
+  useEffect(() => {
+    if (displayed && savedScrollY > 0) {
+      const target = savedScrollY;
+      scrollRef.current?.scrollTo({ y: target, animated: false });
+      setTimeout(() => { scrollRef.current?.scrollTo({ y: target, animated: false }); }, 80);
+      setTimeout(() => { scrollRef.current?.scrollTo({ y: target, animated: false }); }, 250);
+    }
+  }, [!!displayed]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleScroll = ({ nativeEvent: { layoutMeasurement, contentOffset, contentSize } }) => {
+    onScrollY?.(contentOffset.y);
     if (contentSize.height - contentOffset.y - layoutMeasurement.height >= 800) return;
     if (hasLocalMore) {
       setDisplayCount((c) => Math.min(c + GRID_PAGE, filtered.length));
@@ -382,7 +365,7 @@ function CategoryPage({ name, items, onBack, onPlay, onLoadMore, hasRemote, load
       {!displayed ? (
         <View style={styles.center}><ActivityIndicator size="large" color="#e94560" /></View>
       ) : (
-        <ScrollView contentContainerStyle={styles.catGrid} onScroll={handleScroll} scrollEventThrottle={200}>
+        <ScrollView ref={scrollRef} style={{ flex: 1, minHeight: 0 }} contentContainerStyle={styles.catGrid} onScroll={handleScroll} scrollEventThrottle={200}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, 200px)', gap: 12, justifyContent: 'center' }}>
             {displayed.map((item) => (
               <PosterCard key={String(item.stream_id)} item={item} onPress={onPlay} />
@@ -415,8 +398,27 @@ export default function MoviesScreen({ navigation }) {
   const topRatedCursorRef = useRef(null);
   const [topRatedLoadingMore, setTopRatedLoadingMore] = useState(false);
   const [topRatedHasMore, setTopRatedHasMore] = useState(false);
+  const scrollViewRef = useRef(null);
+  const scrollYRef = useRef(0);
+  const catScrollYRef = useRef(0);
+  const shelfScrollsRef = useRef({});
+  const hadOverlayRef = useRef(false);
 
   useEffect(() => { if (activeUserId) load(); }, [activeUserId]);
+
+  // Restore scroll position when returning from a detail/category page
+  useEffect(() => {
+    const hasOverlay = !!(currentMovieDetail || currentCategory);
+    if (hadOverlayRef.current && !hasOverlay && scrollYRef.current > 0) {
+      const target = scrollYRef.current;
+      // Multi-retry: web ScrollView content is immediate but layout needs a few frames
+      scrollViewRef.current?.scrollTo({ y: target, animated: false });
+      setTimeout(() => { scrollViewRef.current?.scrollTo({ y: target, animated: false }); }, 80);
+      setTimeout(() => { scrollViewRef.current?.scrollTo({ y: target, animated: false }); }, 250);
+    }
+    if (hadOverlayRef.current && !currentCategory) catScrollYRef.current = 0;
+    hadOverlayRef.current = hasOverlay;
+  }, [currentMovieDetail, currentCategory]);
 
   const load = async () => {
     const user = users.find((u) => u.id === activeUserId);
@@ -660,43 +662,20 @@ export default function MoviesScreen({ navigation }) {
         hasRemote={isTopRated && topRatedHasMore}
         loadingMore={isTopRated && topRatedLoadingMore}
         onLoadMore={isTopRated ? handleTopRatedMore : undefined}
+        savedScrollY={catScrollYRef.current}
+        onScrollY={(y) => { catScrollYRef.current = y; }}
       />
     );
   }
 
-  const continueWatching = watchHistory.filter((item) =>
-    item.type === 'movies' && item.currentTime > 0 &&
-    (item.duration <= 0 || item.currentTime / item.duration < 0.95)
-  );
-
-  const handleCWPress = async (cwItem) => {
-    const item = { stream_id: cwItem.streamId, name: cwItem.name, stream_icon: cwItem.cover, cover: cwItem.cover, movie_image: cwItem.cover };
-    setCurrentMovieDetail({ item, info: null, resumeTime: cwItem.currentTime || 0 });
-    try {
-      const info = await iptvApi.getVODInfo(cwItem.streamId);
-      setCurrentMovieDetail({ item, info, resumeTime: cwItem.currentTime || 0 });
-    } catch {
-      setCurrentMovieDetail({ item, info: {}, resumeTime: cwItem.currentTime || 0 });
-    }
-  };
-
   return (
-    <ScrollView style={styles.root} contentContainerStyle={styles.scroll}>
-      {continueWatching.length > 0 && (
-        <View style={styles.cwSection}>
-          <View style={styles.cwHeader}>
-            <Text style={styles.cwSectionTitle}>Continue Watching</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('mylist')}>
-              <Text style={styles.seeHistory}>See history ›</Text>
-            </TouchableOpacity>
-          </View>
-          <div style={{ display: 'flex', overflowX: 'auto', gap: 12, paddingLeft: 48, paddingRight: 48, scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-            {continueWatching.map((item) => (
-              <CWCard key={item.id} item={item} onPress={() => handleCWPress(item)} />
-            ))}
-          </div>
-        </View>
-      )}
+    <ScrollView
+      ref={scrollViewRef}
+      style={styles.root}
+      contentContainerStyle={styles.scroll}
+      onScroll={(e) => { scrollYRef.current = e.nativeEvent.contentOffset.y; }}
+      scrollEventThrottle={200}
+    >
       <View style={styles.discoverSection}>
         <Text style={styles.discoverTitle}>Discover</Text>
         <View style={styles.discoverRow}>
@@ -736,6 +715,8 @@ export default function MoviesScreen({ navigation }) {
               onTitlePress={handleTitlePress}
               onLoadMore={handleLoadMore}
               manual={false}
+              savedScrollX={shelfScrollsRef.current[shelf.id] || 0}
+              onScrollX={(x) => { shelfScrollsRef.current[shelf.id] = x; }}
             />
           ))
         ) : (
@@ -791,10 +772,6 @@ const styles = StyleSheet.create({
 
   /* ── Page body ── */
   pageBody: { paddingTop: 0 },
-  cwSection: { paddingTop: 28, paddingBottom: 8 },
-  cwHeader: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', paddingHorizontal: 48, marginBottom: 14 },
-  cwSectionTitle: { color: '#fff', fontSize: 22, fontWeight: '700', letterSpacing: -0.3 },
-  seeHistory: { color: '#888', fontSize: 13 },
   catHeader: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
     paddingHorizontal: 48, paddingVertical: 18,

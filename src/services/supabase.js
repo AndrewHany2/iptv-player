@@ -172,6 +172,30 @@ export async function deleteHistoryEntry(userKey, entryId) {
   if (error) console.error('[Supabase] deleteHistoryEntry:', error.message);
 }
 
+// ─── Favorites ────────────────────────────────────────────────────────────────
+
+export async function fetchFavorites(userKey) {
+  if (!supabase) return [];
+  const { data, error } = await supabase.from('favorites').select('entry').eq('user_key', userKey).order('added_at', { ascending: false });
+  if (error) { console.error('[Supabase] fetchFavorites:', error.message); return []; }
+  return data.map((row) => row.entry);
+}
+
+export async function upsertFavorite(userKey, entry) {
+  if (!supabase) return;
+  const { error } = await supabase.from('favorites').upsert(
+    { user_key: userKey, entry_id: entry.id, entry, added_at: entry.addedAt },
+    { onConflict: 'user_key,entry_id' },
+  );
+  if (error) console.error('[Supabase] upsertFavorite:', error.message);
+}
+
+export async function deleteFavorite(userKey, entryId) {
+  if (!supabase) return;
+  const { error } = await supabase.from('favorites').delete().eq('user_key', userKey).eq('entry_id', entryId);
+  if (error) console.error('[Supabase] deleteFavorite:', error.message);
+}
+
 export function mergeHistories(local, remote) {
   const map = new Map();
   for (const item of local) map.set(item.id, item);

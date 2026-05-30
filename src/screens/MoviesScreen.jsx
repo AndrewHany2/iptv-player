@@ -9,7 +9,6 @@ import {
   StyleSheet,
   ActivityIndicator,
   Image,
-  SectionList,
   Linking,
 } from 'react-native';
 import { useApp } from '../context/AppContext';
@@ -54,15 +53,6 @@ const getTrailerUrl = (trailer) => {
   return null;
 };
 
-const formatTimeLeft = (cur, dur) => {
-  if (!dur || !cur) return null;
-  const left = dur - cur;
-  if (left <= 60) return null;
-  const h = Math.floor(left / 3600);
-  const m = Math.floor((left % 3600) / 60);
-  return h > 0 ? `${h}h ${m}m left` : `${m}m left`;
-};
-
 /* ─── Poster Card ─── */
 const PosterCard = memo(function PosterCard({ item, onPress }) {
   const poster = item.stream_icon || item.cover || item.movie_image || null;
@@ -92,60 +82,10 @@ const PosterCard = memo(function PosterCard({ item, onPress }) {
   );
 });
 
-/* ─── Continue Watching Card ─── */
-const CWCard = memo(function CWCard({ item, onPress }) {
-  const progress = item.duration > 0 ? Math.min((item.currentTime / item.duration) * 100, 100) : 15;
-  const timeLeft = formatTimeLeft(item.currentTime, item.duration);
-  const bg = item.cover || item.movie_image || item.stream_icon || null;
-
-  return (
-    <TouchableOpacity style={cwStyles.card} onPress={onPress} activeOpacity={0.85}>
-      <View style={cwStyles.inner}>
-        {bg ? (
-          <Image source={{ uri: bg }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
-        ) : (
-          <View style={[StyleSheet.absoluteFillObject, cwStyles.noBg]} />
-        )}
-        <GradientOverlay style={StyleSheet.absoluteFillObject} />
-        <View style={cwStyles.playOverlay}>
-          <Text style={cwStyles.playIcon}>▶</Text>
-        </View>
-        <View style={cwStyles.bottom}>
-          <Text style={cwStyles.title} numberOfLines={1}>{item.name?.toUpperCase()}</Text>
-          <View style={cwStyles.bar}>
-            <View style={[cwStyles.barFill, { width: `${progress}%` }]} />
-          </View>
-        </View>
-      </View>
-      <View style={cwStyles.meta}>
-        <Text style={cwStyles.name} numberOfLines={1}>{item.name}</Text>
-        {timeLeft && <Text style={cwStyles.timeLeft}>{timeLeft}</Text>}
-      </View>
-    </TouchableOpacity>
-  );
-});
-
-const cwStyles = StyleSheet.create({
-  card: { width: 260, flexShrink: 0 },
-  inner: { width: 260, height: 150, borderRadius: 8, backgroundColor: '#16213e', overflow: 'hidden' },
-  noBg: { backgroundColor: '#16213e' },
-  playOverlay: {
-    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-    justifyContent: 'center', alignItems: 'center', zIndex: 3,
-  },
-  playIcon: { color: 'rgba(255,255,255,0.75)', fontSize: 28 },
-  bottom: { position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 4, padding: 10 },
-  title: { color: '#fff', fontSize: 11, fontWeight: '800', letterSpacing: 0.3, marginBottom: 6 },
-  bar: { height: 3, backgroundColor: 'rgba(255,255,255,0.2)' },
-  barFill: { height: '100%', backgroundColor: '#e94560' },
-  meta: { paddingTop: 8, paddingHorizontal: 2 },
-  name: { color: '#fff', fontSize: 12, fontWeight: '600', marginBottom: 2 },
-  timeLeft: { color: '#888', fontSize: 11 },
-});
-
 /* ─── Shelf ─── */
-function Shelf({ shelf, onVisible, onPress, onTitlePress, onLoadMore }) {
+function Shelf({ shelf, onVisible, onPress, onTitlePress, onLoadMore, savedScrollX = 0, onScrollX }) {
   const hasLoaded = useRef(false);
+  const railRef = useRef(null);
 
   const handleLayout = useCallback(() => {
     if (!hasLoaded.current && shelf.items === null && !shelf.manual) {
@@ -153,6 +93,15 @@ function Shelf({ shelf, onVisible, onPress, onTitlePress, onLoadMore }) {
       onVisible(shelf.id);
     }
   }, [shelf.id, shelf.items, shelf.manual, onVisible]);
+
+  // Restore horizontal scroll position when items load
+  useEffect(() => {
+    if (shelf.items !== null && savedScrollX > 0) {
+      requestAnimationFrame(() => {
+        railRef.current?.scrollTo({ x: savedScrollX, animated: false });
+      });
+    }
+  }, [shelf.items !== null]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (shelf.items !== null && !shelf.items.length) return null;
 
@@ -173,11 +122,13 @@ function Shelf({ shelf, onVisible, onPress, onTitlePress, onLoadMore }) {
         </View>
       ) : (
         <ScrollView
+          ref={railRef}
           horizontal
           showsHorizontalScrollIndicator={false}
           removeClippedSubviews
           contentContainerStyle={styles.shelfTrack}
           onScroll={(e) => {
+            onScrollX?.(e.nativeEvent.contentOffset.x);
             if (!shelf.hasMore || shelf.loadingMore) return;
             const { contentOffset, layoutMeasurement, contentSize } = e.nativeEvent;
             if (contentSize.width - contentOffset.x - layoutMeasurement.width < 400) {
@@ -202,11 +153,21 @@ function Shelf({ shelf, onVisible, onPress, onTitlePress, onLoadMore }) {
 
 /* ─── Movie Details Page ─── */
 function DetailsPage({ item, info, onBack, onPlay, resumeTime = 0 }) {
+  const { addToMyList, removeFromMyList, isInMyList } = useApp();
   const data = info?.info || {};
   const backdrop = data.backdrop_path?.[0] || data.cover_big || item.stream_icon || item.cover || item.movie_image || null;
   const trailer = getTrailerUrl(data.youtube_trailer);
   const year = (data.releasedate || data.release_date || '').slice(0, 4);
   const isLoading = info === null;
+  const streamId = item.stream_id ?? item.streamId;
+  const inFav = isInMyList('movies', streamId);
+  const toggleFav = () => {
+    if (inFav) {
+      removeFromMyList(`mylist_movies_${streamId}`);
+    } else {
+      addToMyList({ type: 'movies', streamId, name: item.name, cover: item.stream_icon || item.cover || item.movie_image });
+    }
+  };
 
   return (
     <ScrollView style={detailStyles.root} contentContainerStyle={detailStyles.scroll} showsVerticalScrollIndicator={false}>
@@ -253,6 +214,9 @@ function DetailsPage({ item, info, onBack, onPlay, resumeTime = 0 }) {
                 <Text style={detailStyles.secondaryBtnText}>🎬  Trailer</Text>
               </TouchableOpacity>
             )}
+            <TouchableOpacity style={[detailStyles.secondaryBtn, inFav && detailStyles.favActive]} onPress={toggleFav}>
+              <Text style={detailStyles.secondaryBtnText}>{inFav ? '♥  Saved' : '♡  Favorites'}</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -299,6 +263,7 @@ const detailStyles = StyleSheet.create({
     borderRadius: 8, borderWidth: 1, borderColor: '#3a3a5e',
   },
   secondaryBtnText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  favActive: { borderColor: '#e94560', backgroundColor: 'rgba(233,69,96,0.15)' },
   meta: { paddingHorizontal: 16, paddingTop: 20, gap: 10 },
   metaPlot: { color: '#ccc', fontSize: 14, lineHeight: 22, marginBottom: 10 },
   metaRow: { color: '#aaa', fontSize: 13, lineHeight: 20 },
@@ -306,9 +271,11 @@ const detailStyles = StyleSheet.create({
 });
 
 /* ─── Category Page ─── */
-function CategoryPage({ name, items, onBack, onPlay, onLoadMore, hasRemote, loadingMore }) {
+function CategoryPage({ name, items, onBack, onPlay, onLoadMore, hasRemote, loadingMore, savedScrollY = 0, onScrollY }) {
   const [displayCount, setDisplayCount] = useState(GRID_PAGE);
   const [search, setSearch] = useState('');
+  const listRef = useRef(null);
+  const pendingCatScrollRef = useRef(0);
 
   const filtered = items
     ? (search.trim() ? items.filter((i) => i.name?.toLowerCase().includes(search.toLowerCase())) : items)
@@ -318,6 +285,14 @@ function CategoryPage({ name, items, onBack, onPlay, onLoadMore, hasRemote, load
   const hasMore = hasLocalMore || hasRemote;
 
   useEffect(() => { setDisplayCount(GRID_PAGE); }, [search]);
+
+  // Set pending scroll target when items first appear
+  useEffect(() => {
+    if (displayed && savedScrollY > 0) {
+      pendingCatScrollRef.current = savedScrollY;
+      listRef.current?.scrollToOffset({ offset: savedScrollY, animated: false });
+    }
+  }, [!!displayed]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <View style={styles.root}>
@@ -343,10 +318,25 @@ function CategoryPage({ name, items, onBack, onPlay, onLoadMore, hasRemote, load
         <View style={styles.center}><ActivityIndicator size="large" color="#e94560" /></View>
       ) : (
         <FlatList
+          ref={listRef}
+          style={{ flex: 1 }}
           data={displayed}
           keyExtractor={(item) => String(item.stream_id)}
           numColumns={3}
           contentContainerStyle={styles.catGrid}
+          onScroll={(e) => {
+            const y = e.nativeEvent.contentOffset.y;
+            onScrollY?.(y);
+            if (pendingCatScrollRef.current > 0 && y >= pendingCatScrollRef.current - 5) {
+              pendingCatScrollRef.current = 0;
+            }
+          }}
+          scrollEventThrottle={100}
+          onContentSizeChange={() => {
+            if (pendingCatScrollRef.current > 0) {
+              listRef.current?.scrollToOffset({ offset: pendingCatScrollRef.current, animated: false });
+            }
+          }}
           renderItem={({ item }) => <PosterCard item={item} onPress={onPlay} />}
           onEndReached={() => {
             if (hasLocalMore) {
@@ -386,8 +376,26 @@ export default function MoviesScreen({ navigation }) {
   const topRatedCursorRef = useRef(null);
   const [topRatedLoadingMore, setTopRatedLoadingMore] = useState(false);
   const [topRatedHasMore, setTopRatedHasMore] = useState(false);
+  const flatListRef = useRef(null);
+  const scrollYRef = useRef(0);
+  const catScrollYRef = useRef(0);
+  const pendingScrollRef = useRef(0);
+  const shelfScrollsRef = useRef({});
+  const hadOverlayRef = useRef(false);
 
   useEffect(() => { if (activeUserId) load(); }, [activeUserId]);
+
+  // When returning from detail/category, store the target so onContentSizeChange can restore it
+  useEffect(() => {
+    const hasOverlay = !!(currentMovieDetail || currentCategory);
+    if (hadOverlayRef.current && !hasOverlay && scrollYRef.current > 0) {
+      pendingScrollRef.current = scrollYRef.current;
+      // immediate attempt in case content is already rendered
+      flatListRef.current?.scrollToOffset({ offset: scrollYRef.current, animated: false });
+    }
+    if (hadOverlayRef.current && !currentCategory) catScrollYRef.current = 0;
+    hadOverlayRef.current = hasOverlay;
+  }, [currentMovieDetail, currentCategory]);
 
   const load = async () => {
     const user = users.find((u) => u.id === activeUserId);
@@ -599,74 +607,8 @@ export default function MoviesScreen({ navigation }) {
     );
   }
 
-  if (currentMovieDetail) {
-    return (
-      <DetailsPage
-        item={currentMovieDetail.item}
-        info={currentMovieDetail.info}
-        resumeTime={currentMovieDetail.resumeTime || 0}
-        onBack={() => setCurrentMovieDetail(null)}
-        onPlay={(startTime) => {
-          handlePlay(currentMovieDetail.item, startTime);
-          setCurrentMovieDetail(null);
-        }}
-      />
-    );
-  }
-
-  if (currentCategory) {
-    const isTopRated = currentCategory.catId === 'top_rated';
-    return (
-      <CategoryPage
-        name={currentCategory.name}
-        items={categoryItems}
-        onBack={() => {
-          setCurrentCategory(null); setCategoryItems(null);
-          topRatedCursorRef.current = null;
-          setTopRatedHasMore(false); setTopRatedLoadingMore(false);
-        }}
-        onPlay={handleMoviePress}
-        hasRemote={isTopRated && topRatedHasMore}
-        loadingMore={isTopRated && topRatedLoadingMore}
-        onLoadMore={isTopRated ? handleTopRatedMore : undefined}
-      />
-    );
-  }
-
-  /* ── Continue watching ── */
-  const continueWatching = watchHistory.filter((item) =>
-    item.type === 'movies' && item.currentTime > 0 &&
-    (item.duration <= 0 || item.currentTime / item.duration < 0.95)
-  );
-
-  const handleCWPress = async (cwItem) => {
-    const item = { stream_id: cwItem.streamId, name: cwItem.name, stream_icon: cwItem.cover, cover: cwItem.cover, movie_image: cwItem.cover };
-    setCurrentMovieDetail({ item, info: null, resumeTime: cwItem.currentTime || 0 });
-    try {
-      const info = await iptvApi.getVODInfo(cwItem.streamId);
-      setCurrentMovieDetail({ item, info, resumeTime: cwItem.currentTime || 0 });
-    } catch {
-      setCurrentMovieDetail({ item, info: {}, resumeTime: cwItem.currentTime || 0 });
-    }
-  };
-
   const listHeader = (
     <>
-      {continueWatching.length > 0 && (
-        <View style={styles.cwSection}>
-          <View style={styles.cwHeader}>
-            <Text style={styles.cwSectionTitle}>Continue Watching</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('mylist')}>
-              <Text style={styles.seeHistory}>See history ›</Text>
-            </TouchableOpacity>
-          </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} removeClippedSubviews contentContainerStyle={styles.cwTrack}>
-            {continueWatching.map((item) => (
-              <CWCard key={item.id} item={item} onPress={() => handleCWPress(item)} />
-            ))}
-          </ScrollView>
-        </View>
-      )}
       <View style={styles.discoverSection}>
         <Text style={styles.discoverTitle}>Discover</Text>
         <View style={styles.discoverRow}>
@@ -693,11 +635,54 @@ export default function MoviesScreen({ navigation }) {
     </>
   );
 
+  if (currentMovieDetail) {
+    return (
+      <DetailsPage
+        item={currentMovieDetail.item}
+        info={currentMovieDetail.info}
+        resumeTime={currentMovieDetail.resumeTime || 0}
+        onBack={() => setCurrentMovieDetail(null)}
+        onPlay={(startTime) => { handlePlay(currentMovieDetail.item, startTime); setCurrentMovieDetail(null); }}
+      />
+    );
+  }
+
+  if (currentCategory) {
+    const isTopRated = currentCategory.catId === 'top_rated';
+    return (
+      <CategoryPage
+        name={currentCategory.name}
+        items={categoryItems}
+        onBack={() => {
+          setCurrentCategory(null); setCategoryItems(null);
+          topRatedCursorRef.current = null;
+          setTopRatedHasMore(false); setTopRatedLoadingMore(false);
+        }}
+        onPlay={handleMoviePress}
+        hasRemote={isTopRated && topRatedHasMore}
+        loadingMore={isTopRated && topRatedLoadingMore}
+        onLoadMore={isTopRated ? handleTopRatedMore : undefined}
+        savedScrollY={catScrollYRef.current}
+        onScrollY={(y) => { catScrollYRef.current = y; }}
+      />
+    );
+  }
+
   return (
     <FlatList
+      ref={flatListRef}
       style={styles.root}
       contentContainerStyle={styles.scroll}
       showsVerticalScrollIndicator={false}
+      onScroll={(e) => { scrollYRef.current = e.nativeEvent.contentOffset.y; }}
+      scrollEventThrottle={100}
+      onContentSizeChange={() => {
+        if (pendingScrollRef.current > 0) {
+          flatListRef.current?.scrollToOffset({ offset: pendingScrollRef.current, animated: false });
+        }
+      }}
+      onMomentumScrollEnd={() => { pendingScrollRef.current = 0; }}
+      onScrollEndDrag={() => { pendingScrollRef.current = 0; }}
       data={shelves}
       keyExtractor={(item) => String(item.id)}
       ListHeaderComponent={listHeader}
@@ -708,6 +693,8 @@ export default function MoviesScreen({ navigation }) {
           onPress={handleMoviePress}
           onTitlePress={handleTitlePress}
           onLoadMore={handleLoadMore}
+          savedScrollX={shelfScrollsRef.current[item.id] || 0}
+          onScrollX={(x) => { shelfScrollsRef.current[item.id] = x; }}
         />
       )}
       ListEmptyComponent={
@@ -728,16 +715,6 @@ const styles = StyleSheet.create({
   scroll: { paddingBottom: 80 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0f0f23', padding: 24 },
   loadingText: { color: '#aaa', marginTop: 12, fontSize: 14 },
-
-  /* ── Continue Watching ── */
-  cwSection: { paddingTop: 20, paddingBottom: 8 },
-  cwHeader: {
-    flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between',
-    paddingHorizontal: 16, marginBottom: 14,
-  },
-  cwSectionTitle: { color: '#fff', fontSize: 20, fontWeight: '700', letterSpacing: -0.3 },
-  seeHistory: { color: '#888', fontSize: 13 },
-  cwTrack: { paddingHorizontal: 16, gap: 12 },
 
   /* ── Page body ── */
   pageBody: { paddingTop: 8 },

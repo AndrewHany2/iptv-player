@@ -18,7 +18,8 @@ if (typeof document !== 'undefined') {
   if (!style) { style = document.createElement('style'); style.id = 'lumen-global'; document.head.appendChild(style); }
   style.textContent = `
     *, *::before, *::after { box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; background: #0f0f23; }
+    html, body { margin: 0; padding: 0; height: 100%; background: #0f0f23; }
+    #root, #app, [data-reactroot] { height: 100%; }
     * { scrollbar-width: thin; scrollbar-color: #2a2a4e transparent; }
     ::-webkit-scrollbar { width: 8px; height: 8px; }
     ::-webkit-scrollbar-thumb { background: #2a2a4e; border-radius: 4px; }
@@ -334,7 +335,7 @@ const nav = StyleSheet.create({
 
 const root = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0f0f23' },
-  content: { flex: 1, overflow: 'hidden' },
+  content: { flex: 1, minHeight: 0, overflow: 'hidden' },
   overlay: {
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
     backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 100,

@@ -17,18 +17,31 @@ const getAbbrev = (name) => {
 };
 
 function LiveCard({ item, epg, onPress, fetchEpg }) {
+  const { addToMyList, removeFromMyList, isInMyList } = useApp();
   const abbrev = getAbbrev(item.name);
   const sid = item.stream_id || item.id;
+  const inFav = isInMyList('live', sid);
+
   useEffect(() => {
     if (epg === undefined && fetchEpg) fetchEpg(sid);
   }, [sid]);
+
+  const toggleFav = (e) => {
+    e?.stopPropagation?.();
+    if (inFav) {
+      removeFromMyList(`mylist_live_${sid}`);
+    } else {
+      addToMyList({ type: 'live', streamId: sid, name: item.name, cover: item.logo || null, url: item.url });
+    }
+  };
+
   return (
     <TouchableOpacity
       style={styles.card}
       onPress={() => onPress(item)}
       {...({ className: 'lumen-live-card' })}
     >
-      {/* Top row: abbrev box / logo, name, LIVE dot */}
+      {/* Top row: abbrev box / logo, name, fav, LIVE dot */}
       <View style={styles.cardHead}>
         {item.logo ? (
           <Image source={{ uri: item.logo }} style={styles.cardLogo} resizeMode="contain" />
@@ -38,6 +51,9 @@ function LiveCard({ item, epg, onPress, fetchEpg }) {
           </View>
         )}
         <Text style={styles.cardName} numberOfLines={1}>{item.name}</Text>
+        <TouchableOpacity onPress={toggleFav} {...({ onClick: (e) => e.stopPropagation() })}>
+          <Text style={[styles.favBtn, inFav && styles.favBtnActive]}>{inFav ? '♥' : '♡'}</Text>
+        </TouchableOpacity>
         <span className="lumen-live-dot">LIVE</span>
       </View>
 
@@ -402,6 +418,8 @@ const styles = StyleSheet.create({
   },
   cardAbbrevText: { color: '#e94560', fontWeight: '800', fontSize: 12, letterSpacing: 0.5 },
   cardName: { flex: 1, color: '#fff', fontSize: 13, fontWeight: '600', letterSpacing: 0.1 },
+  favBtn: { color: '#555', fontSize: 16, marginRight: 6 },
+  favBtnActive: { color: '#e94560' },
   cardEpg: { color: '#bbb', fontSize: 13, lineHeight: 18, minHeight: 36 },
   cardProgress: { height: 3, backgroundColor: '#2a2a4e', borderRadius: 2, marginTop: 10 },
   cardProgressBar: { width: '35%', height: '100%', backgroundColor: '#e94560', borderRadius: 2 },

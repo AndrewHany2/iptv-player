@@ -27,12 +27,23 @@ const getAbbrev = (name) => {
 
 /* ─── Live Channel Card ─── */
 const ChannelCard = memo(({ item, epg, onPress, fetchEpg }) => {
+  const { addToMyList, removeFromMyList, isInMyList } = useApp();
   const abbrev = getAbbrev(item.name);
   const sid = item.stream_id || item.id;
+  const inFav = isInMyList('live', sid);
 
   useEffect(() => {
     if (epg === undefined && fetchEpg) fetchEpg(sid);
   }, [sid]);
+
+  const toggleFav = (e) => {
+    e?.stopPropagation?.();
+    if (inFav) {
+      removeFromMyList(`mylist_live_${sid}`);
+    } else {
+      addToMyList({ type: 'live', streamId: sid, name: item.name, cover: item.logo || null, url: item.url });
+    }
+  };
 
   return (
     <TouchableOpacity style={styles.card} onPress={() => onPress(item)} activeOpacity={0.8}>
@@ -46,6 +57,9 @@ const ChannelCard = memo(({ item, epg, onPress, fetchEpg }) => {
           </View>
         )}
         <Text style={styles.cardName} numberOfLines={1}>{item.name}</Text>
+        <TouchableOpacity onPress={toggleFav} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Text style={[styles.favBtn, inFav && styles.favBtnActive]}>{inFav ? '♥' : '♡'}</Text>
+        </TouchableOpacity>
         {/* LIVE badge */}
         <View style={styles.liveBadge}>
           <View style={styles.liveDot} />
@@ -393,6 +407,8 @@ const styles = StyleSheet.create({
   },
   liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#e94560' },
   liveText: { color: '#e94560', fontSize: 9, fontWeight: '800', letterSpacing: 0.5 },
+  favBtn: { color: '#555', fontSize: 16, marginRight: 4 },
+  favBtnActive: { color: '#e94560' },
   cardEpg: { color: '#bbb', fontSize: 12, lineHeight: 17, minHeight: 34 },
   cardProgress: { height: 3, backgroundColor: '#2a2a4e', borderRadius: 2, marginTop: 10 },
   cardProgressBar: { width: '35%', height: '100%', backgroundColor: '#e94560', borderRadius: 2 },

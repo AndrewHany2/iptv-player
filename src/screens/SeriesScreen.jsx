@@ -54,14 +54,6 @@ const getTrailerUrl = (trailer) => {
   return null;
 };
 
-const formatTimeLeft = (cur, dur) => {
-  if (!dur || !cur) return null;
-  const left = dur - cur;
-  if (left <= 60) return null;
-  const h = Math.floor(left / 3600);
-  const m = Math.floor((left % 3600) / 60);
-  return h > 0 ? `${h}h ${m}m left` : `${m}m left`;
-};
 
 const getEpisodeNumber = (episode) => {
   let num = episode.episode_num;
@@ -101,75 +93,21 @@ const PosterCard = memo(function PosterCard({ item, onPress }) {
   );
 });
 
-/* ─── Continue Watching Card ─── */
-const CWCard = memo(function CWCard({ item, onPress }) {
-  const progress = item.duration > 0 ? Math.min((item.currentTime / item.duration) * 100, 100) : 15;
-  const timeLeft = formatTimeLeft(item.currentTime, item.duration);
-  const epLabel = item.seasonNum && item.episodeNum
-    ? `S${item.seasonNum} · E${String(item.episodeNum).padStart(2, '0')}` : null;
-  const bg = item.cover || item.movie_image || item.stream_icon || null;
-  const showTitle = item.seriesName || item.name;
-
-  return (
-    <TouchableOpacity style={cwStyles.card} onPress={onPress} activeOpacity={0.85}>
-      <View style={cwStyles.inner}>
-        {bg ? (
-          <Image source={{ uri: bg }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
-        ) : (
-          <View style={[StyleSheet.absoluteFillObject, cwStyles.noBg]} />
-        )}
-        <GradientOverlay style={StyleSheet.absoluteFillObject} />
-        {item.seasonNum && (
-          <View style={cwStyles.season}>
-            <Text style={cwStyles.seasonText}>S{item.seasonNum}</Text>
-          </View>
-        )}
-        <View style={cwStyles.playOverlay}>
-          <Text style={cwStyles.playIcon}>▶</Text>
-        </View>
-        <View style={cwStyles.bottom}>
-          <Text style={cwStyles.title} numberOfLines={1}>{showTitle?.toUpperCase()}</Text>
-          <View style={cwStyles.bar}>
-            <View style={[cwStyles.barFill, { width: `${progress}%` }]} />
-          </View>
-        </View>
-      </View>
-      <View style={cwStyles.meta}>
-        <Text style={cwStyles.name} numberOfLines={1}>{showTitle}</Text>
-        {epLabel && <Text style={cwStyles.epLine}>{epLabel}</Text>}
-        {timeLeft && <Text style={cwStyles.timeLeft}>{timeLeft}</Text>}
-      </View>
-    </TouchableOpacity>
-  );
-});
-
-const cwStyles = StyleSheet.create({
-  card: { width: 260, flexShrink: 0 },
-  inner: { width: 260, height: 150, borderRadius: 8, backgroundColor: '#16213e', overflow: 'hidden' },
-  noBg: { backgroundColor: '#16213e' },
-  season: { position: 'absolute', top: 10, left: 12, zIndex: 4 },
-  seasonText: { color: '#fff', fontSize: 13, fontWeight: '700' },
-  playOverlay: {
-    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-    justifyContent: 'center', alignItems: 'center', zIndex: 3,
-  },
-  playIcon: { color: 'rgba(255,255,255,0.75)', fontSize: 28 },
-  bottom: { position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 4, padding: 10 },
-  title: { color: '#fff', fontSize: 11, fontWeight: '800', letterSpacing: 0.3, marginBottom: 6 },
-  bar: { height: 3, backgroundColor: 'rgba(255,255,255,0.2)' },
-  barFill: { height: '100%', backgroundColor: '#e94560' },
-  meta: { paddingTop: 8, paddingHorizontal: 2 },
-  name: { color: '#fff', fontSize: 12, fontWeight: '600', marginBottom: 2 },
-  epLine: { color: '#888', fontSize: 11, marginBottom: 2 },
-  timeLeft: { color: '#888', fontSize: 11 },
-});
-
 /* ─── Series Details Page ─── */
 function SeriesDetailsPage({ series, seriesInfo, loading, onBack, onBrowseEpisodes, cwItem, onContinue }) {
+  const { addToMyList, removeFromMyList, isInMyList } = useApp();
   const data = seriesInfo || {};
   const backdrop = data.backdrop_path?.[0] || data.cover || series.cover || null;
   const trailer = getTrailerUrl(data.youtube_trailer);
   const year = (data.release_date || data.releasedate || '').slice(0, 4);
+  const inFav = isInMyList('series', series.id);
+  const toggleFav = () => {
+    if (inFav) {
+      removeFromMyList(`mylist_series_${series.id}`);
+    } else {
+      addToMyList({ type: 'series', streamId: series.id, seriesId: series.id, name: series.name, cover: series.cover });
+    }
+  };
 
   return (
     <ScrollView style={detailStyles.root} contentContainerStyle={detailStyles.scroll} showsVerticalScrollIndicator={false}>
@@ -216,6 +154,9 @@ function SeriesDetailsPage({ series, seriesInfo, loading, onBack, onBrowseEpisod
                 <Text style={detailStyles.secondaryBtnText}>🎬  Trailer</Text>
               </TouchableOpacity>
             )}
+            <TouchableOpacity style={[detailStyles.secondaryBtn, inFav && detailStyles.favActive]} onPress={toggleFav}>
+              <Text style={detailStyles.secondaryBtnText}>{inFav ? '♥  Saved' : '♡  Favorites'}</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -261,6 +202,7 @@ const detailStyles = StyleSheet.create({
     borderRadius: 8, borderWidth: 1, borderColor: '#3a3a5e',
   },
   secondaryBtnText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  favActive: { borderColor: '#e94560', backgroundColor: 'rgba(233,69,96,0.15)' },
   meta: { paddingHorizontal: 16, paddingTop: 20, gap: 10 },
   metaPlot: { color: '#ccc', fontSize: 14, lineHeight: 22, marginBottom: 10 },
   metaRow: { color: '#aaa', fontSize: 13, lineHeight: 20 },
@@ -268,8 +210,9 @@ const detailStyles = StyleSheet.create({
 });
 
 /* ─── Shelf ─── */
-function Shelf({ shelf, onVisible, onPress, onTitlePress, onLoadMore }) {
+function Shelf({ shelf, onVisible, onPress, onTitlePress, onLoadMore, savedScrollX = 0, onScrollX }) {
   const hasLoaded = useRef(false);
+  const railRef = useRef(null);
 
   const handleLayout = useCallback(() => {
     if (!hasLoaded.current && shelf.items === null && !shelf.manual) {
@@ -277,6 +220,13 @@ function Shelf({ shelf, onVisible, onPress, onTitlePress, onLoadMore }) {
       onVisible(shelf.id);
     }
   }, [shelf.id, shelf.items, shelf.manual, onVisible]);
+
+  // Restore horizontal scroll when items load
+  useEffect(() => {
+    if (shelf.items !== null && savedScrollX > 0) {
+      requestAnimationFrame(() => { railRef.current?.scrollTo({ x: savedScrollX, animated: false }); });
+    }
+  }, [shelf.items !== null]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (shelf.items !== null && !shelf.items.length) return null;
 
@@ -297,11 +247,13 @@ function Shelf({ shelf, onVisible, onPress, onTitlePress, onLoadMore }) {
         </View>
       ) : (
         <ScrollView
+          ref={railRef}
           horizontal
           showsHorizontalScrollIndicator={false}
           removeClippedSubviews
           contentContainerStyle={styles.shelfTrack}
           onScroll={(e) => {
+            onScrollX?.(e.nativeEvent.contentOffset.x);
             if (!shelf.hasMore || shelf.loadingMore) return;
             const { contentOffset, layoutMeasurement, contentSize } = e.nativeEvent;
             if (contentSize.width - contentOffset.x - layoutMeasurement.width < 400) {
@@ -325,9 +277,11 @@ function Shelf({ shelf, onVisible, onPress, onTitlePress, onLoadMore }) {
 }
 
 /* ─── Category Page ─── */
-function CategoryPage({ name, items, onBack, onPress, onLoadMore, hasRemote, loadingMore }) {
+function CategoryPage({ name, items, onBack, onPress, onLoadMore, hasRemote, loadingMore, savedScrollY = 0, onScrollY }) {
   const [displayCount, setDisplayCount] = useState(GRID_PAGE);
   const [search, setSearch] = useState('');
+  const listRef = useRef(null);
+  const pendingCatScrollRef = useRef(0);
 
   const filtered = items
     ? (search.trim() ? items.filter((i) => i.name?.toLowerCase().includes(search.toLowerCase())) : items)
@@ -337,6 +291,13 @@ function CategoryPage({ name, items, onBack, onPress, onLoadMore, hasRemote, loa
   const hasMore = hasLocalMore || hasRemote;
 
   useEffect(() => { setDisplayCount(GRID_PAGE); }, [search]);
+
+  useEffect(() => {
+    if (displayed && savedScrollY > 0) {
+      pendingCatScrollRef.current = savedScrollY;
+      listRef.current?.scrollToOffset({ offset: savedScrollY, animated: false });
+    }
+  }, [!!displayed]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <View style={styles.root}>
@@ -362,10 +323,25 @@ function CategoryPage({ name, items, onBack, onPress, onLoadMore, hasRemote, loa
         <View style={styles.center}><ActivityIndicator size="large" color="#e94560" /></View>
       ) : (
         <FlatList
+          ref={listRef}
+          style={{ flex: 1 }}
           data={displayed}
           keyExtractor={(item) => String(item.series_id)}
           numColumns={3}
           contentContainerStyle={styles.catGrid}
+          onScroll={(e) => {
+            const y = e.nativeEvent.contentOffset.y;
+            onScrollY?.(y);
+            if (pendingCatScrollRef.current > 0 && y >= pendingCatScrollRef.current - 5) {
+              pendingCatScrollRef.current = 0;
+            }
+          }}
+          scrollEventThrottle={100}
+          onContentSizeChange={() => {
+            if (pendingCatScrollRef.current > 0) {
+              listRef.current?.scrollToOffset({ offset: pendingCatScrollRef.current, animated: false });
+            }
+          }}
           renderItem={({ item }) => <PosterCard item={item} onPress={onPress} />}
           onEndReached={() => {
             if (hasLocalMore) {
@@ -408,8 +384,25 @@ export default function SeriesScreen({ navigation }) {
   const topRatedCursorRef = useRef(null);
   const [topRatedLoadingMore, setTopRatedLoadingMore] = useState(false);
   const [topRatedHasMore, setTopRatedHasMore] = useState(false);
+  const flatListRef = useRef(null);
+  const scrollYRef = useRef(0);
+  const catScrollYRef = useRef(0);
+  const pendingScrollRef = useRef(0);
+  const shelfScrollsRef = useRef({});
+  const hadOverlayRef = useRef(false);
 
   useEffect(() => { if (activeUserId) load(); }, [activeUserId]);
+
+  // When returning from detail/category, store the target so onContentSizeChange can restore it
+  useEffect(() => {
+    const hasOverlay = !!(currentSeries || currentCategory);
+    if (hadOverlayRef.current && !hasOverlay && scrollYRef.current > 0) {
+      pendingScrollRef.current = scrollYRef.current;
+      flatListRef.current?.scrollToOffset({ offset: scrollYRef.current, animated: false });
+    }
+    if (hadOverlayRef.current && !currentCategory) catScrollYRef.current = 0;
+    hadOverlayRef.current = hasOverlay;
+  }, [currentSeries, currentCategory]);
 
   const load = async () => {
     const user = users.find((u) => u.id === activeUserId);
@@ -632,131 +625,8 @@ export default function SeriesScreen({ navigation }) {
     );
   }
 
-  /* ── Series detail ── */
-  if (currentSeries && !showEpisodeList) {
-    return (
-      <SeriesDetailsPage
-        series={currentSeries}
-        seriesInfo={currentSeries.seriesInfo}
-        loading={episodeLoading}
-        onBack={() => { setCurrentSeries(null); setSeriesSeasons({}); }}
-        onBrowseEpisodes={() => setShowEpisodeList(true)}
-        cwItem={currentSeries.cwItem || null}
-        onContinue={currentSeries.cwItem ? () => {
-          const cw = currentSeries.cwItem;
-          playVideo({ ...cw, startTime: cw.currentTime || 0 });
-          navigation.navigate('VideoPlayer');
-        } : null}
-      />
-    );
-  }
-
-  /* ── Episode list ── */
-  if (currentSeries && showEpisodeList) {
-    const seasonSections = Object.keys(seriesSeasons)
-      .sort((a, b) => parseInt(a) - parseInt(b))
-      .map((seasonNum) => ({
-        title: `Season ${seasonNum}`,
-        seasonNum,
-        data: seriesSeasons[seasonNum] || [],
-      }));
-
-    return (
-      <View style={styles.root}>
-        <View style={styles.episodeHeader}>
-          <TouchableOpacity style={styles.epBackBtn} onPress={() => setShowEpisodeList(false)}>
-            <Text style={styles.epBackText}>← Back</Text>
-          </TouchableOpacity>
-          <Text style={styles.episodeSeriesTitle} numberOfLines={1}>{currentSeries.name}</Text>
-        </View>
-        <SectionList
-          sections={seasonSections}
-          keyExtractor={(item) => String(item.id)}
-          contentContainerStyle={styles.episodeList}
-          renderSectionHeader={({ section: { title } }) => (
-            <View style={styles.seasonHeader}>
-              <Text style={styles.seasonTitle}>{title}</Text>
-            </View>
-          )}
-          renderItem={({ item, section }) => (
-            <TouchableOpacity
-              style={styles.episodeRow}
-              onPress={() => handleEpisodePress(item, section.seasonNum)}
-            >
-              <View style={styles.epBadge}>
-                <Text style={styles.epNum}>E{getEpisodeNumber(item)}</Text>
-              </View>
-              <View style={styles.epInfo}>
-                <Text style={styles.epTitle} numberOfLines={1}>{item.title || 'Untitled'}</Text>
-                {item.info?.duration && <Text style={styles.epDuration}>{item.info.duration}</Text>}
-              </View>
-              <Text style={styles.playIcon}>▶</Text>
-            </TouchableOpacity>
-          )}
-          showsVerticalScrollIndicator={false}
-        />
-      </View>
-    );
-  }
-
-  /* ── Category page ── */
-  if (currentCategory) {
-    const isTopRated = currentCategory.catId === 'top_rated';
-    return (
-      <CategoryPage
-        name={currentCategory.name}
-        items={categoryItems}
-        onBack={() => {
-          setCurrentCategory(null); setCategoryItems(null);
-          topRatedCursorRef.current = null;
-          setTopRatedHasMore(false); setTopRatedLoadingMore(false);
-        }}
-        onPress={handleSeriesPress}
-        hasRemote={isTopRated && topRatedHasMore}
-        loadingMore={isTopRated && topRatedLoadingMore}
-        onLoadMore={isTopRated ? handleTopRatedMore : undefined}
-      />
-    );
-  }
-
-  /* ── Browse view ── */
-  const continueWatching = watchHistory.filter((item) =>
-    item.type === 'series' && item.currentTime > 0 &&
-    (item.duration <= 0 || item.currentTime / item.duration < 0.95)
-  );
-
-  const handleCWPress = async (cwItem) => {
-    setCurrentSeries({ id: cwItem.seriesId, name: cwItem.seriesName || cwItem.name, cover: cwItem.cover, seriesInfo: null, cwItem });
-    setShowEpisodeList(false);
-    setEpisodeLoading(true);
-    try {
-      const info = await iptvApi.getSeriesInfo(cwItem.seriesId);
-      setSeriesSeasons(info.episodes || {});
-      setCurrentSeries((prev) => prev ? { ...prev, seriesInfo: info.info || {} } : null);
-    } catch {
-      setCurrentSeries((prev) => prev ? { ...prev, seriesInfo: {} } : null);
-    } finally {
-      setEpisodeLoading(false);
-    }
-  };
-
   const listHeader = (
     <>
-      {continueWatching.length > 0 && (
-        <View style={styles.cwSection}>
-          <View style={styles.cwHeader}>
-            <Text style={styles.cwSectionTitle}>Continue Watching</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('mylist')}>
-              <Text style={styles.seeHistory}>See history ›</Text>
-            </TouchableOpacity>
-          </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} removeClippedSubviews contentContainerStyle={styles.cwTrack}>
-            {continueWatching.map((item) => (
-              <CWCard key={item.id} item={item} onPress={() => handleCWPress(item)} />
-            ))}
-          </ScrollView>
-        </View>
-      )}
       <View style={styles.discoverSection}>
         <Text style={styles.discoverTitle}>Discover</Text>
         <View style={styles.discoverRow}>
@@ -783,11 +653,98 @@ export default function SeriesScreen({ navigation }) {
     </>
   );
 
+  if (currentSeries && !showEpisodeList) {
+    return (
+      <SeriesDetailsPage
+        series={currentSeries}
+        seriesInfo={currentSeries.seriesInfo}
+        loading={episodeLoading}
+        onBack={() => { setCurrentSeries(null); setSeriesSeasons({}); }}
+        onBrowseEpisodes={() => setShowEpisodeList(true)}
+        cwItem={currentSeries.cwItem || null}
+        onContinue={currentSeries.cwItem ? () => {
+          const cw = currentSeries.cwItem;
+          playVideo({ ...cw, startTime: cw.currentTime || 0 });
+          navigation.navigate('VideoPlayer');
+        } : null}
+      />
+    );
+  }
+
+  if (currentSeries && showEpisodeList) {
+    const seasonSections = Object.keys(seriesSeasons)
+      .sort((a, b) => parseInt(a) - parseInt(b))
+      .map((seasonNum) => ({ title: `Season ${seasonNum}`, seasonNum, data: seriesSeasons[seasonNum] || [] }));
+
+    return (
+      <View style={styles.root}>
+        <View style={styles.episodeHeader}>
+          <TouchableOpacity style={styles.epBackBtn} onPress={() => setShowEpisodeList(false)}>
+            <Text style={styles.epBackText}>← Back</Text>
+          </TouchableOpacity>
+          <Text style={styles.episodeSeriesTitle} numberOfLines={1}>{currentSeries.name}</Text>
+        </View>
+        <SectionList
+          sections={seasonSections}
+          keyExtractor={(item) => String(item.id)}
+          contentContainerStyle={styles.episodeList}
+          renderSectionHeader={({ section: { title } }) => (
+            <View style={styles.seasonHeader}>
+              <Text style={styles.seasonTitle}>{title}</Text>
+            </View>
+          )}
+          renderItem={({ item, section }) => (
+            <TouchableOpacity style={styles.episodeRow} onPress={() => handleEpisodePress(item, section.seasonNum)}>
+              <View style={styles.epBadge}><Text style={styles.epNum}>E{getEpisodeNumber(item)}</Text></View>
+              <View style={styles.epInfo}>
+                <Text style={styles.epTitle} numberOfLines={1}>{item.title || 'Untitled'}</Text>
+                {item.info?.duration && <Text style={styles.epDuration}>{item.info.duration}</Text>}
+              </View>
+              <Text style={styles.playIcon}>▶</Text>
+            </TouchableOpacity>
+          )}
+          showsVerticalScrollIndicator={false}
+        />
+      </View>
+    );
+  }
+
+  if (currentCategory) {
+    const isTopRated = currentCategory.catId === 'top_rated';
+    return (
+      <CategoryPage
+        name={currentCategory.name}
+        items={categoryItems}
+        onBack={() => {
+          setCurrentCategory(null); setCategoryItems(null);
+          topRatedCursorRef.current = null;
+          setTopRatedHasMore(false); setTopRatedLoadingMore(false);
+        }}
+        onPress={handleSeriesPress}
+        hasRemote={isTopRated && topRatedHasMore}
+        loadingMore={isTopRated && topRatedLoadingMore}
+        onLoadMore={isTopRated ? handleTopRatedMore : undefined}
+        savedScrollY={catScrollYRef.current}
+        onScrollY={(y) => { catScrollYRef.current = y; }}
+      />
+    );
+  }
+
   return (
     <FlatList
+      ref={flatListRef}
       style={styles.root}
       contentContainerStyle={styles.scroll}
       showsVerticalScrollIndicator={false}
+      onScroll={(e) => { scrollYRef.current = e.nativeEvent.contentOffset.y; }}
+      scrollEventThrottle={100}
+      onContentSizeChange={() => {
+        if (pendingScrollRef.current > 0) {
+          flatListRef.current?.scrollToOffset({ offset: pendingScrollRef.current, animated: false });
+        }
+      }}
+      onMomentumScrollEnd={() => { pendingScrollRef.current = 0; }}
+      onScrollEndDrag={() => { pendingScrollRef.current = 0; }}
       data={shelves}
       keyExtractor={(item) => String(item.id)}
       ListHeaderComponent={listHeader}
@@ -798,6 +755,8 @@ export default function SeriesScreen({ navigation }) {
           onPress={handleSeriesPress}
           onTitlePress={handleTitlePress}
           onLoadMore={handleLoadMore}
+          savedScrollX={shelfScrollsRef.current[item.id] || 0}
+          onScrollX={(x) => { shelfScrollsRef.current[item.id] = x; }}
         />
       )}
       ListEmptyComponent={
@@ -818,16 +777,6 @@ const styles = StyleSheet.create({
   scroll: { paddingBottom: 80 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0f0f23', padding: 24 },
   loadingText: { color: '#aaa', marginTop: 12, fontSize: 14 },
-
-  /* ── Continue Watching ── */
-  cwSection: { paddingTop: 20, paddingBottom: 8 },
-  cwHeader: {
-    flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between',
-    paddingHorizontal: 16, marginBottom: 14,
-  },
-  cwSectionTitle: { color: '#fff', fontSize: 20, fontWeight: '700', letterSpacing: -0.3 },
-  seeHistory: { color: '#888', fontSize: 13 },
-  cwTrack: { paddingHorizontal: 16, gap: 12 },
 
   /* ── Page body ── */
   pageBody: { paddingTop: 8 },

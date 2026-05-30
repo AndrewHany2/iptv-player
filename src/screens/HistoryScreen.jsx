@@ -38,31 +38,26 @@ function MyListCard({ item, onPress, onRemove }) {
   const epLabel = getEpLabel(item);
 
   return (
-    <TouchableOpacity style={styles.poster} onPress={onPress} activeOpacity={0.8}>
-      {poster ? (
-        <Image source={{ uri: poster }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
-      ) : (
-        <View style={[StyleSheet.absoluteFillObject, styles.posterNoBg]} />
-      )}
-      <LinearGradient
-        colors={['transparent', 'rgba(0,0,0,0.6)', 'rgba(0,0,0,0.9)']}
-        style={StyleSheet.absoluteFillObject}
-      />
-      <View style={styles.hdBadge}>
-        <Text style={styles.hdText}>HD</Text>
+    <TouchableOpacity style={styles.posterCard} onPress={onPress} activeOpacity={0.8}>
+      <View style={styles.poster}>
+        {poster ? (
+          <Image source={{ uri: poster }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+        ) : (
+          <View style={[StyleSheet.absoluteFillObject, styles.posterNoBg]} />
+        )}
+        <View style={styles.hdBadge}>
+          <Text style={styles.hdText}>HD</Text>
+        </View>
+        <TouchableOpacity
+          style={styles.removeBtn}
+          onPress={onRemove}
+          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+        >
+          <Text style={styles.removeBtnText}>✕</Text>
+        </TouchableOpacity>
       </View>
-      <TouchableOpacity
-        style={styles.removeBtn}
-        onPress={onRemove}
-        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-      >
-        <Text style={styles.removeBtnText}>✕</Text>
-      </TouchableOpacity>
-      <View style={styles.posterBottom}>
-        <View style={styles.accentBar} />
-        <Text style={styles.posterTitle} numberOfLines={3}>{item.name?.toUpperCase()}</Text>
-        {epLabel && <Text style={styles.posterMeta}>{epLabel}</Text>}
-      </View>
+      <Text style={styles.posterLabel} numberOfLines={2}>{item.name}</Text>
+      {epLabel && <Text style={styles.posterMeta}>{epLabel}</Text>}
     </TouchableOpacity>
   );
 }
@@ -98,7 +93,6 @@ function CWCard({ item, onPress }) {
           <Text style={styles.cwPlayIcon}>▶</Text>
         </View>
         <View style={styles.cwBottom}>
-          <Text style={styles.cwTitle} numberOfLines={1}>{showTitle?.toUpperCase()}</Text>
           <View style={styles.cwBar}>
             <View style={[styles.cwBarFill, { width: `${progress}%` }]} />
           </View>
@@ -363,7 +357,7 @@ const detailStyles = StyleSheet.create({
 
 /* ── Screen ── */
 export default function HistoryScreen({ navigation }) {
-  const { watchHistory, removeFromWatchHistory, playVideo } = useApp();
+  const { watchHistory, removeFromWatchHistory, playVideo, myList, removeFromMyList } = useApp();
 
   // currentDetail: { historyItem, type: 'movie'|'series', info, seriesSeasons, infoLoading }
   const [currentDetail, setCurrentDetail] = useState(null);
@@ -470,30 +464,29 @@ export default function HistoryScreen({ navigation }) {
     );
   }
 
-  /* ── My List & Continue Watching ── */
-  const myList = watchHistory.filter((item) => item.type !== 'live');
+  /* ── Favorites & Continue Watching ── */
   const continueWatching = watchHistory.filter((item) => {
     if (item.type === 'live' || !item.currentTime || item.currentTime <= 0) return false;
     if (item.duration > 0) return item.currentTime / item.duration < 0.95;
     return true;
   });
 
-  if (watchHistory.length === 0) {
+  if (myList.length === 0 && continueWatching.length === 0) {
     return (
       <View style={styles.center}>
         <Text style={styles.emptyIcon}>🎬</Text>
         <Text style={styles.emptyTitle}>Your list is empty</Text>
-        <Text style={styles.emptyHint}>Start watching to build your list</Text>
+        <Text style={styles.emptyHint}>Open a movie and tap ♡ Favorites to save it here</Text>
       </View>
     );
   }
 
   return (
     <ScrollView style={styles.root} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-      {/* My List */}
+      {/* Favorites */}
       {myList.length > 0 && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>My List</Text>
+          <Text style={styles.sectionTitle}>Favorites</Text>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -504,7 +497,7 @@ export default function HistoryScreen({ navigation }) {
                 key={item.id}
                 item={item}
                 onPress={() => openDetail(item)}
-                onRemove={() => handleRemove(item)}
+                onRemove={() => removeFromMyList(item.id)}
               />
             ))}
           </ScrollView>
@@ -523,10 +516,7 @@ export default function HistoryScreen({ navigation }) {
             contentContainerStyle={styles.shelfTrack}
           >
             {continueWatching.map((item) => (
-              <CWCard key={item.id} item={item} onPress={() => {
-                playVideo({ ...item, startTime: item.currentTime || 0 });
-                navigation.navigate('VideoPlayer');
-              }} />
+              <CWCard key={item.id} item={item} onPress={() => openDetail(item)} />
             ))}
           </ScrollView>
         </View>
@@ -556,10 +546,12 @@ const styles = StyleSheet.create({
   shelfTrack: { paddingHorizontal: 16, gap: 12 },
 
   /* ── My List poster (portrait 2:3) ── */
+  posterCard: { width: 130, flexShrink: 0 },
   poster: {
     width: 130, aspectRatio: 2 / 3,
-    borderRadius: 8, backgroundColor: '#16213e', overflow: 'hidden', flexShrink: 0,
+    borderRadius: 8, backgroundColor: '#16213e', overflow: 'hidden',
   },
+  posterLabel: { color: '#fff', fontSize: 12, fontWeight: '600', marginTop: 8, lineHeight: 16 },
   posterNoBg: { backgroundColor: '#16213e' },
   hdBadge: {
     position: 'absolute', top: 8, right: 8, zIndex: 4,
