@@ -89,7 +89,7 @@ class TmdbApi {
     return { matched, totalPages: total_pages, hasMore: page < total_pages };
   }
 
-  // Fetch multiple TMDB pages in parallel, return concatenated matches.
+  // Fetch multiple TMDB pages in parallel, return concatenated matches sorted by rating.
   async matchTopRatedRange({ type, iptvItems, idField, fromPage, toPage, seenIds }) {
     if (!API_KEY) return { matched: [], totalPages: 0, hasMore: false };
     const pages = [];
@@ -112,6 +112,7 @@ class TmdbApi {
         }
       }
     }
+    matched.sort((a, b) => (b.tmdb_rating || 0) - (a.tmdb_rating || 0));
     return { matched, totalPages, hasMore: toPage < totalPages };
   }
 }

@@ -25,6 +25,26 @@ import tmdbApi from '../services/tmdbApi';
 const SHELF_PAGE = 12;
 const GRID_PAGE = 40;
 
+async function prefetchTopRatedSeries() {
+  try {
+    const series = await iptvApi.getAllSeriesRobust();
+    if (!series?.length) return null;
+    if (!tmdbApi.hasKey) {
+      return {
+        streams: series,
+        matched: [...series].filter(s => parseFloat(s.rating) > 0)
+          .sort((a, b) => parseFloat(b.rating) - parseFloat(a.rating)),
+        hasTmdb: false, seenIds: new Set(), totalPages: 0, hasMore: false,
+      };
+    }
+    const seenIds = new Set();
+    const { matched, totalPages, hasMore } = await tmdbApi.matchTopRatedRange({
+      type: 'tv', iptvItems: series, idField: 'series_id', fromPage: 1, toPage: 5, seenIds,
+    });
+    return { streams: series, matched, seenIds, totalPages, hasMore, hasTmdb: true };
+  } catch { return null; }
+}
+
 const getTrailerUrl = (trailer) => {
   if (!trailer) return null;
   const match = trailer.match(/(?:v=|youtu\.be\/|embed\/)([A-Za-z0-9_-]{11})/);
@@ -55,6 +75,10 @@ const getEpisodeNumber = (episode) => {
 /* ─── Poster Card ─── */
 const PosterCard = memo(function PosterCard({ item, onPress }) {
   const poster = item.cover || item.backdrop_path || item.stream_icon || null;
+  const ratingValue = item.tmdb_rating ?? item.rating;
+  const ratingLabel = ratingValue != null && ratingValue !== ''
+    ? (typeof ratingValue === 'number' ? ratingValue.toFixed(1) : ratingValue)
+    : null;
   return (
     <TouchableOpacity style={styles.posterCard} onPress={() => onPress(item)} activeOpacity={0.8}>
       <View style={styles.poster}>
@@ -66,9 +90,9 @@ const PosterCard = memo(function PosterCard({ item, onPress }) {
         <View style={styles.hdBadge}>
           <Text style={styles.hdText}>HD</Text>
         </View>
-        {item.rating ? (
+        {ratingLabel ? (
           <View style={styles.ratingBadge}>
-            <Text style={styles.ratingBadgeText}>⭐ {item.rating}</Text>
+            <Text style={styles.ratingBadgeText}>⭐ {ratingLabel}</Text>
           </View>
         ) : null}
       </View>
@@ -380,6 +404,7 @@ export default function SeriesScreen({ navigation }) {
   const loadedRef = useRef(new Set());
   const allShuffledRef = useRef([]);
   const topRatedRef = useRef([]);
+  const prefetchRef = useRef({ topRated: null });
   const topRatedCursorRef = useRef(null);
   const [topRatedLoadingMore, setTopRatedLoadingMore] = useState(false);
   const [topRatedHasMore, setTopRatedHasMore] = useState(false);
@@ -391,6 +416,9 @@ export default function SeriesScreen({ navigation }) {
     if (!user) return;
     setLoading(true);
     loadedRef.current.clear();
+    allShuffledRef.current = [];
+    topRatedRef.current = [];
+    prefetchRef.current = { topRated: null };
     setShelves([]);
     try {
       iptvApi.setCredentials(user.host, user.username, user.password);
@@ -399,6 +427,7 @@ export default function SeriesScreen({ navigation }) {
       setShelves(cats.map((c) => ({
         id: c.category_id, name: c.category_name, items: null, totalCount: null, hasMore: false, loadingMore: false, manual: false,
       })));
+      prefetchRef.current = { topRated: prefetchTopRatedSeries() };
     } catch (err) {
       console.error('Error loading series:', err);
     } finally {
@@ -412,7 +441,8 @@ export default function SeriesScreen({ navigation }) {
     try {
       let all;
       if (catId === 'all') {
-        const series = await iptvApi.getAllSeries();
+        const prefetched = prefetchRef.current.topRated ? await prefetchRef.current.topRated : null;
+        const series = prefetched?.streams || await iptvApi.getAllSeriesRobust();
         all = [...(series || [])].sort(() => Math.random() - 0.5);
         allShuffledRef.current = all;
       } else if (catId === 'top_rated') {
@@ -458,30 +488,47 @@ export default function SeriesScreen({ navigation }) {
       let all;
       if (catId === 'all') {
         if (!allShuffledRef.current.length) {
-          const series = await iptvApi.getAllSeries();
+          const prefetched = prefetchRef.current.topRated ? await prefetchRef.current.topRated : null;
+          const series = prefetched?.streams || await iptvApi.getAllSeriesRobust();
           allShuffledRef.current = [...(series || [])].sort(() => Math.random() - 0.5);
         }
         all = allShuffledRef.current;
       } else if (catId === 'top_rated') {
-        const series = await iptvApi.getAllSeriesRobust();
-        if (tmdbApi.hasKey) {
-          const seenIds = new Set();
-          const { matched, totalPages, hasMore } = await tmdbApi.matchTopRatedRange({
-            type: 'tv', iptvItems: series || [], idField: 'series_id',
-            fromPage: 1, toPage: 5, seenIds,
-          });
-          topRatedCursorRef.current = { streams: series || [], type: 'tv', idField: 'series_id', page: 5, totalPages, seenIds, prefetch: null, prefetchTo: 0 };
+        const prefetched = prefetchRef.current.topRated
+          ? await prefetchRef.current.topRated
+          : null;
+        if (prefetched?.hasTmdb) {
+          const { streams, matched, seenIds, totalPages, hasMore } = prefetched;
+          topRatedCursorRef.current = { streams, type: 'tv', idField: 'series_id', page: 5, totalPages, seenIds, prefetch: null, prefetchTo: 0 };
           setTopRatedHasMore(hasMore);
-          all = matched;
-          if (!all.length) {
+          all = matched.length ? matched
+            : [...streams].filter(s => parseFloat(s.rating) > 0).sort((a, b) => parseFloat(b.rating) - parseFloat(a.rating));
+          if (!matched.length) setTopRatedHasMore(false);
+          else if (hasMore) kickoffPrefetch(topRatedCursorRef.current);
+        } else if (prefetched) {
+          all = prefetched.matched;
+          setTopRatedHasMore(false);
+        } else {
+          const series = await iptvApi.getAllSeriesRobust();
+          if (tmdbApi.hasKey) {
+            const seenIds = new Set();
+            const { matched, totalPages, hasMore } = await tmdbApi.matchTopRatedRange({
+              type: 'tv', iptvItems: series || [], idField: 'series_id',
+              fromPage: 1, toPage: 5, seenIds,
+            });
+            topRatedCursorRef.current = { streams: series || [], type: 'tv', idField: 'series_id', page: 5, totalPages, seenIds, prefetch: null, prefetchTo: 0 };
+            setTopRatedHasMore(hasMore);
+            all = matched;
+            if (!all.length) {
+              all = [...(series || [])].filter(s => parseFloat(s.rating) > 0).sort((a, b) => parseFloat(b.rating) - parseFloat(a.rating));
+              setTopRatedHasMore(false);
+            } else if (hasMore) {
+              kickoffPrefetch(topRatedCursorRef.current);
+            }
+          } else {
             all = [...(series || [])].filter(s => parseFloat(s.rating) > 0).sort((a, b) => parseFloat(b.rating) - parseFloat(a.rating));
             setTopRatedHasMore(false);
-          } else if (hasMore) {
-            kickoffPrefetch(topRatedCursorRef.current);
           }
-        } else {
-          all = [...(series || [])].filter(s => parseFloat(s.rating) > 0).sort((a, b) => parseFloat(b.rating) - parseFloat(a.rating));
-          setTopRatedHasMore(false);
         }
       } else {
         all = await iptvApi.getSeries(catId);
