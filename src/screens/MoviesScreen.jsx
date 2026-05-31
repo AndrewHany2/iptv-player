@@ -68,9 +68,8 @@ const PosterCard = memo(function PosterCard({ item, onPress }) {
 });
 
 /* ─── Shelf ─── */
-function Shelf({ shelf, onVisible, onPress, onTitlePress, onLoadMore, savedScrollX = 0, onScrollX }) {
+function Shelf({ shelf, onVisible, onPress, onTitlePress, onLoadMore }) {
   const hasLoaded = useRef(false);
-  const railRef = useRef(null);
 
   const handleLayout = useCallback(() => {
     if (!hasLoaded.current && shelf.items === null && !shelf.manual) {
@@ -78,15 +77,6 @@ function Shelf({ shelf, onVisible, onPress, onTitlePress, onLoadMore, savedScrol
       onVisible(shelf.id);
     }
   }, [shelf.id, shelf.items, shelf.manual, onVisible]);
-
-  // Restore horizontal scroll position when items load
-  useEffect(() => {
-    if (shelf.items !== null && savedScrollX > 0) {
-      requestAnimationFrame(() => {
-        railRef.current?.scrollTo({ x: savedScrollX, animated: false });
-      });
-    }
-  }, [shelf.items !== null]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (shelf.items !== null && !shelf.items.length) return null;
 
@@ -107,13 +97,11 @@ function Shelf({ shelf, onVisible, onPress, onTitlePress, onLoadMore, savedScrol
         </View>
       ) : (
         <ScrollView
-          ref={railRef}
           horizontal
           showsHorizontalScrollIndicator={false}
           removeClippedSubviews
           contentContainerStyle={styles.shelfTrack}
           onScroll={(e) => {
-            onScrollX?.(e.nativeEvent.contentOffset.x);
             if (!shelf.hasMore || shelf.loadingMore) return;
             const { contentOffset, layoutMeasurement, contentSize } = e.nativeEvent;
             if (contentSize.width - contentOffset.x - layoutMeasurement.width < 400) {
@@ -137,11 +125,9 @@ function Shelf({ shelf, onVisible, onPress, onTitlePress, onLoadMore, savedScrol
 }
 
 /* ─── Category Page ─── */
-function CategoryPage({ name, items, onBack, onPlay, onLoadMore, hasRemote, loadingMore, savedScrollY = 0, onScrollY }) {
+function CategoryPage({ name, items, onBack, onPlay, onLoadMore, hasRemote, loadingMore }) {
   const [displayCount, setDisplayCount] = useState(GRID_PAGE);
   const [search, setSearch] = useState('');
-  const listRef = useRef(null);
-  const pendingCatScrollRef = useRef(0);
 
   const filtered = items
     ? (search.trim() ? items.filter((i) => i.name?.toLowerCase().includes(search.toLowerCase())) : items)
@@ -151,14 +137,6 @@ function CategoryPage({ name, items, onBack, onPlay, onLoadMore, hasRemote, load
   const hasMore = hasLocalMore || hasRemote;
 
   useEffect(() => { setDisplayCount(GRID_PAGE); }, [search]);
-
-  // Set pending scroll target when items first appear
-  useEffect(() => {
-    if (displayed && savedScrollY > 0) {
-      pendingCatScrollRef.current = savedScrollY;
-      listRef.current?.scrollToOffset({ offset: savedScrollY, animated: false });
-    }
-  }, [!!displayed]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <View style={styles.root}>
@@ -184,25 +162,11 @@ function CategoryPage({ name, items, onBack, onPlay, onLoadMore, hasRemote, load
         <View style={styles.center}><ActivityIndicator size="large" color="#e94560" /></View>
       ) : (
         <FlatList
-          ref={listRef}
           style={{ flex: 1 }}
           data={displayed}
           keyExtractor={(item) => String(item.stream_id)}
           numColumns={3}
           contentContainerStyle={styles.catGrid}
-          onScroll={(e) => {
-            const y = e.nativeEvent.contentOffset.y;
-            onScrollY?.(y);
-            if (pendingCatScrollRef.current > 0 && y >= pendingCatScrollRef.current - 5) {
-              pendingCatScrollRef.current = 0;
-            }
-          }}
-          scrollEventThrottle={100}
-          onContentSizeChange={() => {
-            if (pendingCatScrollRef.current > 0) {
-              listRef.current?.scrollToOffset({ offset: pendingCatScrollRef.current, animated: false });
-            }
-          }}
           renderItem={({ item }) => <PosterCard item={item} onPress={onPlay} />}
           onEndReached={() => {
             if (hasLocalMore) {
@@ -242,26 +206,7 @@ export default function MoviesScreen({ navigation }) {
   const topRatedCursorRef = useRef(null);
   const [topRatedLoadingMore, setTopRatedLoadingMore] = useState(false);
   const [topRatedHasMore, setTopRatedHasMore] = useState(false);
-  const flatListRef = useRef(null);
-  const scrollYRef = useRef(0);
-  const catScrollYRef = useRef(0);
-  const pendingScrollRef = useRef(0);
-  const shelfScrollsRef = useRef({});
-  const hadOverlayRef = useRef(false);
-
   useEffect(() => { if (activeUserId) load(); }, [activeUserId]);
-
-  // When returning from detail/category, store the target so onContentSizeChange can restore it
-  useEffect(() => {
-    const hasOverlay = !!(currentMovieDetail || currentCategory);
-    if (hadOverlayRef.current && !hasOverlay && scrollYRef.current > 0) {
-      pendingScrollRef.current = scrollYRef.current;
-      // immediate attempt in case content is already rendered
-      flatListRef.current?.scrollToOffset({ offset: scrollYRef.current, animated: false });
-    }
-    if (hadOverlayRef.current && !currentCategory) catScrollYRef.current = 0;
-    hadOverlayRef.current = hasOverlay;
-  }, [currentMovieDetail, currentCategory]);
 
   const load = async () => {
     const user = users.find((u) => u.id === activeUserId);
@@ -487,76 +432,63 @@ export default function MoviesScreen({ navigation }) {
     </>
   );
 
-  if (currentMovieDetail) {
-    return (
-      <MovieDetail
-        item={currentMovieDetail}
-        onBack={() => setCurrentMovieDetail(null)}
-        onPlay={(videoObj) => { playVideo(videoObj); navigation.navigate('VideoPlayer'); setCurrentMovieDetail(null); }}
-      />
-    );
-  }
-
-  if (currentCategory) {
-    const isTopRated = currentCategory.catId === 'top_rated';
-    return (
-      <CategoryPage
-        name={currentCategory.name}
-        items={categoryItems}
-        onBack={() => {
-          setCurrentCategory(null); setCategoryItems(null);
-          topRatedCursorRef.current = null;
-          setTopRatedHasMore(false); setTopRatedLoadingMore(false);
-        }}
-        onPlay={handleMoviePress}
-        hasRemote={isTopRated && topRatedHasMore}
-        loadingMore={isTopRated && topRatedLoadingMore}
-        onLoadMore={isTopRated ? handleTopRatedMore : undefined}
-        savedScrollY={catScrollYRef.current}
-        onScrollY={(y) => { catScrollYRef.current = y; }}
-      />
-    );
-  }
+  const isTopRated = currentCategory?.catId === 'top_rated';
 
   return (
-    <FlatList
-      ref={flatListRef}
-      style={styles.root}
-      contentContainerStyle={styles.scroll}
-      showsVerticalScrollIndicator={false}
-      onScroll={(e) => { scrollYRef.current = e.nativeEvent.contentOffset.y; }}
-      scrollEventThrottle={100}
-      onContentSizeChange={() => {
-        if (pendingScrollRef.current > 0) {
-          flatListRef.current?.scrollToOffset({ offset: pendingScrollRef.current, animated: false });
+    <View style={styles.root}>
+      <FlatList
+        style={{ flex: 1 }}
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+        data={shelves}
+        keyExtractor={(item) => String(item.id)}
+        ListHeaderComponent={listHeader}
+        renderItem={({ item }) => (
+          <Shelf
+            shelf={item}
+            onVisible={handleShelfVisible}
+            onPress={handleMoviePress}
+            onTitlePress={handleTitlePress}
+            onLoadMore={handleLoadMore}
+          />
+        )}
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyText}>No movies found</Text>
+          </View>
         }
-      }}
-      onMomentumScrollEnd={() => { pendingScrollRef.current = 0; }}
-      onScrollEndDrag={() => { pendingScrollRef.current = 0; }}
-      data={shelves}
-      keyExtractor={(item) => String(item.id)}
-      ListHeaderComponent={listHeader}
-      renderItem={({ item }) => (
-        <Shelf
-          shelf={item}
-          onVisible={handleShelfVisible}
-          onPress={handleMoviePress}
-          onTitlePress={handleTitlePress}
-          onLoadMore={handleLoadMore}
-          savedScrollX={shelfScrollsRef.current[item.id] || 0}
-          onScrollX={(x) => { shelfScrollsRef.current[item.id] = x; }}
-        />
-      )}
-      ListEmptyComponent={
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyText}>No movies found</Text>
+        windowSize={5}
+        maxToRenderPerBatch={3}
+        initialNumToRender={3}
+        removeClippedSubviews
+      />
+      {currentCategory && (
+        <View style={StyleSheet.absoluteFillObject}>
+          <CategoryPage
+            name={currentCategory.name}
+            items={categoryItems}
+            onBack={() => {
+              setCurrentCategory(null); setCategoryItems(null);
+              topRatedCursorRef.current = null;
+              setTopRatedHasMore(false); setTopRatedLoadingMore(false);
+            }}
+            onPlay={handleMoviePress}
+            hasRemote={isTopRated && topRatedHasMore}
+            loadingMore={isTopRated && topRatedLoadingMore}
+            onLoadMore={isTopRated ? handleTopRatedMore : undefined}
+          />
         </View>
-      }
-      windowSize={5}
-      maxToRenderPerBatch={3}
-      initialNumToRender={3}
-      removeClippedSubviews
-    />
+      )}
+      {currentMovieDetail && (
+        <View style={StyleSheet.absoluteFillObject}>
+          <MovieDetail
+            item={currentMovieDetail}
+            onBack={() => setCurrentMovieDetail(null)}
+            onPlay={(videoObj) => { playVideo(videoObj); navigation.navigate('VideoPlayer'); setCurrentMovieDetail(null); }}
+          />
+        </View>
+      )}
+    </View>
   );
 }
 

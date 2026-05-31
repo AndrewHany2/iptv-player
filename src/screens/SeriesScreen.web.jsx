@@ -20,7 +20,7 @@ function PosterCard({ item, onPress }) {
     <TouchableOpacity
       style={styles.posterCard}
       onPress={() => onPress(item)}
-      {...({ className: 'lumen-poster' })}
+      {...({ className: 'lumen-poster', 'data-item-id': String(item.series_id) })}
     >
       <View style={styles.poster}>
         {poster ? (
@@ -67,7 +67,7 @@ async function prefetchTopRatedSeries() {
 }
 
 /* ─── Shelf — lazy-loads when visible, parent drives pagination ─── */
-function Shelf({ catId, title, items, totalCount, hasMore, loadingMore, onVisible, onPress, onTitlePress, onLoadMore, manual, savedScrollX = 0, onScrollX }) {
+function Shelf({ catId, title, items, totalCount, hasMore, loadingMore, onVisible, onPress, onTitlePress, onLoadMore, manual }) {
   const sentinelRef = useRef(null);
   const railRef = useRef(null);
   const isDragging = useRef(false);
@@ -86,13 +86,6 @@ function Shelf({ catId, title, items, totalCount, hasMore, loadingMore, onVisibl
     obs.observe(el);
     return () => obs.disconnect();
   }, [catId, items, onVisible, manual]);
-
-  // Restore horizontal scroll when items load
-  useEffect(() => {
-    if (items !== null && savedScrollX > 0 && railRef.current) {
-      requestAnimationFrame(() => { railRef.current.scrollLeft = savedScrollX; });
-    }
-  }, [items !== null]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const el = railRef.current;
@@ -133,7 +126,6 @@ function Shelf({ catId, title, items, totalCount, hasMore, loadingMore, onVisibl
   };
 
   const handleScroll = (e) => {
-    onScrollX?.(e.target.scrollLeft);
     if (!hasMore || loadingMore) return;
     const { scrollLeft, scrollWidth, clientWidth } = e.target;
     if (scrollWidth - scrollLeft - clientWidth < 500) onLoadMore(catId);
@@ -177,10 +169,9 @@ function Shelf({ catId, title, items, totalCount, hasMore, loadingMore, onVisibl
 }
 
 /* ─── Category Page — paginates 40 items at a time, with search ─── */
-function CategoryPage({ name, items, onBack, onPress, onLoadMore, hasRemote, loadingMore, savedScrollY = 0, onScrollY }) {
+function CategoryPage({ name, items, onBack, onPress, onLoadMore, hasRemote, loadingMore }) {
   const [displayCount, setDisplayCount] = useState(GRID_PAGE);
   const [search, setSearch] = useState('');
-  const scrollRef = useRef(null);
 
   const filtered = items
     ? (search.trim() ? items.filter((i) => i.name?.toLowerCase().includes(search.toLowerCase())) : items)
@@ -191,17 +182,7 @@ function CategoryPage({ name, items, onBack, onPress, onLoadMore, hasRemote, loa
 
   useEffect(() => { setDisplayCount(GRID_PAGE); }, [search]);
 
-  useEffect(() => {
-    if (displayed && savedScrollY > 0) {
-      const target = savedScrollY;
-      scrollRef.current?.scrollTo({ y: target, animated: false });
-      setTimeout(() => { scrollRef.current?.scrollTo({ y: target, animated: false }); }, 80);
-      setTimeout(() => { scrollRef.current?.scrollTo({ y: target, animated: false }); }, 250);
-    }
-  }, [!!displayed]); // eslint-disable-line react-hooks/exhaustive-deps
-
   const handleScroll = ({ nativeEvent: { layoutMeasurement, contentOffset, contentSize } }) => {
-    onScrollY?.(contentOffset.y);
     if (contentSize.height - contentOffset.y - layoutMeasurement.height >= 800) return;
     if (hasLocalMore) {
       setDisplayCount((c) => Math.min(c + GRID_PAGE, filtered.length));
@@ -233,7 +214,7 @@ function CategoryPage({ name, items, onBack, onPress, onLoadMore, hasRemote, loa
       {!displayed ? (
         <View style={styles.center}><ActivityIndicator size="large" color="#e94560" /></View>
       ) : (
-        <ScrollView ref={scrollRef} style={{ flex: 1, minHeight: 0 }} contentContainerStyle={styles.catGrid} onScroll={handleScroll} scrollEventThrottle={200}>
+        <ScrollView style={{ flex: 1, minHeight: 0 }} contentContainerStyle={styles.catGrid} onScroll={handleScroll} scrollEventThrottle={200}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, 200px)', gap: 12, justifyContent: 'center' }}>
             {displayed.map((item) => (
               <PosterCard key={String(item.series_id)} item={item} onPress={onPress} />
@@ -266,25 +247,7 @@ export default function SeriesScreen({ navigation }) {
   const topRatedCursorRef = useRef(null);
   const [topRatedLoadingMore, setTopRatedLoadingMore] = useState(false);
   const [topRatedHasMore, setTopRatedHasMore] = useState(false);
-  const scrollViewRef = useRef(null);
-  const scrollYRef = useRef(0);
-  const catScrollYRef = useRef(0);
-  const shelfScrollsRef = useRef({});
-  const hadOverlayRef = useRef(false);
-
   useEffect(() => { if (activeUserId) load(); }, [activeUserId]);
-
-  useEffect(() => {
-    const hasOverlay = !!(currentSeries || currentCategory);
-    if (hadOverlayRef.current && !hasOverlay && scrollYRef.current > 0) {
-      const target = scrollYRef.current;
-      scrollViewRef.current?.scrollTo({ y: target, animated: false });
-      setTimeout(() => { scrollViewRef.current?.scrollTo({ y: target, animated: false }); }, 80);
-      setTimeout(() => { scrollViewRef.current?.scrollTo({ y: target, animated: false }); }, 250);
-    }
-    if (hadOverlayRef.current && !currentCategory) catScrollYRef.current = 0;
-    hadOverlayRef.current = hasOverlay;
-  }, [currentSeries, currentCategory]);
 
   const load = async () => {
     const user = users.find((u) => u.id === activeUserId);
@@ -487,95 +450,89 @@ export default function SeriesScreen({ navigation }) {
     );
   }
 
-  if (currentSeries) {
-    return (
-      <SeriesDetail
-        item={currentSeries}
-        onBack={() => setCurrentSeries(null)}
-        onPlayEpisode={(videoObj) => { playVideo(videoObj); navigation.navigate('VideoPlayer'); setCurrentSeries(null); }}
-      />
-    );
-  }
-
-  if (currentCategory) {
-    const isTopRated = currentCategory.catId === 'top_rated';
-    return (
-      <CategoryPage
-        name={currentCategory.name}
-        items={categoryItems}
-        onBack={() => {
-          setCurrentCategory(null); setCategoryItems(null);
-          topRatedCursorRef.current = null;
-          setTopRatedHasMore(false); setTopRatedLoadingMore(false);
-        }}
-        onPress={handleSeriesPress}
-        hasRemote={isTopRated && topRatedHasMore}
-        loadingMore={isTopRated && topRatedLoadingMore}
-        onLoadMore={isTopRated ? handleTopRatedMore : undefined}
-        savedScrollY={catScrollYRef.current}
-        onScrollY={(y) => { catScrollYRef.current = y; }}
-      />
-    );
-  }
+  const isTopRated = currentCategory?.catId === 'top_rated';
 
   return (
-    <ScrollView
-      ref={scrollViewRef}
-      style={styles.root}
-      contentContainerStyle={styles.scroll}
-      onScroll={(e) => { scrollYRef.current = e.nativeEvent.contentOffset.y; }}
-      scrollEventThrottle={200}
-    >
-      <View style={styles.discoverSection}>
-        <Text style={styles.discoverTitle}>Discover</Text>
-        <View style={styles.discoverRow}>
-          <TouchableOpacity
-            style={styles.discoverPill}
-            onPress={() => handleTitlePress('all', 'All Series')}
-            {...({ className: 'lumen-load-cta' })}
-          >
-            <Text style={styles.discoverIcon}>📺</Text>
-            <Text style={styles.discoverLabel}>All Series</Text>
-            <Text style={styles.discoverArrow}>→</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.discoverPill}
-            onPress={() => handleTitlePress('top_rated', 'Top Rated')}
-            {...({ className: 'lumen-load-cta' })}
-          >
-            <Text style={styles.discoverIcon}>⭐</Text>
-            <Text style={styles.discoverLabel}>Top Rated</Text>
-            <Text style={styles.discoverArrow}>→</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-      <View style={styles.pageBody}>
-        {shelves.length > 0 ? (
-          shelves.map((shelf) => (
-            <Shelf
-              key={shelf.id}
-              catId={shelf.id}
-              title={shelf.name}
-              items={shelf.items}
-              totalCount={shelf.totalCount}
-              hasMore={shelf.hasMore}
-              loadingMore={shelf.loadingMore}
-              onVisible={handleShelfVisible}
-              onPress={handleSeriesPress}
-              onTitlePress={handleTitlePress}
-              onLoadMore={handleLoadMore}
-              manual={false}
-              savedScrollX={shelfScrollsRef.current[shelf.id] || 0}
-              onScrollX={(x) => { shelfScrollsRef.current[shelf.id] = x; }}
-            />
-          ))
-        ) : (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyText}>No series found</Text>
+    <View style={styles.root}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={styles.scroll}
+      >
+        <View style={styles.discoverSection}>
+          <Text style={styles.discoverTitle}>Discover</Text>
+          <View style={styles.discoverRow}>
+            <TouchableOpacity
+              style={styles.discoverPill}
+              onPress={() => handleTitlePress('all', 'All Series')}
+              {...({ className: 'lumen-load-cta' })}
+            >
+              <Text style={styles.discoverIcon}>📺</Text>
+              <Text style={styles.discoverLabel}>All Series</Text>
+              <Text style={styles.discoverArrow}>→</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.discoverPill}
+              onPress={() => handleTitlePress('top_rated', 'Top Rated')}
+              {...({ className: 'lumen-load-cta' })}
+            >
+              <Text style={styles.discoverIcon}>⭐</Text>
+              <Text style={styles.discoverLabel}>Top Rated</Text>
+              <Text style={styles.discoverArrow}>→</Text>
+            </TouchableOpacity>
           </View>
-        )}
-      </View>
-    </ScrollView>
+        </View>
+        <View style={styles.pageBody}>
+          {shelves.length > 0 ? (
+            shelves.map((shelf) => (
+              <Shelf
+                key={shelf.id}
+                catId={shelf.id}
+                title={shelf.name}
+                items={shelf.items}
+                totalCount={shelf.totalCount}
+                hasMore={shelf.hasMore}
+                loadingMore={shelf.loadingMore}
+                onVisible={handleShelfVisible}
+                onPress={handleSeriesPress}
+                onTitlePress={handleTitlePress}
+                onLoadMore={handleLoadMore}
+                manual={false}
+              />
+            ))
+          ) : (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyText}>No series found</Text>
+            </View>
+          )}
+        </View>
+      </ScrollView>
+      {currentCategory && (
+        <View style={StyleSheet.absoluteFillObject}>
+          <CategoryPage
+            name={currentCategory.name}
+            items={categoryItems}
+            onBack={() => {
+              setCurrentCategory(null); setCategoryItems(null);
+              topRatedCursorRef.current = null;
+              setTopRatedHasMore(false); setTopRatedLoadingMore(false);
+            }}
+            onPress={handleSeriesPress}
+            hasRemote={isTopRated && topRatedHasMore}
+            loadingMore={isTopRated && topRatedLoadingMore}
+            onLoadMore={isTopRated ? handleTopRatedMore : undefined}
+          />
+        </View>
+      )}
+      {currentSeries && (
+        <View style={StyleSheet.absoluteFillObject}>
+          <SeriesDetail
+            item={currentSeries}
+            onBack={() => setCurrentSeries(null)}
+            onPlayEpisode={(videoObj) => { playVideo(videoObj); navigation.navigate('VideoPlayer'); setCurrentSeries(null); }}
+          />
+        </View>
+      )}
+    </View>
   );
 }
 
