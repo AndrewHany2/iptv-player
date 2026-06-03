@@ -27,7 +27,13 @@ const KEY_BACK = new Set([27, 461, 10009, 8]);
 // mode: 'cats' | 'grid' | 'detail'
 
 export default function SeriesScreenTV({ navigation, route }) {
-  const { users, activeUserId, playVideo, watchHistory } = useApp();
+  const {
+    users, activeUserId, playVideo, watchHistory,
+    isInMyList, addToMyList, removeFromMyList,
+    currentVideo,
+  } = useApp();
+  const currentVideoRef = useRef(null);
+  useEffect(() => { currentVideoRef.current = currentVideo; }, [currentVideo]);
 
   const [loading, setLoading] = useState(false);
   const [cats, setCats] = useState([]);
@@ -44,6 +50,7 @@ export default function SeriesScreenTV({ navigation, route }) {
   const serElRef = useRef(null);
   const epElRef = useRef(null);
   const snElRef = useRef(null);
+  const actionElRef = useRef(null);
   const navActiveRef = useRef(false);
 
   const focusNav = () => {
@@ -156,7 +163,8 @@ export default function SeriesScreenTV({ navigation, route }) {
       seasons: [],
       seasonIdx: 0,
       epIdx: 0,
-      section: "seasons",
+      section: "actions",
+      actionIdx: 0,
       trailerFocus: false,
       showTrailer: false,
     };
@@ -237,10 +245,33 @@ export default function SeriesScreenTV({ navigation, route }) {
     navigation.navigate("VideoPlayer");
   };
 
+  // ── Continue watching a series ────────────────────────────────────────────
+  const continueWatching = (d) => {
+    const seriesId = d.item.series_id || d.item.id || d.item.seriesId;
+    const entry = (watchHistory || []).find(
+      (h) => h.type === "series" && String(h.seriesId) === String(seriesId),
+    );
+    if (!entry) return;
+    const url = iptvApi.buildStreamUrl("series", entry.streamId, "mp4");
+    playVideo({
+      type: "series",
+      streamId: entry.streamId,
+      seriesId: entry.seriesId,
+      seriesName: entry.seriesName || d.item.name,
+      episodeId: entry.episodeId || entry.streamId,
+      name: entry.name || d.item.name,
+      url,
+      cover: d.item.cover || d.item.stream_icon,
+      startTime: entry.currentTime || 0,
+    });
+    navigation.navigate("VideoPlayer");
+  };
+
   // ── D-pad handler ─────────────────────────────────────────────────────────
   useEffect(() => {
     const onKey = (e) => {
       if (navActiveRef.current) return;
+      if (currentVideoRef.current) return;
       const k = e.keyCode || e.which;
       if (detailRef.current) handleDetailKey(k, e);
       else if (gridRef.current) handleGridKey(k, e);
@@ -381,13 +412,25 @@ export default function SeriesScreenTV({ navigation, route }) {
   const onDetailLeft = (d) => {
     if (d.trailerFocus) {
       updDetail({ ...d, trailerFocus: false, seasonIdx: d.seasons.length - 1 });
+    } else if (d.section === "actions" && d.actionIdx > 0) {
+      updDetail({ ...d, actionIdx: d.actionIdx - 1 });
+    } else if (d.section === "actions" && d.actionIdx === 0) {
+      closeDetail();
     } else if (d.section === "seasons" && d.seasonIdx > 0) {
       updDetail({ ...d, seasonIdx: d.seasonIdx - 1, epIdx: 0 });
     }
   };
   const onDetailRight = (d) => {
     const trailer = getTrailerUrl(d.info?.info?.youtube_trailer);
-    if (!d.trailerFocus && d.section === "seasons") {
+    if (d.section === "actions") {
+      const seriesId = d.item.series_id || d.item.id || d.item.seriesId;
+      const hasHistory = (watchHistory || []).some(
+        (h) => h.type === "series" && String(h.seriesId) === String(seriesId),
+      );
+      // buttons: [Continue (if history), Favorites] → max index 1 or 0
+      if (d.actionIdx < (hasHistory ? 1 : 0))
+        updDetail({ ...d, actionIdx: d.actionIdx + 1 });
+    } else if (!d.trailerFocus && d.section === "seasons") {
       if (d.seasonIdx < d.seasons.length - 1)
         updDetail({ ...d, seasonIdx: d.seasonIdx + 1, epIdx: 0 });
       else if (trailer) updDetail({ ...d, trailerFocus: true });
@@ -401,8 +444,10 @@ export default function SeriesScreenTV({ navigation, route }) {
     if (d.section === "episodes") {
       if (d.epIdx > 0) updDetail({ ...d, epIdx: d.epIdx - 1 });
       else updDetail({ ...d, section: "seasons" });
+    } else if (d.section === "seasons") {
+      updDetail({ ...d, section: "actions", actionIdx: 0 });
     } else {
-      focusNav();
+      focusNav(); // section === "actions"
     }
   };
   const onDetailDown = (d) => {
@@ -410,8 +455,9 @@ export default function SeriesScreenTV({ navigation, route }) {
       updDetail({ ...d, trailerFocus: false, section: "episodes", epIdx: 0 });
       return;
     }
-    if (d.section === "seasons") {
-      // Don't auto-switch to episodes on DOWN, user must press ENTER on season
+    if (d.section === "actions") {
+      updDetail({ ...d, section: "seasons" });
+    } else if (d.section === "seasons") {
       return;
     } else {
       const eps = d.info?.episodes?.[d.seasons[d.seasonIdx]] || [];
@@ -421,6 +467,27 @@ export default function SeriesScreenTV({ navigation, route }) {
   const onDetailEnter = (d) => {
     if (d.trailerFocus) {
       updDetail({ ...d, showTrailer: !d.showTrailer });
+      return;
+    }
+    if (d.section === "actions") {
+      const seriesId = d.item.series_id || d.item.id || d.item.seriesId;
+      const historyEntry = (watchHistory || []).find(
+        (h) => h.type === "series" && String(h.seriesId) === String(seriesId),
+      );
+      const inFav = isInMyList("series", seriesId);
+      if (historyEntry && d.actionIdx === 0) {
+        continueWatching(d);
+      } else {
+        if (inFav) removeFromMyList(`mylist_series_${seriesId}`);
+        else
+          addToMyList({
+            type: "series",
+            streamId: seriesId,
+            seriesId,
+            name: d.item.name,
+            cover: d.info?.info?.cover || d.item.cover || d.item.stream_icon || null,
+          });
+      }
       return;
     }
     if (d.section === "seasons") {
@@ -473,6 +540,9 @@ export default function SeriesScreenTV({ navigation, route }) {
   useEffect(() => {
     snElRef.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
   }, [detail?.seasonIdx]);
+  useEffect(() => {
+    actionElRef.current?.scrollIntoView({ block: "nearest" });
+  }, [detail?.actionIdx]);
 
   // ── Render ────────────────────────────────────────────────────────────────
   if (loading)
@@ -510,6 +580,7 @@ export default function SeriesScreenTV({ navigation, route }) {
       seasonIdx,
       epIdx,
       section,
+      actionIdx,
       trailerFocus,
       showTrailer,
     } = detail;
@@ -518,185 +589,155 @@ export default function SeriesScreenTV({ navigation, route }) {
     const episodes = rawInfo?.episodes?.[currentSeason] || [];
     const trailer = getTrailerUrl(si.youtube_trailer);
     const poster = si.cover || item.cover || item.stream_icon || null;
+    const seriesId = item.series_id || item.id || item.seriesId;
+    const historyEntry = (watchHistory || []).find(
+      (h) => h.type === "series" && String(h.seriesId) === String(seriesId),
+    );
+    const inFav = isInMyList("series", seriesId);
+    const actionBtns = [
+      ...(historyEntry
+        ? [{
+            type: "continue",
+            label: "▶  Continue" + (historyEntry.seasonNum
+              ? ` S${historyEntry.seasonNum}E${String(historyEntry.episodeNum).padStart(2, "0")}`
+              : ""),
+          }]
+        : []),
+      { type: "fav", label: inFav ? "♥  Saved" : "♡  Favorites" },
+    ];
+    const actBtnClass = (i) =>
+      [
+        "tvl-det-hero-btn",
+        actionBtns[i].type === "continue" ? "tvl-det-hero-btn--play" : "",
+        actionBtns[i].type === "fav" && inFav ? "tvl-det-hero-btn--saved" : "",
+        section === "actions" && i === actionIdx ? "tvl-det-hero-btn--on" : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
 
     return (
       <div className="tvl-screen">
         <div className="tvl-topbar">
-          <button className="tvl-topbar-back" onClick={closeDetail}>
-            ◀
-          </button>
-          <button
-            className="tvl-topbar-title tvl-topbar-title--back"
-            onClick={closeDetail}
-          >
+          <button className="tvl-topbar-back" onClick={closeDetail}>◀</button>
+          <button className="tvl-topbar-title tvl-topbar-title--back" onClick={closeDetail}>
             {item.name}
           </button>
         </div>
-        <div className="tvl-det">
-          {/* ── Left panel ─────────────────────────────────────────────── */}
-          <div className="tvl-det-left">
-            <div className="tvl-det-poster-wrap">
-              {poster ? (
-                <img className="tvl-det-poster" src={poster} alt="" />
-              ) : (
-                <div className="tvl-det-poster-ph">📺</div>
-              )}
-            </div>
-            <div className="tvl-det-info">
-              <div className="tvl-det-name">{item.name}</div>
-              <div className="tvl-det-meta">
-                {si.releaseDate && (
-                  <span className="tvl-det-tag">
-                    {si.releaseDate.slice(0, 4)}
-                  </span>
-                )}
-                {si.genre && (
-                  <span className="tvl-det-tag">
-                    {si.genre.split(",")[0].trim()}
-                  </span>
-                )}
-                {si.rating && (
-                  <span className="tvl-det-rating">
-                    ⭐ {Number.parseFloat(si.rating).toFixed(1)}
-                  </span>
-                )}
-              </div>
-              {si.plot && <p className="tvl-det-plot">{si.plot}</p>}
-              {si.cast && (
-                <p className="tvl-det-crew">
-                  <strong>Cast</strong> {si.cast}
-                </p>
-              )}
-              {si.director && (
-                <p className="tvl-det-crew">
-                  <strong>Director</strong> {si.director}
-                </p>
-              )}
-            </div>
+
+        {/* Banner */}
+        <div className="tvl-det-hero tvl-det-hero--series">
+          {poster && <img className="tvl-det-hero-bg" src={poster} alt="" />}
+          <div className="tvl-det-hero-grad" />
+        </div>
+
+        {/* Content below banner */}
+        <div className="tvl-det-content">
+          <div className="tvl-det-hero-thumb">
+            {poster
+              ? <img src={poster} alt="" />
+              : <div className="tvl-det-hero-thumb-ph">📺</div>}
           </div>
-
-          {/* ── Right panel ────────────────────────────────────────────── */}
-          <div className="tvl-det-right">
-            {rawInfo ? (
-              <>
-                <div className="tvl-seasons-row">
-                  {seasons.map((s, i) => (
-                    <div
-                      key={s}
-                      ref={
-                        section === "seasons" && i === seasonIdx
-                          ? snElRef
-                          : null
+          <div className="tvl-det-hero-info">
+            <div className="tvl-det-hero-title">{item.name}</div>
+            <div className="tvl-det-hero-meta">
+              {si.releaseDate && <span className="tvl-det-tag">{si.releaseDate.slice(0, 4)}</span>}
+              {si.genre && <span className="tvl-det-tag">{si.genre.split(",")[0].trim()}</span>}
+              {si.rating && <span className="tvl-det-rating">⭐ {Number.parseFloat(si.rating).toFixed(1)}</span>}
+            </div>
+            {!rawInfo && <div className="tvl-spinner" style={{ alignSelf: "flex-start" }} />}
+            {rawInfo && (
+              <div className="tvl-det-hero-btns">
+                {actionBtns.map((btn, i) => (
+                  <button
+                    key={btn.type}
+                    ref={section === "actions" && i === actionIdx ? actionElRef : null}
+                    className={actBtnClass(i)}
+                    onClick={() => {
+                      if (btn.type === "continue") continueWatching(detail);
+                      else if (btn.type === "fav") {
+                        if (inFav) removeFromMyList(`mylist_series_${seriesId}`);
+                        else addToMyList({ type: "series", streamId: seriesId, seriesId, name: item.name, cover: poster });
                       }
-                      className={
-                        section === "seasons" && i === seasonIdx
-                          ? "tvl-season-btn tvl-season-btn--on"
-                          : "tvl-season-btn"
-                      }
-                    >
-                      Season {s}
-                    </div>
-                  ))}
-                  {trailer && (
-                    <div
-                      className={
-                        trailerFocus
-                          ? "tvl-season-btn tvl-season-btn--on"
-                          : "tvl-season-btn"
-                      }
-                    >
-                      {showTrailer ? "✕ Trailer" : "🎬 Trailer"}
-                    </div>
-                  )}
-                </div>
-                {showTrailer && trailer && (
-                  <div className="tvl-ser-trailer">
-                    <iframe
-                      title="trailer"
-                      src={`${trailer}?autoplay=1`}
-                      allow="autoplay; encrypted-media; picture-in-picture"
-                      allowFullScreen
-                      style={{ width: "100%", height: "100%", border: "none" }}
-                    />
-                  </div>
-                )}
-                <div className="tvl-episodes">
-                  {episodes.map((ep, i) => {
-                    // Check if this episode has watch history
-                    const epHistory = (watchHistory || []).find(
-                      (h) =>
-                        h.type === "series" &&
-                        String(h.episodeId) === String(ep.id),
-                    );
-                    const hasProgress = epHistory && epHistory.currentTime > 0;
-                    const isWatched =
-                      epHistory &&
-                      epHistory.currentTime > 0 &&
-                      epHistory.duration > 0 &&
-                      epHistory.currentTime / epHistory.duration > 0.9;
-
-                    return (
-                      <div
-                        key={ep.id}
-                        ref={
-                          section === "episodes" && i === epIdx ? epElRef : null
-                        }
-                        className={
-                          section === "episodes" && i === epIdx
-                            ? "tvl-episode tvl-episode--on"
-                            : "tvl-episode"
-                        }
-                      >
-                        <span className="tvl-ep-badge">E{ep.episode_num}</span>
-                        <div className="tvl-ep-body">
-                          <div className="tvl-ep-title">
-                            {ep.title || `Episode ${ep.episode_num}`}
-                            {isWatched && (
-                              <span
-                                style={{ marginLeft: "8px", color: "#6abf69" }}
-                              >
-                                ✓
-                              </span>
-                            )}
-                          </div>
-                          {ep.info?.plot && (
-                            <div className="tvl-ep-plot">{ep.info.plot}</div>
-                          )}
-                          {ep.info?.duration && (
-                            <div className="tvl-ep-dur">{ep.info.duration}</div>
-                          )}
-                          {hasProgress && !isWatched && (
-                            <div
-                              className="tvl-ep-progress"
-                              style={{
-                                fontSize: "11px",
-                                color: "#e94560",
-                                marginTop: "4px",
-                              }}
-                            >
-                              Continue from{" "}
-                              {Math.floor(epHistory.currentTime / 60)}:
-                              {String(
-                                Math.floor(epHistory.currentTime % 60),
-                              ).padStart(2, "0")}
-                            </div>
-                          )}
-                        </div>
-                        <span className="tvl-ep-play">
-                          {hasProgress && !isWatched ? "↻" : "▶"}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </>
-            ) : (
-              <div className="tvl-center">
-                <div className="tvl-spinner" />
+                    }}
+                  >
+                    {btn.label}
+                  </button>
+                ))}
               </div>
             )}
+            {si.plot && <p className="tvl-det-hero-plot">{si.plot}</p>}
           </div>
         </div>
+
+        {/* Seasons + episodes */}
+        {rawInfo ? (
+          <>
+            <div className="tvl-seasons-row">
+              {seasons.map((s, i) => (
+                <div
+                  key={s}
+                  ref={section === "seasons" && i === seasonIdx ? snElRef : null}
+                  className={section === "seasons" && i === seasonIdx ? "tvl-season-btn tvl-season-btn--on" : "tvl-season-btn"}
+                >
+                  Season {s}
+                </div>
+              ))}
+              {trailer && (
+                <div className={trailerFocus ? "tvl-season-btn tvl-season-btn--on" : "tvl-season-btn"}>
+                  {showTrailer ? "✕ Trailer" : "🎬 Trailer"}
+                </div>
+              )}
+            </div>
+            {showTrailer && trailer && (
+              <div className="tvl-ser-trailer">
+                <iframe
+                  title="trailer"
+                  src={`${trailer}?autoplay=1`}
+                  allow="autoplay; encrypted-media; picture-in-picture"
+                  allowFullScreen
+                  style={{ width: "100%", height: "100%", border: "none" }}
+                />
+              </div>
+            )}
+            <div className="tvl-episodes">
+              {episodes.map((ep, i) => {
+                const epHistory = (watchHistory || []).find(
+                  (h) => h.type === "series" && String(h.episodeId) === String(ep.id),
+                );
+                const hasProgress = epHistory && epHistory.currentTime > 0;
+                const isWatched =
+                  hasProgress &&
+                  epHistory.duration > 0 &&
+                  epHistory.currentTime / epHistory.duration > 0.9;
+                return (
+                  <div
+                    key={ep.id}
+                    ref={section === "episodes" && i === epIdx ? epElRef : null}
+                    className={section === "episodes" && i === epIdx ? "tvl-episode tvl-episode--on" : "tvl-episode"}
+                  >
+                    <span className="tvl-ep-badge">E{ep.episode_num}</span>
+                    <div className="tvl-ep-body">
+                      <div className="tvl-ep-title">
+                        {ep.title || `Episode ${ep.episode_num}`}
+                        {isWatched && <span style={{ marginLeft: 8, color: "#6abf69" }}>✓</span>}
+                      </div>
+                      {ep.info?.plot && <div className="tvl-ep-plot">{ep.info.plot}</div>}
+                      {ep.info?.duration && <div className="tvl-ep-dur">{ep.info.duration}</div>}
+                      {hasProgress && !isWatched && (
+                        <div style={{ fontSize: 11, color: "#e94560", marginTop: 4 }}>
+                          Continue from {Math.floor(epHistory.currentTime / 60)}:{String(Math.floor(epHistory.currentTime % 60)).padStart(2, "0")}
+                        </div>
+                      )}
+                    </div>
+                    <span className="tvl-ep-play">{hasProgress && !isWatched ? "↻" : "▶"}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        ) : (
+          <div className="tvl-center"><div className="tvl-spinner" /></div>
+        )}
       </div>
     );
   }

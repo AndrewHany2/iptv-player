@@ -222,6 +222,7 @@ const TV = {
   },
   title: {
     flex: 1,
+    minWidth: 0,
     color: "#fff",
     fontSize: 26,
     fontWeight: 700,
@@ -542,6 +543,12 @@ export default function VideoPlayerScreen() {
 
       if (isTV) showTvControls();
 
+      // Block D-pad UP/DOWN from moving browser focus to overlay buttons on TV
+      if (isTV && (k === 38 || k === 40)) {
+        e.preventDefault();
+        return;
+      }
+
       // TV remote-specific keys
       if (TV_KEYS.BACK.has(k)) {
         e.preventDefault();
@@ -768,14 +775,13 @@ export default function VideoPlayerScreen() {
         <div style={TV.controls(tvControlsVisible)} onClick={showTvControls}>
           {/* Top bar */}
           <div style={TV.topBar}>
-            <button style={TV.closeBtn} onClick={handleClose}>
+            <button style={TV.closeBtn} tabIndex={-1} onClick={handleClose}>
               ✕
             </button>
             <span style={TV.title}>{currentVideo.name}</span>
             {nextEpisode && (
-              <button style={TV.nextBtn} onClick={handleNextEpisode}>
-                Next ▶ S{String(nextEpisode.seasonNum).padStart(2, "0")}E
-                {String(nextEpisode.episode.episode_num).padStart(2, "0")}
+              <button style={TV.nextBtn} tabIndex={-1} onClick={handleNextEpisode}>
+                {`Next ▶ S${String(nextEpisode.seasonNum).padStart(2, "0")}E${String(nextEpisode.episode.episode_num).padStart(2, "0")}`}
               </button>
             )}
           </div>

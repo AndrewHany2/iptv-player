@@ -16,7 +16,9 @@ const KEY_ENTER = 13;
 const KEY_BACK = new Set([27, 461, 10009, 8]);
 
 export default function LiveTVScreenTV({ navigation }) {
-  const { users, activeUserId, playVideo } = useApp();
+  const { users, activeUserId, playVideo, currentVideo } = useApp();
+  const currentVideoRef = useRef(null);
+  useEffect(() => { currentVideoRef.current = currentVideo; }, [currentVideo]);
 
   const [loading, setLoading] = useState(false);
   const [cats, setCats] = useState([]);
@@ -120,6 +122,7 @@ export default function LiveTVScreenTV({ navigation }) {
   useEffect(() => {
     const onKey = (e) => {
       if (navActiveRef.current) return;
+      if (currentVideoRef.current) return;
       const k = e.keyCode || e.which;
       if (pageRef.current) handleChKey(k, e);
       else handleCatKey(k, e);

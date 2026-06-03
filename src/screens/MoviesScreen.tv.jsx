@@ -25,7 +25,13 @@ const getTrailerUrl = (t) => {
 };
 
 export default function MoviesScreenTV({ navigation, route }) {
-  const { users, activeUserId, playVideo, watchHistory } = useApp();
+  const {
+    users, activeUserId, playVideo, watchHistory,
+    isInMyList, addToMyList, removeFromMyList,
+    currentVideo,
+  } = useApp();
+  const currentVideoRef = useRef(null);
+  useEffect(() => { currentVideoRef.current = currentVideo; }, [currentVideo]);
 
   const [loading, setLoading] = useState(false);
   const [cats, setCats] = useState([]);
@@ -190,6 +196,7 @@ export default function MoviesScreenTV({ navigation, route }) {
   useEffect(() => {
     const onKey = (e) => {
       if (navActiveRef.current) return;
+      if (currentVideoRef.current) return;
       const k = e.keyCode || e.which;
       if (detailRef.current) handleDetailKey(k, e);
       else if (pageRef.current) handleMovKey(k, e);
@@ -332,32 +339,53 @@ export default function MoviesScreenTV({ navigation, route }) {
     e.preventDefault();
     if (KEY_BACK.has(k)) {
       closeDetail();
-      navigation.goBack?.();
       return;
     }
     if (!d.info) return;
 
+    const streamId = d.item.stream_id ?? d.item.streamId;
+    const resume = (watchHistory || []).find(
+      (h) =>
+        (h.type === "movies" || h.type === "movie") &&
+        String(h.streamId) === String(streamId),
+    );
     const trailer = getTrailerUrl(d.info?.info?.youtube_trailer);
-    const maxBtn = trailer ? 1 : 0;
+    const buttons = [
+      { type: "play" },
+      ...(resume?.currentTime > 0 ? [{ type: "restart" }] : []),
+      ...(trailer ? [{ type: "trailer" }] : []),
+      { type: "fav" },
+    ];
+    const maxBtn = buttons.length - 1;
 
     switch (k) {
+      case KEY_LEFT:
+        closeDetail();
+        break;
       case KEY_UP:
         if (d.btnIdx > 0) updDetail({ ...d, btnIdx: d.btnIdx - 1 });
         else focusNav();
         break;
       case KEY_DOWN:
-        // Only allow DOWN if there are more buttons below
         if (d.btnIdx < maxBtn) updDetail({ ...d, btnIdx: d.btnIdx + 1 });
-        // Otherwise, do nothing (don't navigate away from buttons)
         break;
       case KEY_ENTER: {
-        const streamId = d.item.stream_id ?? d.item.streamId;
-        const resume = (watchHistory || []).find(
-          (h) => h.type === "movies" && String(h.streamId) === String(streamId),
-        );
-        if (d.btnIdx === 0) playMovie(d, resume?.currentTime || 0);
-        else if (d.btnIdx === 1)
+        const btn = buttons[d.btnIdx];
+        if (btn?.type === "play") playMovie(d, resume?.currentTime || 0);
+        else if (btn?.type === "restart") playMovie(d, 0);
+        else if (btn?.type === "trailer")
           updDetail({ ...d, showTrailer: !d.showTrailer });
+        else if (btn?.type === "fav") {
+          if (isInMyList("movies", streamId))
+            removeFromMyList(`mylist_movies_${streamId}`);
+          else
+            addToMyList({
+              type: "movies",
+              streamId,
+              name: d.item.name,
+              cover: d.item.stream_icon || d.item.cover || null,
+            });
+        }
         break;
       }
     }
@@ -408,134 +436,109 @@ export default function MoviesScreenTV({ navigation, route }) {
     const poster = item.stream_icon || item.cover || data.movie_image || null;
     const year = (data.releasedate || data.release_date || "").slice(0, 4);
     const trailer = getTrailerUrl(data.youtube_trailer);
-    // Check watch history - handle both "movie" and "movies" type
     const resume = (watchHistory || []).find(
       (h) =>
         (h.type === "movies" || h.type === "movie") &&
         String(h.streamId) === String(streamId),
     );
+    const inFav = isInMyList("movies", streamId);
     const buttons = [
-      { label: resume?.currentTime > 0 ? "▶  Continue" : "▶  Play" },
-      ...(trailer
-        ? [{ label: showTrailer ? "✕  Close Trailer" : "🎬  Trailer" }]
-        : []),
+      { label: resume?.currentTime > 0 ? "▶  Continue" : "▶  Play", type: "play" },
+      ...(resume?.currentTime > 0 ? [{ label: "↺  From Start", type: "restart" }] : []),
+      ...(trailer ? [{ label: showTrailer ? "✕  Close Trailer" : "🎬  Trailer", type: "trailer" }] : []),
+      { label: inFav ? "♥  Saved" : "♡  Add to Favorites", type: "fav" },
     ];
+    const btnClass = (i, type) =>
+      [
+        "tvl-det-hero-btn",
+        type === "play" ? "tvl-det-hero-btn--play" : "",
+        type === "fav" && inFav ? "tvl-det-hero-btn--saved" : "",
+        i === btnIdx ? "tvl-det-hero-btn--on" : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
 
     return (
       <div className="tvl-screen">
         <div className="tvl-topbar">
-          <button className="tvl-topbar-back" onClick={closeDetail}>
-            ◀
-          </button>
-          <button
-            className="tvl-topbar-title tvl-topbar-title--back"
-            onClick={closeDetail}
-          >
+          <button className="tvl-topbar-back" onClick={closeDetail}>◀</button>
+          <button className="tvl-topbar-title tvl-topbar-title--back" onClick={closeDetail}>
             {item.name}
           </button>
         </div>
-        <div className="tvl-det">
-          {/* Left — poster only */}
-          <div className="tvl-mov-poster-col">
-            {poster ? (
-              <img className="tvl-det-poster" src={poster} alt="" />
-            ) : (
-              <div className="tvl-det-poster-ph">🎬</div>
-            )}
+
+        {/* Banner */}
+        <div className="tvl-det-hero">
+          {poster && <img className="tvl-det-hero-bg" src={poster} alt="" />}
+          <div className="tvl-det-hero-grad" />
+        </div>
+
+        {/* Content below banner */}
+        <div className="tvl-det-content">
+          <div className="tvl-det-hero-thumb">
+            {poster
+              ? <img src={poster} alt="" />
+              : <div className="tvl-det-hero-thumb-ph">🎬</div>}
           </div>
-
-          {/* Right — all info + actions */}
-          <div className="tvl-det-right">
-            {info ? (
-              <div className="tvl-mov-detail-body">
-                <div className="tvl-det-name">{item.name}</div>
-
-                <div className="tvl-det-meta">
-                  {year && <span className="tvl-det-tag">{year}</span>}
-                  {data.genre && (
-                    <span className="tvl-det-tag">
-                      {data.genre.split(",")[0].trim()}
-                    </span>
-                  )}
-                  {data.rating && (
-                    <span className="tvl-det-rating">
-                      ⭐ {Number.parseFloat(data.rating).toFixed(1)}
-                    </span>
-                  )}
-                  {data.age && (
-                    <span className="tvl-det-tag tvl-det-tag--alert">
-                      {data.age}
-                    </span>
-                  )}
-                  {data.duration && (
-                    <span className="tvl-det-tag">{data.duration}</span>
-                  )}
-                </div>
-
-                <div className="tvl-mov-actions">
-                  {buttons.map((btn, i) => (
-                    <button
-                      key={btn.label}
-                      ref={i === btnIdx ? btnElRef : null}
-                      className={
-                        i === btnIdx
-                          ? "tvl-mov-btn tvl-mov-btn--on"
-                          : "tvl-mov-btn"
+          <div className="tvl-det-hero-info">
+            <div className="tvl-det-hero-title">{item.name}</div>
+            <div className="tvl-det-hero-meta">
+              {year && <span className="tvl-det-tag">{year}</span>}
+              {data.genre && <span className="tvl-det-tag">{data.genre.split(",")[0].trim()}</span>}
+              {data.rating && <span className="tvl-det-rating">⭐ {Number.parseFloat(data.rating).toFixed(1)}</span>}
+              {data.age && <span className="tvl-det-tag tvl-det-tag--alert">{data.age}</span>}
+              {data.duration && <span className="tvl-det-tag">{data.duration}</span>}
+            </div>
+            {!info && <div className="tvl-spinner" style={{ alignSelf: "flex-start" }} />}
+            {info && (
+              <div className="tvl-det-hero-btns">
+                {buttons.map((btn, i) => (
+                  <button
+                    key={btn.type}
+                    ref={i === btnIdx ? btnElRef : null}
+                    className={btnClass(i, btn.type)}
+                    onClick={() => {
+                      if (btn.type === "play") playMovie(detail, resume?.currentTime || 0);
+                      else if (btn.type === "restart") playMovie(detail, 0);
+                      else if (btn.type === "trailer") updDetail({ ...detail, showTrailer: !detail.showTrailer });
+                      else if (btn.type === "fav") {
+                        if (inFav) removeFromMyList(`mylist_movies_${streamId}`);
+                        else addToMyList({ type: "movies", streamId, name: item.name, cover: poster });
                       }
-                      onClick={() => {
-                        if (i === 0)
-                          playMovie(detail, resume?.currentTime || 0);
-                        else
-                          updDetail({
-                            ...detail,
-                            showTrailer: !detail.showTrailer,
-                          });
-                      }}
-                    >
-                      {btn.label}
-                    </button>
-                  ))}
-                  {resume?.currentTime > 0 && (
-                    <button
-                      className="tvl-mov-btn tvl-mov-btn--ghost"
-                      onClick={() => playMovie(detail, 0)}
-                    >
-                      ↺ From Start
-                    </button>
-                  )}
-                </div>
-
-                {data.plot && <p className="tvl-mov-plot">{data.plot}</p>}
-                {data.cast && (
-                  <p className="tvl-mov-crew">
-                    <strong>Cast</strong> {data.cast}
-                  </p>
-                )}
-                {data.director && (
-                  <p className="tvl-mov-crew">
-                    <strong>Director</strong> {data.director}
-                  </p>
-                )}
-
-                {showTrailer && trailer && (
-                  <div className="tvl-mov-trailer">
-                    <iframe
-                      title={`${item.name} trailer`}
-                      src={`${trailer}?autoplay=1`}
-                      allow="autoplay; encrypted-media; picture-in-picture"
-                      allowFullScreen
-                      style={{ width: "100%", height: "100%", border: "none" }}
-                    />
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="tvl-center">
-                <div className="tvl-spinner" />
+                    }}
+                  >
+                    {btn.label}
+                  </button>
+                ))}
               </div>
             )}
+            {data.plot && <p className="tvl-det-hero-plot">{data.plot}</p>}
           </div>
         </div>
+
+        {/* Body: full plot, cast, director, trailer */}
+        {info && (data.plot || data.cast || data.director || (showTrailer && trailer)) && (
+          <div className="tvl-det-body">
+            {data.plot && <p className="tvl-det-body-plot">{data.plot}</p>}
+            {data.cast && (
+              <p className="tvl-det-body-crew"><strong>Cast</strong> {data.cast}</p>
+            )}
+            {data.director && (
+              <p className="tvl-det-body-crew"><strong>Director</strong> {data.director}</p>
+            )}
+            {showTrailer && trailer && (
+              <div className="tvl-mov-trailer">
+                <iframe
+                  title={`${item.name} trailer`}
+                  src={`${trailer}?autoplay=1`}
+                  allow="autoplay; encrypted-media; picture-in-picture"
+                  allowFullScreen
+                  style={{ width: "100%", height: "100%", border: "none" }}
+                />
+              </div>
+            )}
+          </div>
+        )}
       </div>
     );
   }

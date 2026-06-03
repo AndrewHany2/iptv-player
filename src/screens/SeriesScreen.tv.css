@@ -9,6 +9,33 @@
 
 /* Detail panel styles are in tvl.css (shared with movies) */
 
+/* ── Action buttons (Continue / Favorites) ───────────────────────────────── */
+.tvl-det-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 14px 0;
+}
+
+.tvl-det-act-btn {
+  padding: 10px 20px;
+  border: 2px solid #3a3a5e;
+  border-radius: 8px;
+  background: #1a1a2e;
+  color: #ccc;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.15s;
+}
+.tvl-det-act-btn--on {
+  border-color: #e94560;
+  background: #e94560;
+  color: #fff;
+}
+
 .tvl-ser-trailer {
   height: 220px;
   flex-shrink: 0;

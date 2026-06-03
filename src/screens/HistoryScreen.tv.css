@@ -102,3 +102,26 @@
   color: #555;
   font-size: 16px;
 }
+
+/* ── Section headers ─────────────────────────────────────────────────────── */
+.tvl-hist-section-hdr {
+  font-size: 18px;
+  font-weight: 700;
+  color: #e94560;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 20px 16px 8px;
+  margin-top: 8px;
+}
+
+/* ── Remove action state ─────────────────────────────────────────────────── */
+.tvl-hist-action--remove {
+  background: rgba(233, 69, 96, 0.15);
+  border-color: #e94560;
+  color: #e94560;
+}
+.tvl-hist-item--on .tvl-hist-action--remove {
+  background: #e94560;
+  border-color: #e94560;
+  color: #fff;
+}
