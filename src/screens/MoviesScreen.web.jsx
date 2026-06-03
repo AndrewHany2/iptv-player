@@ -12,7 +12,8 @@ import {
 import iptvApi from "../services/iptvApi";
 import tmdbApi from "../services/tmdbApi";
 import MovieDetail from "../components/MovieDetail.web";
-import ProxiedImage from "../components/ProxiedImage";
+import TVPosterCard from "../components/TVPosterCard";
+import TVButton from "../components/TVButton";
 
 const FILL = { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 };
 const config = getConfig();
@@ -56,7 +57,10 @@ async function prefetchTopRated() {
 }
 
 /* ─── Poster Card ─── */
-function PosterCard({ item, onPress, isFocused }) {
+// Using TVPosterCard for better TV performance
+const PosterCard = TVPosterCard;
+
+function PosterCardOld({ item, onPress, isFocused }) {
   const poster = item.stream_icon || item.cover || item.movie_image || null;
   const ratingValue = item.tmdb_rating ?? item.rating;
   const ratingLabel =

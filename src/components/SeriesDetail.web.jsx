@@ -4,6 +4,7 @@ import { YStack, XStack, Text, ScrollView, Spinner } from "tamagui";
 import { useApp } from "../context/AppContext";
 import iptvApi from "../services/iptvApi";
 import ProxiedImage from "./ProxiedImage";
+import { isTV } from "../utils/tvOptimizations";
 
 const FILL = { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 };
 
@@ -139,32 +140,46 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
         data: episodes[num] || [],
       }));
 
+    // TV-specific sizing for episode list
+    const epBackSize = isTV ? 20 : 14;
+    const epTitleSize = isTV ? 28 : 20;
+    const epHeaderSize = isTV ? 22 : 15;
+    const epNumSize = isTV ? 18 : 12;
+    const epNameSize = isTV ? 20 : 14;
+    const epDurationSize = isTV ? 16 : 12;
+    const epDescSize = isTV ? 18 : 13;
+    const epPadH = isTV ? 80 : 48;
+
     return (
       <YStack flex={1} backgroundColor="#0f0f23">
         <XStack
           alignItems="center"
-          gap={14}
-          paddingHorizontal={48}
-          paddingVertical={18}
-          borderBottomWidth={1}
+          gap={isTV ? 20 : 14}
+          paddingHorizontal={epPadH}
+          paddingVertical={isTV ? 28 : 18}
+          borderBottomWidth={isTV ? 2 : 1}
           borderBottomColor="#2a2a4e"
         >
           <YStack
-            paddingVertical={8}
-            paddingHorizontal={14}
+            paddingVertical={isTV ? 12 : 8}
+            paddingHorizontal={isTV ? 20 : 14}
             backgroundColor="#1a1a2e"
-            borderRadius={8}
+            borderRadius={isTV ? 12 : 8}
             cursor="pointer"
             onPress={() => setShowEpisodes(false)}
             pressStyle={{ opacity: 0.8 }}
           >
-            <Text color="#e94560" fontSize={14} fontWeight="600">
+            <Text
+              color="#e94560"
+              fontSize={epBackSize}
+              fontWeight={isTV ? "700" : "600"}
+            >
               ← Back
             </Text>
           </YStack>
           <Text
             color="#fff"
-            fontSize={20}
+            fontSize={epTitleSize}
             fontWeight="700"
             flex={1}
             numberOfLines={1}
@@ -176,32 +191,31 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
           sections={sections}
           keyExtractor={(ep) => String(ep.id)}
           contentContainerStyle={{
-            paddingHorizontal: 48,
-            paddingVertical: 12,
+            paddingHorizontal: epPadH,
+            paddingVertical: isTV ? 24 : 12,
             paddingBottom: 80,
           }}
           renderSectionHeader={({ section: { title } }) => (
             <YStack
               backgroundColor="#16213e"
-              paddingHorizontal={14}
-              paddingVertical={10}
-              marginBottom={6}
-              marginTop={12}
-              borderRadius={8}
+              paddingHorizontal={isTV ? 20 : 14}
+              paddingVertical={isTV ? 16 : 10}
+              marginBottom={isTV ? 12 : 6}
+              marginTop={isTV ? 20 : 12}
+              borderRadius={isTV ? 12 : 8}
             >
-              <Text color="#e94560" fontSize={15} fontWeight="700">
+              <Text color="#e94560" fontSize={epHeaderSize} fontWeight="700">
                 {title}
               </Text>
             </YStack>
           )}
           renderItem={({ item: ep, section }) => (
-            <XStack
-              alignItems="center"
+            <YStack
               backgroundColor="#1a1a2e"
-              borderRadius={10}
-              padding={12}
-              marginBottom={6}
-              borderWidth={1}
+              borderRadius={isTV ? 14 : 10}
+              padding={isTV ? 20 : 12}
+              marginBottom={isTV ? 12 : 6}
+              borderWidth={isTV ? 2 : 1}
               borderColor="#2a2a4e"
               cursor="pointer"
               onPress={() => handleEpisodePress(ep, section.seasonNum)}
@@ -209,36 +223,80 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
               hoverStyle={{ borderColor: "#e94560" }}
               animation="quick"
             >
-              <YStack
-                backgroundColor="#e94560"
-                borderRadius={6}
-                paddingHorizontal={8}
-                paddingVertical={4}
-                marginRight={12}
+              <XStack
+                alignItems="center"
+                marginBottom={isTV && ep.info?.plot ? 12 : 0}
               >
-                <Text color="#fff" fontSize={12} fontWeight="700">
-                  E{getEpisodeNumber(ep)}
-                </Text>
-              </YStack>
-              <YStack flex={1}>
-                <Text color="#fff" fontSize={14} numberOfLines={1}>
-                  {ep.title || "Untitled"}
-                </Text>
-                {!!ep.info?.duration && (
-                  <Text color="#888" fontSize={12} marginTop={2}>
-                    {ep.info.duration}
+                <YStack
+                  backgroundColor="#e94560"
+                  borderRadius={isTV ? 10 : 6}
+                  paddingHorizontal={isTV ? 14 : 8}
+                  paddingVertical={isTV ? 8 : 4}
+                  marginRight={isTV ? 16 : 12}
+                >
+                  <Text color="#fff" fontSize={epNumSize} fontWeight="700">
+                    E{getEpisodeNumber(ep)}
                   </Text>
-                )}
-              </YStack>
-              <Text color="#e94560" fontSize={16}>
-                ▶
-              </Text>
-            </XStack>
+                </YStack>
+                <YStack flex={1}>
+                  <Text
+                    color="#fff"
+                    fontSize={epNameSize}
+                    fontWeight={isTV ? "700" : "600"}
+                    numberOfLines={1}
+                  >
+                    {ep.title || "Untitled"}
+                  </Text>
+                  {!!ep.info?.duration && (
+                    <Text
+                      color="#888"
+                      fontSize={epDurationSize}
+                      marginTop={isTV ? 6 : 2}
+                    >
+                      {ep.info.duration}
+                    </Text>
+                  )}
+                </YStack>
+                <Text
+                  color="#e94560"
+                  fontSize={isTV ? 24 : 16}
+                  marginLeft={isTV ? 16 : 8}
+                >
+                  ▶
+                </Text>
+              </XStack>
+              {isTV && ep.info?.plot && (
+                <Text
+                  color="#aaa"
+                  fontSize={epDescSize}
+                  lineHeight={isTV ? 28 : 20}
+                  numberOfLines={2}
+                  marginTop={8}
+                >
+                  {ep.info.plot}
+                </Text>
+              )}
+            </YStack>
           )}
         />
       </YStack>
     );
   }
+
+  // TV-specific sizing
+  const heroHeight = isTV ? 700 : 520;
+  const titleSize = isTV ? 56 : 40;
+  const backSize = isTV ? 22 : 14;
+  const metaSize = isTV ? 18 : 12;
+  const ratingSize = isTV ? 20 : 13;
+  const buttonTextSize = isTV ? 22 : 15;
+  const buttonPadH = isTV ? 40 : 28;
+  const buttonPadV = isTV ? 20 : 13;
+  const descSize = isTV ? 24 : 15;
+  const descLineHeight = isTV ? 38 : 24;
+  const castSize = isTV ? 20 : 14;
+  const castLineHeight = isTV ? 32 : 20;
+  const sectionPadH = isTV ? 80 : 48;
 
   // ── Hero / detail view ────────────────────────────────────────────────────
   return (
@@ -247,7 +305,12 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
       backgroundColor="#0f0f23"
       contentContainerStyle={{ paddingBottom: 80 }}
     >
-      <YStack width="100%" height={520} position="relative" overflow="hidden">
+      <YStack
+        width="100%"
+        height={heroHeight}
+        position="relative"
+        overflow="hidden"
+      >
         <ProxiedImage
           source={{ uri: backdrop }}
           style={FILL}
@@ -267,18 +330,22 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
 
         <YStack
           position="absolute"
-          top={20}
-          left={48}
+          top={isTV ? 40 : 20}
+          left={sectionPadH}
           zIndex={10}
-          paddingVertical={8}
-          paddingHorizontal={14}
+          paddingVertical={isTV ? 14 : 8}
+          paddingHorizontal={isTV ? 24 : 14}
           backgroundColor="rgba(0,0,0,0.55)"
-          borderRadius={8}
+          borderRadius={isTV ? 12 : 8}
           cursor="pointer"
           onPress={onBack}
           pressStyle={{ opacity: 0.8 }}
         >
-          <Text color="#e94560" fontSize={14} fontWeight="600">
+          <Text
+            color="#e94560"
+            fontSize={backSize}
+            fontWeight={isTV ? "700" : "600"}
+          >
             ← Back
           </Text>
         </YStack>
@@ -286,17 +353,17 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
         <YStack
           position="absolute"
           bottom={0}
-          left={48}
-          right={48}
+          left={sectionPadH}
+          right={sectionPadH}
           zIndex={5}
-          paddingBottom={40}
+          paddingBottom={isTV ? 60 : 40}
         >
           <Text
             color="#fff"
-            fontSize={40}
+            fontSize={titleSize}
             fontWeight="900"
-            letterSpacing={-1}
-            marginBottom={12}
+            letterSpacing={isTV ? -1.5 : -1}
+            marginBottom={isTV ? 20 : 12}
           >
             {seriesName}
           </Text>
@@ -312,32 +379,44 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
             >
               {year ? (
                 <YStack
-                  borderWidth={1}
+                  borderWidth={isTV ? 2 : 1}
                   borderColor="#3a3a5e"
-                  borderRadius={4}
-                  paddingHorizontal={8}
-                  paddingVertical={3}
+                  borderRadius={isTV ? 8 : 4}
+                  paddingHorizontal={isTV ? 14 : 8}
+                  paddingVertical={isTV ? 8 : 3}
                 >
-                  <Text color="#aaa" fontSize={12}>
+                  <Text
+                    color="#aaa"
+                    fontSize={metaSize}
+                    fontWeight={isTV ? "600" : "400"}
+                  >
                     {year}
                   </Text>
                 </YStack>
               ) : null}
               {data.genre ? (
                 <YStack
-                  borderWidth={1}
+                  borderWidth={isTV ? 2 : 1}
                   borderColor="#3a3a5e"
-                  borderRadius={4}
-                  paddingHorizontal={8}
-                  paddingVertical={3}
+                  borderRadius={isTV ? 8 : 4}
+                  paddingHorizontal={isTV ? 14 : 8}
+                  paddingVertical={isTV ? 8 : 3}
                 >
-                  <Text color="#aaa" fontSize={12}>
+                  <Text
+                    color="#aaa"
+                    fontSize={metaSize}
+                    fontWeight={isTV ? "600" : "400"}
+                  >
                     {data.genre.split(",")[0].trim()}
                   </Text>
                 </YStack>
               ) : null}
               {data.rating ? (
-                <Text color="#ffd700" fontSize={13} fontWeight="600">
+                <Text
+                  color="#ffd700"
+                  fontSize={ratingSize}
+                  fontWeight={isTV ? "700" : "600"}
+                >
                   ⭐ {Number.parseFloat(data.rating).toFixed(1)}
                 </Text>
               ) : null}
@@ -348,16 +427,16 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
             {historyEntry && (
               <YStack
                 backgroundColor="#fff"
-                paddingHorizontal={28}
-                paddingVertical={13}
-                borderRadius={8}
+                paddingHorizontal={buttonPadH}
+                paddingVertical={buttonPadV}
+                borderRadius={isTV ? 12 : 8}
                 cursor="pointer"
                 onPress={handleContinue}
                 pressStyle={{ opacity: 0.85 }}
                 hoverStyle={{ opacity: 0.9 }}
                 animation="quick"
               >
-                <Text color="#000" fontSize={15} fontWeight="700">
+                <Text color="#000" fontSize={buttonTextSize} fontWeight="700">
                   {"▶  Continue"}
                   {historyEntry.seasonNum
                     ? ` S${historyEntry.seasonNum}E${String(historyEntry.episodeNum).padStart(2, "0")}`
@@ -367,10 +446,10 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
             )}
             <YStack
               backgroundColor={historyEntry ? "rgba(40,40,60,0.85)" : "#fff"}
-              paddingHorizontal={historyEntry ? 22 : 28}
-              paddingVertical={13}
-              borderRadius={8}
-              borderWidth={historyEntry ? 1 : 0}
+              paddingHorizontal={historyEntry ? (isTV ? 36 : 22) : buttonPadH}
+              paddingVertical={buttonPadV}
+              borderRadius={isTV ? 12 : 8}
+              borderWidth={historyEntry ? (isTV ? 2 : 1) : 0}
               borderColor="#3a3a5e"
               cursor="pointer"
               onPress={() => setShowEpisodes(true)}
@@ -380,7 +459,7 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
             >
               <Text
                 color={historyEntry ? "#fff" : "#000"}
-                fontSize={15}
+                fontSize={buttonTextSize}
                 fontWeight={historyEntry ? "600" : "700"}
               >
                 ☰ Browse Episodes
@@ -389,10 +468,10 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
             {!isLoading && !!trailer && (
               <YStack
                 backgroundColor="rgba(40,40,60,0.85)"
-                paddingHorizontal={22}
-                paddingVertical={13}
-                borderRadius={8}
-                borderWidth={1}
+                paddingHorizontal={isTV ? 36 : 22}
+                paddingVertical={buttonPadV}
+                borderRadius={isTV ? 12 : 8}
+                borderWidth={isTV ? 2 : 1}
                 borderColor="#3a3a5e"
                 cursor="pointer"
                 onPress={() => setShowTrailer((v) => !v)}
@@ -400,8 +479,8 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
                 hoverStyle={{ borderColor: "#fff" }}
                 animation="quick"
               >
-                <Text color="#fff" fontSize={15} fontWeight="600">
-                  {showTrailer ? "✕  Close" : "🎬  Trailer"}
+                <Text color="#fff" fontSize={buttonTextSize} fontWeight="600">
+                  {showTrailer ? "✕  Close Trailer" : "🎬  Watch Trailer"}
                 </Text>
               </YStack>
             )}
@@ -409,10 +488,10 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
               backgroundColor={
                 inFav ? "rgba(233,69,96,0.15)" : "rgba(40,40,60,0.85)"
               }
-              paddingHorizontal={22}
-              paddingVertical={13}
-              borderRadius={8}
-              borderWidth={1}
+              paddingHorizontal={isTV ? 36 : 22}
+              paddingVertical={buttonPadV}
+              borderRadius={isTV ? 12 : 8}
+              borderWidth={isTV ? 2 : 1}
               borderColor={inFav ? "#e94560" : "#3a3a5e"}
               cursor="pointer"
               onPress={toggleFav}
@@ -420,8 +499,8 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
               hoverStyle={{ borderColor: "#e94560" }}
               animation="quick"
             >
-              <Text color="#fff" fontSize={15} fontWeight="600">
-                {inFav ? "♥  Saved" : "♡  Favorites"}
+              <Text color="#fff" fontSize={buttonTextSize} fontWeight="600">
+                {inFav ? "♥  Saved" : "♡  Add to Favorites"}
               </Text>
             </YStack>
           </XStack>
@@ -429,17 +508,22 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
       </YStack>
 
       {showTrailer && !!trailer && (
-        <YStack paddingHorizontal={48} paddingTop={8} paddingBottom={24}>
+        <YStack
+          paddingHorizontal={sectionPadH}
+          paddingTop={isTV ? 32 : 8}
+          paddingBottom={isTV ? 40 : 24}
+        >
           <iframe
             title={`${seriesName} trailer`}
-            src={`${trailer}?autoplay=1`}
-            allow="autoplay; encrypted-media; picture-in-picture"
+            src={`${trailer}?autoplay=1&rel=0&modestbranding=1`}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
             style={{
               width: "100%",
-              height: 420,
+              height: isTV ? 600 : 420,
               border: "none",
-              borderRadius: 8,
+              borderRadius: isTV ? 16 : 8,
+              backgroundColor: "#000",
             }}
           />
         </YStack>
@@ -450,24 +534,33 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
         data.overview ||
         data.cast ||
         data.director) && (
-        <YStack paddingHorizontal={48} paddingTop={24} gap={10}>
+        <YStack
+          paddingHorizontal={sectionPadH}
+          paddingTop={isTV ? 40 : 24}
+          gap={isTV ? 20 : 10}
+        >
           {(data.plot || data.description || data.overview) && (
-            <Text color="#ccc" fontSize={15} lineHeight={24} marginBottom={12}>
+            <Text
+              color="#ccc"
+              fontSize={descSize}
+              lineHeight={descLineHeight}
+              marginBottom={isTV ? 20 : 12}
+            >
               {data.plot || data.description || data.overview}
             </Text>
           )}
           {data.cast && (
-            <Text color="#aaa" fontSize={14} lineHeight={20}>
-              <Text color="#fff" fontWeight="700">
-                Cast{" "}
+            <Text color="#aaa" fontSize={castSize} lineHeight={castLineHeight}>
+              <Text color="#fff" fontWeight="700" fontSize={isTV ? 22 : 14}>
+                Cast:{" "}
               </Text>
               {data.cast}
             </Text>
           )}
           {data.director && (
-            <Text color="#aaa" fontSize={14} lineHeight={20}>
-              <Text color="#fff" fontWeight="700">
-                Director{" "}
+            <Text color="#aaa" fontSize={castSize} lineHeight={castLineHeight}>
+              <Text color="#fff" fontWeight="700" fontSize={isTV ? 22 : 14}>
+                Director:{" "}
               </Text>
               {data.director}
             </Text>

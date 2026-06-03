@@ -6,17 +6,34 @@ import { ss } from "../utils/scaleSize";
 
 import AuthScreen from "../screens/AuthScreen";
 import ProfilesScreen from "../screens/ProfilesScreen";
-import LiveTVScreen from "../screens/LiveTVScreen";
-import MoviesScreen from "../screens/MoviesScreen";
-import SeriesScreen from "../screens/SeriesScreen";
-import HistoryScreen from "../screens/HistoryScreen";
-import AccountsScreen from "../screens/AccountsScreen";
+import LiveTVScreenWeb from "../screens/LiveTVScreen.web";
+import LiveTVScreenTV from "../screens/LiveTVScreen.tv";
+import MoviesScreenWeb from "../screens/MoviesScreen.web";
+import MoviesScreenTV from "../screens/MoviesScreen.tv";
+import SeriesScreenWeb from "../screens/SeriesScreen.web";
+import SeriesScreenTV from "../screens/SeriesScreen.tv";
+import HistoryScreenWeb from "../screens/HistoryScreen.web";
+import HistoryScreenTV from "../screens/HistoryScreen.tv";
+import AccountsScreenWeb from "../screens/AccountsScreen";
+import AccountsScreenTV from "../screens/AccountsScreen.tv";
 import VideoPlayerScreen from "../screens/VideoPlayerScreen";
+import { isTV } from "../utils/tvOptimizations";
+
+// Use TV-optimized screens on TV platforms
+const LiveTVScreen = isTV ? LiveTVScreenTV : LiveTVScreenWeb;
+const MoviesScreen = isTV ? MoviesScreenTV : MoviesScreenWeb;
+const SeriesScreen = isTV ? SeriesScreenTV : SeriesScreenWeb;
+const HistoryScreen = isTV ? HistoryScreenTV : HistoryScreenWeb;
+const AccountsScreen = isTV ? AccountsScreenTV : AccountsScreenWeb;
 
 // ── Global CSS injected once ──────────────────────────────────────────────────
 if (typeof document !== "undefined") {
   let style = document.getElementById("lumen-global");
-  if (!style) { style = document.createElement("style"); style.id = "lumen-global"; document.head.appendChild(style); }
+  if (!style) {
+    style = document.createElement("style");
+    style.id = "lumen-global";
+    document.head.appendChild(style);
+  }
   style.textContent = `
     *, *::before, *::after { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; height: 100%; background: #0f0f23; }
@@ -73,7 +90,9 @@ if (typeof document !== "undefined") {
     .lumen-shelf-title-btn:hover span, .lumen-shelf-title-btn:hover div { opacity: 0.8; }
     .lumen-load-cta { cursor: pointer !important; transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease; }
     .lumen-load-cta:hover { background: rgba(233,69,96,0.12) !important; border-color: rgba(233,69,96,0.45) !important; transform: translateY(-1px); }
-    ${globalThis.__TV__ ? `
+    ${
+      globalThis.__TV__
+        ? `
       *, *::before, *::after { transition: none !important; animation: none !important; will-change: auto !important; }
       .lumen-poster:hover { transform: none !important; box-shadow: none !important; }
       .lumen-cw-card:hover { transform: none !important; box-shadow: none !important; }
@@ -81,70 +100,157 @@ if (typeof document !== "undefined") {
       .lumen-load-cta:hover { transform: none !important; }
       .lumen-shelf-rail { contain: layout style; }
       .lumen-live-dot::before { animation: none !important; opacity: 1; }
-    ` : ""}
+    `
+        : ""
+    }
   `;
 }
 
 const NAV_ITEMS = [
-  { id: "live",   label: "Live TV" },
+  { id: "live", label: "Live TV" },
   { id: "movies", label: "Movies" },
   { id: "series", label: "Series" },
   { id: "mylist", label: "My List" },
 ];
 
 const CONTENT_MAP = {
-  live:   LiveTVScreen,
+  live: LiveTVScreen,
   movies: MoviesScreen,
   series: SeriesScreen,
   mylist: HistoryScreen,
 };
 
 function BrandGlyph() {
-  const bars = [{ h: ss(7), o: 1.0 }, { h: ss(12), o: 1.0 }, { h: ss(18), o: 1.0 }, { h: ss(12), o: 0.6 }, { h: ss(7), o: 0.35 }];
+  const bars = [
+    { h: ss(7), o: 1.0 },
+    { h: ss(12), o: 1.0 },
+    { h: ss(18), o: 1.0 },
+    { h: ss(12), o: 0.6 },
+    { h: ss(7), o: 0.35 },
+  ];
   return (
     <XStack alignItems="flex-end" gap={ss(2)} height={ss(18)}>
       {bars.map((b, i) => (
-        <YStack key={i} width={ss(3)} height={b.h} backgroundColor="#e94560" borderRadius={1} opacity={b.o} />
+        <YStack
+          key={i}
+          width={ss(3)}
+          height={b.h}
+          backgroundColor="#e94560"
+          borderRadius={1}
+          opacity={b.o}
+        />
       ))}
     </XStack>
   );
 }
 
-function NavLink({ item, isActive, isFocused, onPress }) {
+function NavLink({ item, isActive, isFocused, onPress, fontSize }) {
   return (
     <YStack alignItems="center">
-      <YStack paddingVertical={ss(4)} paddingHorizontal={ss(2)} cursor="pointer" onPress={onPress} pressStyle={{ opacity: 0.7 }}>
+      <YStack
+        paddingVertical={ss(4)}
+        paddingHorizontal={ss(2)}
+        cursor="pointer"
+        onPress={onPress}
+        pressStyle={{ opacity: 0.7 }}
+      >
         <Text
           color={isFocused || isActive ? "#fff" : "#ccc"}
-          fontSize={ss(14)}
+          fontSize={fontSize ?? ss(14)}
           fontWeight={isFocused || isActive ? "700" : "500"}
         >
           {item.label}
         </Text>
       </YStack>
       {(isActive || isFocused) && (
-        <YStack height={ss(2)} width="100%" backgroundColor={isFocused ? "#fff" : "#e94560"} borderRadius={1} marginTop={ss(6)} />
+        <YStack
+          height={ss(2)}
+          width="100%"
+          backgroundColor={isFocused ? "#fff" : "#e94560"}
+          borderRadius={1}
+          marginTop={ss(6)}
+        />
       )}
     </YStack>
   );
 }
 
-function TopNav({ active, onSelect, activeProfile, onAccounts, onSwitchProfile, navFocused, focusedNavIdx }) {
+function TopNav({
+  active,
+  onSelect,
+  activeProfile,
+  onAccounts,
+  onSwitchProfile,
+  navFocused,
+  focusedNavIdx,
+  idxAccounts,
+  idxProfile,
+}) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const accountsFocused = navFocused && focusedNavIdx === idxAccounts;
+  const profileFocused = navFocused && focusedNavIdx === idxProfile;
+
+  const S = isTV
+    ? {
+        h: ss(96),
+        px: ss(60),
+        gap: ss(44),
+        brand: ss(30),
+        navFont: ss(20),
+        navGap: ss(32),
+        icon: ss(44),
+        iconR: ss(22),
+        iconFont: ss(22),
+        avatar: ss(48),
+        avatarFont: ss(22),
+        avatarR: ss(10),
+      }
+    : {
+        h: ss(64),
+        px: ss(48),
+        gap: ss(32),
+        brand: ss(22),
+        navFont: ss(14),
+        navGap: ss(22),
+        icon: ss(30),
+        iconR: ss(15),
+        iconFont: ss(16),
+        avatar: ss(32),
+        avatarFont: ss(16),
+        avatarR: ss(8),
+      };
 
   return (
     <XStack
-      alignItems="center" paddingHorizontal={ss(48)} height={ss(64)} gap={ss(32)}
-      backgroundColor="rgba(15,15,35,0.97)" borderBottomWidth={1} borderBottomColor="#2a2a4e"
-      {...({ className: "lumen-topnav" })}
+      alignItems="center"
+      paddingHorizontal={S.px}
+      height={S.h}
+      gap={S.gap}
+      backgroundColor="rgba(15,15,35,0.97)"
+      borderBottomWidth={1}
+      borderBottomColor="#2a2a4e"
+      {...{ className: "lumen-topnav" }}
     >
-      <XStack alignItems="center" gap={ss(10)} cursor="pointer" onPress={() => onSelect("live")} pressStyle={{ opacity: 0.8 }}>
+      <XStack
+        alignItems="center"
+        gap={ss(10)}
+        cursor="pointer"
+        onPress={() => onSelect("live")}
+        pressStyle={{ opacity: 0.8 }}
+      >
         <BrandGlyph />
-        <Text color="#e94560" fontSize={ss(22)} fontWeight="700" letterSpacing={-0.5}>Lumen</Text>
+        <Text
+          color="#e94560"
+          fontSize={S.brand}
+          fontWeight="700"
+          letterSpacing={-0.5}
+        >
+          Lumen
+        </Text>
       </XStack>
 
-      <XStack gap={ss(22)} flex={1}>
+      <XStack gap={S.navGap} flex={1}>
         {NAV_ITEMS.map((item, idx) => (
           <NavLink
             key={item.id}
@@ -152,42 +258,90 @@ function TopNav({ active, onSelect, activeProfile, onAccounts, onSwitchProfile, 
             isActive={active === item.id}
             isFocused={navFocused && focusedNavIdx === idx}
             onPress={() => onSelect(item.id)}
+            fontSize={S.navFont}
           />
         ))}
       </XStack>
 
       <XStack alignItems="center" gap={ss(16)}>
-        {searchOpen ? (
-          <XStack alignItems="center" gap={ss(6)} backgroundColor="rgba(0,0,0,0.7)" borderWidth={1} borderColor="#2a2a4e" borderRadius={ss(8)} paddingHorizontal={ss(12)} paddingVertical={ss(6)} width={ss(220)}>
-            <Text color="#888" fontSize={ss(13)} marginRight={ss(6)}>🔍</Text>
-            <Input
-              autoFocus
-              flex={1}
-              placeholder="Titles, channels, people"
-              placeholderTextColor="#666"
-              value={search}
-              onChangeText={setSearch}
-              onBlur={() => { if (!search) setSearchOpen(false); }}
-              color="#fff"
-              fontSize={ss(13)}
-              backgroundColor="transparent"
-              borderWidth={0}
-              padding={0}
-            />
-          </XStack>
-        ) : (
-          <YStack width={ss(30)} height={ss(30)} borderRadius={ss(15)} justifyContent="center" alignItems="center" cursor="pointer" onPress={() => setSearchOpen(true)} pressStyle={{ opacity: 0.7 }} {...({ className: "lumen-icon-btn" })}>
-            <Text fontSize={ss(16)}>🔍</Text>
-          </YStack>
-        )}
-        <YStack width={ss(30)} height={ss(30)} borderRadius={ss(15)} justifyContent="center" alignItems="center" cursor="pointer" pressStyle={{ opacity: 0.7 }} {...({ className: "lumen-icon-btn" })}>
-          <Text fontSize={ss(16)}>🔔</Text>
+        {!isTV &&
+          (searchOpen ? (
+            <XStack
+              alignItems="center"
+              gap={ss(6)}
+              backgroundColor="rgba(0,0,0,0.7)"
+              borderWidth={1}
+              borderColor="#2a2a4e"
+              borderRadius={ss(8)}
+              paddingHorizontal={ss(12)}
+              paddingVertical={ss(6)}
+              width={ss(220)}
+            >
+              <Text color="#888" fontSize={ss(13)} marginRight={ss(6)}>
+                🔍
+              </Text>
+              <Input
+                autoFocus
+                flex={1}
+                placeholder="Titles, channels, people"
+                placeholderTextColor="#666"
+                value={search}
+                onChangeText={setSearch}
+                onBlur={() => {
+                  if (!search) setSearchOpen(false);
+                }}
+                color="#fff"
+                fontSize={ss(13)}
+                backgroundColor="transparent"
+                borderWidth={0}
+                padding={0}
+              />
+            </XStack>
+          ) : (
+            <YStack
+              width={S.icon}
+              height={S.icon}
+              borderRadius={S.iconR}
+              justifyContent="center"
+              alignItems="center"
+              cursor="pointer"
+              onPress={() => setSearchOpen(true)}
+              pressStyle={{ opacity: 0.7 }}
+              {...{ className: "lumen-icon-btn" }}
+            >
+              <Text fontSize={S.iconFont}>🔍</Text>
+            </YStack>
+          ))}
+        <YStack
+          width={S.icon}
+          height={S.icon}
+          borderRadius={S.iconR}
+          justifyContent="center"
+          alignItems="center"
+          cursor="pointer"
+          onPress={onAccounts}
+          pressStyle={{ opacity: 0.7 }}
+          borderWidth={accountsFocused ? 2 : 0}
+          borderColor={accountsFocused ? "#e94560" : "transparent"}
+          {...{ className: "lumen-icon-btn" }}
+        >
+          <Text fontSize={S.iconFont}>📡</Text>
         </YStack>
-        <YStack width={ss(30)} height={ss(30)} borderRadius={ss(15)} justifyContent="center" alignItems="center" cursor="pointer" onPress={onAccounts} pressStyle={{ opacity: 0.7 }} {...({ className: "lumen-icon-btn" })}>
-          <Text fontSize={ss(16)}>📡</Text>
-        </YStack>
-        <YStack width={ss(32)} height={ss(32)} borderRadius={ss(8)} backgroundColor="#1a1a2e" borderWidth={2} borderColor="#2a2a4e" justifyContent="center" alignItems="center" cursor="pointer" onPress={onSwitchProfile} pressStyle={{ opacity: 0.8 }} {...({ className: "lumen-avatar" })}>
-          <Text fontSize={ss(16)}>{activeProfile?.avatar || "👤"}</Text>
+        <YStack
+          width={S.avatar}
+          height={S.avatar}
+          borderRadius={S.avatarR}
+          backgroundColor="#1a1a2e"
+          borderWidth={2}
+          borderColor={profileFocused ? "#e94560" : "#2a2a4e"}
+          justifyContent="center"
+          alignItems="center"
+          cursor="pointer"
+          onPress={onSwitchProfile}
+          pressStyle={{ opacity: 0.8 }}
+          {...{ className: "lumen-avatar" }}
+        >
+          <Text fontSize={S.avatarFont}>{activeProfile?.avatar || "👤"}</Text>
         </YStack>
       </XStack>
     </XStack>
@@ -195,7 +349,14 @@ function TopNav({ active, onSelect, activeProfile, onAccounts, onSwitchProfile, 
 }
 
 export default function AppNavigator() {
-  const { authUser, authLoading, activeProfileId, activeProfile, currentVideo, switchProfile } = useApp();
+  const {
+    authUser,
+    authLoading,
+    activeProfileId,
+    activeProfile,
+    currentVideo,
+    switchProfile,
+  } = useApp();
   const [activeTab, setActiveTab] = useState("live");
   const [showAccounts, setShowAccounts] = useState(false);
   const [navFocused, setNavFocused] = useState(false);
@@ -204,18 +365,33 @@ export default function AppNavigator() {
 
   // Content signals "go to nav" by dispatching this custom event
   useEffect(() => {
-    const activate = () => setNavFocused(true);
+    const activate = () => {
+      const idx = NAV_ITEMS.findIndex((item) => item.id === activeTab);
+      const startIdx = Math.max(idx, 0);
+      navIdxRef.current = startIdx;
+      setFocusedNavIdx(startIdx);
+      setNavFocused(true);
+    };
     globalThis.addEventListener("tv-nav-focus", activate);
     return () => globalThis.removeEventListener("tv-nav-focus", activate);
-  }, []);
+  }, [activeTab]);
 
   // Nav keyboard handler — only active when navFocused
+  // Nav items + accounts icon + profile avatar
+  const NAV_TOTAL = NAV_ITEMS.length + 2;
+  const IDX_ACCOUNTS = NAV_ITEMS.length;
+  const IDX_PROFILE = NAV_ITEMS.length + 1;
+
   useEffect(() => {
     if (!navFocused) return;
+    const blurNav = () => {
+      setNavFocused(false);
+      globalThis.dispatchEvent(new CustomEvent("tv-nav-blur"));
+    };
     const handler = (e) => {
       if (e.key === "ArrowRight" || e.keyCode === 39) {
         e.preventDefault();
-        const next = Math.min(navIdxRef.current + 1, NAV_ITEMS.length - 1);
+        const next = Math.min(navIdxRef.current + 1, NAV_TOTAL - 1);
         navIdxRef.current = next;
         setFocusedNavIdx(next);
       } else if (e.key === "ArrowLeft" || e.keyCode === 37) {
@@ -224,29 +400,67 @@ export default function AppNavigator() {
         navIdxRef.current = prev;
         setFocusedNavIdx(prev);
       } else if (e.key === "Enter" || e.keyCode === 13) {
-        setActiveTab(NAV_ITEMS[navIdxRef.current].id);
-        setNavFocused(false);
-        globalThis.dispatchEvent(new CustomEvent("tv-nav-blur"));
+        const idx = navIdxRef.current;
+        if (idx < NAV_ITEMS.length) {
+          setActiveTab(NAV_ITEMS[idx].id);
+        } else if (idx === IDX_ACCOUNTS) {
+          setShowAccounts(true);
+        } else if (idx === IDX_PROFILE) {
+          switchProfile(null);
+        }
+        blurNav();
       } else if (e.key === "ArrowDown" || e.keyCode === 40) {
         e.preventDefault();
-        setNavFocused(false);
-        globalThis.dispatchEvent(new CustomEvent("tv-nav-blur"));
+        blurNav();
       } else if (e.key === "Escape" || e.keyCode === 27) {
-        setNavFocused(false);
-        globalThis.dispatchEvent(new CustomEvent("tv-nav-blur"));
+        blurNav();
       }
     };
     globalThis.addEventListener("keydown", handler);
     return () => globalThis.removeEventListener("keydown", handler);
   }, [navFocused]);
 
+  useEffect(() => {
+    if (!showAccounts) return;
+    const handler = (e) => {
+      if (e.key === "Escape") setShowAccounts(false);
+    };
+    globalThis.addEventListener("keydown", handler);
+    return () => globalThis.removeEventListener("keydown", handler);
+  }, [showAccounts]);
+
+  const [routeParams, setRouteParams] = useState({});
+
   const webNavigation = {
     setOptions: () => {},
-    navigate: (screen) => {
-      if (screen === "Accounts") { setShowAccounts(true); return; }
-      if (CONTENT_MAP[screen]) { setActiveTab(screen); }
+    navigate: (screen, params) => {
+      if (screen === "Accounts") {
+        setShowAccounts(true);
+        return;
+      }
+      if (screen === "Movies" || screen === "movies") {
+        setActiveTab("movies");
+        if (params) setRouteParams({ movies: params });
+        return;
+      }
+      if (screen === "Series" || screen === "series") {
+        setActiveTab("series");
+        if (params) setRouteParams({ series: params });
+        return;
+      }
+      if (CONTENT_MAP[screen]) {
+        setActiveTab(screen);
+        if (params) setRouteParams({ [screen]: params });
+      }
     },
     goBack: () => setShowAccounts(false),
+    getParent: () => webNavigation,
+    setParams: (params) => {
+      setRouteParams((prev) => ({
+        ...prev,
+        [activeTab]: { ...prev[activeTab], ...params },
+      }));
+    },
   };
 
   if (authLoading) return null;
@@ -259,15 +473,23 @@ export default function AppNavigator() {
     <YStack flex={1} backgroundColor="#0f0f23" position="relative">
       <TopNav
         active={activeTab}
-        onSelect={(tab) => { setActiveTab(tab); setNavFocused(false); }}
+        onSelect={(tab) => {
+          setActiveTab(tab);
+          setNavFocused(false);
+        }}
         activeProfile={activeProfile}
         onAccounts={() => setShowAccounts(true)}
         onSwitchProfile={() => switchProfile(null)}
         navFocused={navFocused}
         focusedNavIdx={focusedNavIdx}
+        idxAccounts={IDX_ACCOUNTS}
+        idxProfile={IDX_PROFILE}
       />
       <YStack flex={1} minHeight={0} overflow="hidden">
-        <ContentComponent navigation={webNavigation} />
+        <ContentComponent
+          navigation={webNavigation}
+          route={{ params: routeParams[activeTab] || {} }}
+        />
       </YStack>
 
       {currentVideo && <VideoPlayerScreen />}
@@ -275,14 +497,66 @@ export default function AppNavigator() {
       {showAccounts && (
         // eslint-disable-next-line jsx-a11y/no-static-element-interactions
         <div
-          style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.7)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center" }}
-          onClick={(e) => { if (e.target === e.currentTarget) setShowAccounts(false); }}
-          onKeyDown={(e) => { if (e.key === "Escape") setShowAccounts(false); }}
+          style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "rgba(0,0,0,0.7)",
+            zIndex: 200,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowAccounts(false);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setShowAccounts(false);
+          }}
         >
           <dialog
             open
-            style={{ position: "static", margin: 0, padding: 0, border: "none", width: ss(600), maxWidth: "90vw", backgroundColor: "#1a1a2e", borderRadius: ss(16), overflow: "hidden" }}
+            style={{
+              position: "static",
+              margin: 0,
+              padding: 0,
+              border: "none",
+              width: ss(600),
+              maxWidth: "90vw",
+              backgroundColor: "#1a1a2e",
+              borderRadius: ss(16),
+              overflow: "hidden",
+            }}
           >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: `${ss(16)}px ${ss(20)}px`,
+                borderBottom: "1px solid #2a2a4e",
+              }}
+            >
+              <span
+                style={{ color: "#fff", fontSize: ss(18), fontWeight: 700 }}
+              >
+                Accounts
+              </span>
+              <button
+                onClick={() => setShowAccounts(false)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "#aaa",
+                  fontSize: ss(22),
+                  cursor: "pointer",
+                  lineHeight: 1,
+                  padding: `0 ${ss(4)}px`,
+                }}
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
             <AccountsScreen navigation={webNavigation} />
           </dialog>
         </div>

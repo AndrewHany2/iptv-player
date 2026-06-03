@@ -1,0 +1,799 @@
+import { useState, useEffect, useRef } from "react";
+import { useApp } from "../context/AppContext";
+import iptvApi from "../services/iptvApi";
+import "../styles/tvl.css";
+import "./SeriesScreen.tv.css";
+
+const getTrailerUrl = (t) => {
+  if (!t) return null;
+  const m = t.match(/(?:v=|youtu\.be\/|embed\/)([A-Za-z0-9_-]{11})/);
+  if (m) return `https://www.youtube-nocookie.com/embed/${m[1]}`;
+  if (/^[A-Za-z0-9_-]{11}$/.test(t.trim()))
+    return `https://www.youtube-nocookie.com/embed/${t.trim()}`;
+  return null;
+};
+
+const CAT_COLS = 4;
+const SER_COLS = 6;
+const SER_PAGE = 24;
+
+const KEY_LEFT = 37;
+const KEY_UP = 38;
+const KEY_RIGHT = 39;
+const KEY_DOWN = 40;
+const KEY_ENTER = 13;
+const KEY_BACK = new Set([27, 461, 10009, 8]);
+
+// mode: 'cats' | 'grid' | 'detail'
+
+export default function SeriesScreenTV({ navigation, route }) {
+  const { users, activeUserId, playVideo, watchHistory } = useApp();
+
+  const [loading, setLoading] = useState(false);
+  const [cats, setCats] = useState([]);
+  const [catFocus, setCatFocus] = useState(0);
+  const [grid, setGrid] = useState(null);
+  const [detail, setDetail] = useState(null);
+
+  const catsRef = useRef([]);
+  const catFocRef = useRef(0);
+  const gridRef = useRef(null);
+  const detailRef = useRef(null);
+  const allItemsRef = useRef(new Map());
+  const catElRef = useRef(null);
+  const serElRef = useRef(null);
+  const epElRef = useRef(null);
+  const snElRef = useRef(null);
+  const navActiveRef = useRef(false);
+
+  const focusNav = () => {
+    navActiveRef.current = true;
+    globalThis.dispatchEvent(new CustomEvent("tv-nav-focus"));
+  };
+
+  useEffect(() => {
+    catsRef.current = cats;
+  }, [cats]);
+  useEffect(() => {
+    gridRef.current = grid;
+  }, [grid]);
+  useEffect(() => {
+    detailRef.current = detail;
+  }, [detail]);
+
+  useEffect(() => {
+    if (activeUserId) loadCats();
+  }, [activeUserId]);
+
+  // Handle navigation from history - open detail if params provided
+  useEffect(() => {
+    if (route?.params?.openDetail && route?.params?.seriesId) {
+      const seriesId = route.params.seriesId;
+      const hasHistory = route.params.hasHistory || false;
+      const episodeId = route.params.episodeId;
+      // Create a minimal item object to open detail
+      const item = {
+        series_id: seriesId,
+        id: seriesId,
+        seriesId: seriesId,
+        name: route.params.name || "Series",
+        cover: route.params.cover || null,
+        stream_icon: route.params.cover || null,
+        container_extension: route.params.containerExtension || "mp4",
+      };
+      // Small delay to ensure screen is mounted
+      setTimeout(() => {
+        openDetail(item, hasHistory, episodeId);
+        // Clear the params to prevent reopening on re-render
+        navigation.setParams({ openDetail: false });
+      }, 100);
+    }
+  }, [route?.params?.openDetail]);
+
+  const loadCats = async () => {
+    const user = users.find((u) => u.id === activeUserId);
+    if (!user) return;
+    setLoading(true);
+    allItemsRef.current.clear();
+    try {
+      iptvApi.setCredentials(user.host, user.username, user.password);
+      const raw = await iptvApi.getSeriesCategories();
+      if (!raw?.length) return;
+      const list = raw.map((c) => ({
+        id: c.category_id,
+        name: c.category_name,
+      }));
+      setCats(list);
+      catsRef.current = list;
+    } catch (e) {
+      console.error("SeriesScreenTV:", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ── Open category grid ────────────────────────────────────────────────────
+  const openGrid = async (cat) => {
+    const next = {
+      catId: cat.id,
+      name: cat.name,
+      items: null,
+      display: SER_PAGE,
+      focus: 0,
+    };
+    setGrid(next);
+    gridRef.current = next;
+    try {
+      let all = allItemsRef.current.get(cat.id);
+      if (!all) {
+        all = (await iptvApi.getSeries(cat.id)) ?? [];
+        allItemsRef.current.set(cat.id, all);
+      }
+      const updated = { ...next, items: all };
+      setGrid(updated);
+      gridRef.current = updated;
+    } catch {
+      const updated = { ...next, items: [] };
+      setGrid(updated);
+      gridRef.current = updated;
+    }
+  };
+
+  const closeGrid = () => {
+    setGrid(null);
+    gridRef.current = null;
+  };
+
+  // ── Open series detail ────────────────────────────────────────────────────
+  const openDetail = async (
+    item,
+    hasHistory = false,
+    targetEpisodeId = null,
+  ) => {
+    const next = {
+      item,
+      info: null,
+      seasons: [],
+      seasonIdx: 0,
+      epIdx: 0,
+      section: "seasons",
+      trailerFocus: false,
+      showTrailer: false,
+    };
+    setDetail(next);
+    detailRef.current = next;
+    try {
+      const info = await iptvApi.getSeriesInfo(item.series_id || item.id);
+      const rawSeasons = info?.seasons;
+      const seasons = Array.isArray(rawSeasons)
+        ? rawSeasons
+            .map((s) => String(s.season_number || s.id))
+            .sort((a, b) => Number(a) - Number(b))
+        : Object.keys(rawSeasons || {}).sort((a, b) => Number(a) - Number(b));
+
+      // If we have a target episode from history, find and focus it
+      let seasonIdx = 0;
+      let epIdx = 0;
+      if (targetEpisodeId && info?.episodes) {
+        const allEpisodes = Object.values(info.episodes).flat();
+        const targetEp = allEpisodes.find(
+          (ep) => String(ep.id) === String(targetEpisodeId),
+        );
+        if (targetEp) {
+          const seasonNum = String(
+            targetEp.season || targetEp.season_number || 1,
+          );
+          seasonIdx = seasons.indexOf(seasonNum);
+          if (seasonIdx >= 0) {
+            const seasonEpisodes = info.episodes[seasonNum] || [];
+            epIdx = seasonEpisodes.findIndex(
+              (ep) => String(ep.id) === String(targetEpisodeId),
+            );
+            if (epIdx < 0) epIdx = 0;
+          }
+        }
+      }
+
+      const updated = { ...next, info, seasons, seasonIdx, epIdx };
+      setDetail(updated);
+      detailRef.current = updated;
+    } catch {
+      const updated = { ...next, info: {}, seasons: [] };
+      setDetail(updated);
+      detailRef.current = updated;
+    }
+  };
+
+  const closeDetail = () => {
+    setDetail(null);
+    detailRef.current = null;
+  };
+
+  // ── Play episode ──────────────────────────────────────────────────────────
+  const playEpisode = (series, episode) => {
+    const url = iptvApi.buildStreamUrl(
+      "series",
+      episode.id,
+      episode.container_extension || "mp4",
+    );
+
+    // Check if there's watch history for this episode
+    const historyEntry = (watchHistory || []).find(
+      (h) => h.type === "series" && String(h.episodeId) === String(episode.id),
+    );
+    const startTime = historyEntry?.currentTime || 0;
+
+    playVideo({
+      type: "series",
+      streamId: String(episode.id),
+      seriesId: series.series_id || series.id,
+      seriesName: series.name,
+      episodeId: episode.id,
+      name: `${series.name} — ${episode.title || "E" + episode.episode_num}`,
+      url,
+      cover: series.cover || series.stream_icon,
+      startTime,
+    });
+    navigation.navigate("VideoPlayer");
+  };
+
+  // ── D-pad handler ─────────────────────────────────────────────────────────
+  useEffect(() => {
+    const onKey = (e) => {
+      if (navActiveRef.current) return;
+      const k = e.keyCode || e.which;
+      if (detailRef.current) handleDetailKey(k, e);
+      else if (gridRef.current) handleGridKey(k, e);
+      else handleCatKey(k, e);
+    };
+    const onNavBlur = () => {
+      navActiveRef.current = false;
+    };
+    document.addEventListener("keydown", onKey);
+    globalThis.addEventListener("tv-nav-blur", onNavBlur);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      globalThis.removeEventListener("tv-nav-blur", onNavBlur);
+    };
+  }, []);
+
+  // ── Category grid ─────────────────────────────────────────────────────────
+  const movCat = (n) => {
+    catFocRef.current = n;
+    setCatFocus(n);
+  };
+  const onCatLeft = () => {
+    const f = catFocRef.current;
+    if (f > 0) movCat(f - 1);
+  };
+  const onCatRight = () => {
+    const f = catFocRef.current;
+    const max = catsRef.current.length - 1;
+    if (f < max) movCat(f + 1);
+  };
+  const onCatUp = () => {
+    const f = catFocRef.current;
+    if (f >= CAT_COLS) movCat(f - CAT_COLS);
+    else focusNav();
+  };
+  const onCatDown = () => {
+    const f = catFocRef.current;
+    movCat(Math.min(f + CAT_COLS, catsRef.current.length - 1));
+  };
+  const onCatEnter = () => {
+    const cat = catsRef.current[catFocRef.current];
+    if (cat) openGrid(cat);
+  };
+
+  const handleCatKey = (k, e) => {
+    e.preventDefault();
+    switch (k) {
+      case KEY_LEFT:
+        onCatLeft();
+        break;
+      case KEY_RIGHT:
+        onCatRight();
+        break;
+      case KEY_UP:
+        onCatUp();
+        break;
+      case KEY_DOWN:
+        onCatDown();
+        break;
+      case KEY_ENTER:
+        onCatEnter();
+        break;
+      default:
+        if (KEY_BACK.has(k)) navigation.goBack?.();
+    }
+  };
+
+  // ── Series grid ───────────────────────────────────────────────────────────
+  const movGrid = (g, focus) => {
+    const n = { ...g, focus };
+    gridRef.current = n;
+    setGrid(n);
+  };
+  const growGrid = (g) => {
+    const n = { ...g, display: Math.min(g.display + SER_PAGE, g.items.length) };
+    gridRef.current = n;
+    setGrid(n);
+  };
+
+  const onGridLeft = (g) => {
+    if (g.focus > 0) movGrid(g, g.focus - 1);
+  };
+  const onGridRight = (g) => {
+    const max = Math.min(g.display, g.items.length) - 1;
+    if (g.focus >= max) return;
+    movGrid(g, g.focus + 1);
+    if (g.focus + 1 >= g.display - SER_COLS && g.display < g.items.length)
+      growGrid(g);
+  };
+  const onGridUp = (g) => {
+    if (g.focus >= SER_COLS) movGrid(g, g.focus - SER_COLS);
+    else focusNav();
+  };
+  const onGridDown = (g) => {
+    const max = Math.min(g.display, g.items.length) - 1;
+    const next = Math.min(g.focus + SER_COLS, max);
+    movGrid(g, next);
+    if (next >= g.display - SER_COLS && g.display < g.items.length) growGrid(g);
+  };
+  const onGridEnter = (g) => {
+    const item = g.items[g.focus];
+    if (item) openDetail(item);
+  };
+
+  const handleGridKey = (k, e) => {
+    const g = gridRef.current;
+    e.preventDefault();
+    if (KEY_BACK.has(k)) {
+      closeGrid();
+      return;
+    }
+    if (!g?.items) return;
+    switch (k) {
+      case KEY_LEFT:
+        onGridLeft(g);
+        break;
+      case KEY_RIGHT:
+        onGridRight(g);
+        break;
+      case KEY_UP:
+        onGridUp(g);
+        break;
+      case KEY_DOWN:
+        onGridDown(g);
+        break;
+      case KEY_ENTER:
+        onGridEnter(g);
+        break;
+    }
+  };
+
+  // ── Series detail ─────────────────────────────────────────────────────────
+  const updDetail = (d) => {
+    detailRef.current = d;
+    setDetail(d);
+  };
+
+  const onDetailLeft = (d) => {
+    if (d.trailerFocus) {
+      updDetail({ ...d, trailerFocus: false, seasonIdx: d.seasons.length - 1 });
+    } else if (d.section === "seasons" && d.seasonIdx > 0) {
+      updDetail({ ...d, seasonIdx: d.seasonIdx - 1, epIdx: 0 });
+    }
+  };
+  const onDetailRight = (d) => {
+    const trailer = getTrailerUrl(d.info?.info?.youtube_trailer);
+    if (!d.trailerFocus && d.section === "seasons") {
+      if (d.seasonIdx < d.seasons.length - 1)
+        updDetail({ ...d, seasonIdx: d.seasonIdx + 1, epIdx: 0 });
+      else if (trailer) updDetail({ ...d, trailerFocus: true });
+    }
+  };
+  const onDetailUp = (d) => {
+    if (d.trailerFocus) {
+      focusNav();
+      return;
+    }
+    if (d.section === "episodes") {
+      if (d.epIdx > 0) updDetail({ ...d, epIdx: d.epIdx - 1 });
+      else updDetail({ ...d, section: "seasons" });
+    } else {
+      focusNav();
+    }
+  };
+  const onDetailDown = (d) => {
+    if (d.trailerFocus) {
+      updDetail({ ...d, trailerFocus: false, section: "episodes", epIdx: 0 });
+      return;
+    }
+    if (d.section === "seasons") {
+      // Don't auto-switch to episodes on DOWN, user must press ENTER on season
+      return;
+    } else {
+      const eps = d.info?.episodes?.[d.seasons[d.seasonIdx]] || [];
+      if (d.epIdx < eps.length - 1) updDetail({ ...d, epIdx: d.epIdx + 1 });
+    }
+  };
+  const onDetailEnter = (d) => {
+    if (d.trailerFocus) {
+      updDetail({ ...d, showTrailer: !d.showTrailer });
+      return;
+    }
+    if (d.section === "seasons") {
+      updDetail({ ...d, section: "episodes", epIdx: 0 });
+    } else {
+      const eps = d.info?.episodes?.[d.seasons[d.seasonIdx]] || [];
+      const ep = eps[d.epIdx];
+      if (ep) playEpisode(d.item, ep);
+    }
+  };
+
+  const handleDetailKey = (k, e) => {
+    const d = detailRef.current;
+    if (!d) return;
+    e.preventDefault();
+    switch (k) {
+      case KEY_LEFT:
+        onDetailLeft(d);
+        break;
+      case KEY_RIGHT:
+        onDetailRight(d);
+        break;
+      case KEY_UP:
+        onDetailUp(d);
+        break;
+      case KEY_DOWN:
+        onDetailDown(d);
+        break;
+      case KEY_ENTER:
+        onDetailEnter(d);
+        break;
+      default:
+        if (KEY_BACK.has(k)) {
+          closeDetail();
+          navigation.goBack?.();
+        }
+    }
+  };
+
+  // ── Scroll into view ──────────────────────────────────────────────────────
+  useEffect(() => {
+    catElRef.current?.scrollIntoView({ block: "nearest" });
+  }, [catFocus]);
+  useEffect(() => {
+    serElRef.current?.scrollIntoView({ block: "nearest" });
+  }, [grid?.focus]);
+  useEffect(() => {
+    epElRef.current?.scrollIntoView({ block: "nearest" });
+  }, [detail?.epIdx]);
+  useEffect(() => {
+    snElRef.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [detail?.seasonIdx]);
+
+  // ── Render ────────────────────────────────────────────────────────────────
+  if (loading)
+    return (
+      <div className="tvl-screen">
+        <div className="tvl-center">
+          <div className="tvl-spinner" />
+          <p>Loading series…</p>
+        </div>
+      </div>
+    );
+
+  if (!activeUserId) {
+    return (
+      <div className="tvl-screen">
+        <div className="tvl-center">
+          <p className="tvl-empty-msg">No IPTV Account</p>
+          <button
+            className="tvl-btn"
+            onClick={() => navigation.navigate("Accounts")}
+          >
+            Add Account
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Detail view ───────────────────────────────────────────────────────────
+  if (detail) {
+    const {
+      item,
+      info: rawInfo,
+      seasons,
+      seasonIdx,
+      epIdx,
+      section,
+      trailerFocus,
+      showTrailer,
+    } = detail;
+    const si = rawInfo?.info || {};
+    const currentSeason = seasons[seasonIdx];
+    const episodes = rawInfo?.episodes?.[currentSeason] || [];
+    const trailer = getTrailerUrl(si.youtube_trailer);
+    const poster = si.cover || item.cover || item.stream_icon || null;
+
+    return (
+      <div className="tvl-screen">
+        <div className="tvl-topbar">
+          <button className="tvl-topbar-back" onClick={closeDetail}>
+            ◀
+          </button>
+          <button
+            className="tvl-topbar-title tvl-topbar-title--back"
+            onClick={closeDetail}
+          >
+            {item.name}
+          </button>
+        </div>
+        <div className="tvl-det">
+          {/* ── Left panel ─────────────────────────────────────────────── */}
+          <div className="tvl-det-left">
+            <div className="tvl-det-poster-wrap">
+              {poster ? (
+                <img className="tvl-det-poster" src={poster} alt="" />
+              ) : (
+                <div className="tvl-det-poster-ph">📺</div>
+              )}
+            </div>
+            <div className="tvl-det-info">
+              <div className="tvl-det-name">{item.name}</div>
+              <div className="tvl-det-meta">
+                {si.releaseDate && (
+                  <span className="tvl-det-tag">
+                    {si.releaseDate.slice(0, 4)}
+                  </span>
+                )}
+                {si.genre && (
+                  <span className="tvl-det-tag">
+                    {si.genre.split(",")[0].trim()}
+                  </span>
+                )}
+                {si.rating && (
+                  <span className="tvl-det-rating">
+                    ⭐ {Number.parseFloat(si.rating).toFixed(1)}
+                  </span>
+                )}
+              </div>
+              {si.plot && <p className="tvl-det-plot">{si.plot}</p>}
+              {si.cast && (
+                <p className="tvl-det-crew">
+                  <strong>Cast</strong> {si.cast}
+                </p>
+              )}
+              {si.director && (
+                <p className="tvl-det-crew">
+                  <strong>Director</strong> {si.director}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* ── Right panel ────────────────────────────────────────────── */}
+          <div className="tvl-det-right">
+            {rawInfo ? (
+              <>
+                <div className="tvl-seasons-row">
+                  {seasons.map((s, i) => (
+                    <div
+                      key={s}
+                      ref={
+                        section === "seasons" && i === seasonIdx
+                          ? snElRef
+                          : null
+                      }
+                      className={
+                        section === "seasons" && i === seasonIdx
+                          ? "tvl-season-btn tvl-season-btn--on"
+                          : "tvl-season-btn"
+                      }
+                    >
+                      Season {s}
+                    </div>
+                  ))}
+                  {trailer && (
+                    <div
+                      className={
+                        trailerFocus
+                          ? "tvl-season-btn tvl-season-btn--on"
+                          : "tvl-season-btn"
+                      }
+                    >
+                      {showTrailer ? "✕ Trailer" : "🎬 Trailer"}
+                    </div>
+                  )}
+                </div>
+                {showTrailer && trailer && (
+                  <div className="tvl-ser-trailer">
+                    <iframe
+                      title="trailer"
+                      src={`${trailer}?autoplay=1`}
+                      allow="autoplay; encrypted-media; picture-in-picture"
+                      allowFullScreen
+                      style={{ width: "100%", height: "100%", border: "none" }}
+                    />
+                  </div>
+                )}
+                <div className="tvl-episodes">
+                  {episodes.map((ep, i) => {
+                    // Check if this episode has watch history
+                    const epHistory = (watchHistory || []).find(
+                      (h) =>
+                        h.type === "series" &&
+                        String(h.episodeId) === String(ep.id),
+                    );
+                    const hasProgress = epHistory && epHistory.currentTime > 0;
+                    const isWatched =
+                      epHistory &&
+                      epHistory.currentTime > 0 &&
+                      epHistory.duration > 0 &&
+                      epHistory.currentTime / epHistory.duration > 0.9;
+
+                    return (
+                      <div
+                        key={ep.id}
+                        ref={
+                          section === "episodes" && i === epIdx ? epElRef : null
+                        }
+                        className={
+                          section === "episodes" && i === epIdx
+                            ? "tvl-episode tvl-episode--on"
+                            : "tvl-episode"
+                        }
+                      >
+                        <span className="tvl-ep-badge">E{ep.episode_num}</span>
+                        <div className="tvl-ep-body">
+                          <div className="tvl-ep-title">
+                            {ep.title || `Episode ${ep.episode_num}`}
+                            {isWatched && (
+                              <span
+                                style={{ marginLeft: "8px", color: "#6abf69" }}
+                              >
+                                ✓
+                              </span>
+                            )}
+                          </div>
+                          {ep.info?.plot && (
+                            <div className="tvl-ep-plot">{ep.info.plot}</div>
+                          )}
+                          {ep.info?.duration && (
+                            <div className="tvl-ep-dur">{ep.info.duration}</div>
+                          )}
+                          {hasProgress && !isWatched && (
+                            <div
+                              className="tvl-ep-progress"
+                              style={{
+                                fontSize: "11px",
+                                color: "#e94560",
+                                marginTop: "4px",
+                              }}
+                            >
+                              Continue from{" "}
+                              {Math.floor(epHistory.currentTime / 60)}:
+                              {String(
+                                Math.floor(epHistory.currentTime % 60),
+                              ).padStart(2, "0")}
+                            </div>
+                          )}
+                        </div>
+                        <span className="tvl-ep-play">
+                          {hasProgress && !isWatched ? "↻" : "▶"}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            ) : (
+              <div className="tvl-center">
+                <div className="tvl-spinner" />
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Grid view ─────────────────────────────────────────────────────────────
+  if (grid) {
+    const displayed = grid.items ? grid.items.slice(0, grid.display) : null;
+    return (
+      <div className="tvl-screen">
+        <div className="tvl-topbar">
+          <button className="tvl-topbar-back" onClick={closeGrid}>
+            ◀
+          </button>
+          <button
+            className="tvl-topbar-title tvl-topbar-title--back"
+            onClick={closeGrid}
+          >
+            {grid.name}
+          </button>
+          {grid.items && (
+            <span className="tvl-topbar-count">
+              {grid.items.length.toLocaleString()}
+            </span>
+          )}
+        </div>
+        {displayed ? (
+          <div className="tvl-scroll">
+            <div className="tvl-ser-grid">
+              {displayed.map((item, i) => (
+                <PosterCard
+                  key={String(item.series_id)}
+                  item={item}
+                  isFocused={i === grid.focus}
+                  elRef={i === grid.focus ? serElRef : null}
+                />
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="tvl-center">
+            <div className="tvl-spinner" />
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── Category grid ─────────────────────────────────────────────────────────
+  return (
+    <div className="tvl-screen">
+      <div className="tvl-topbar">
+        <span className="tvl-topbar-title">Series</span>
+      </div>
+      <div className="tvl-scroll">
+        <div className="tvl-cat-grid">
+          {cats.map((cat, i) => (
+            <div
+              key={cat.id}
+              ref={i === catFocus ? catElRef : null}
+              className={
+                i === catFocus
+                  ? "tvl-cat-card tvl-cat-card--on"
+                  : "tvl-cat-card"
+              }
+              onClick={() => openGrid(cat)}
+            >
+              {cat.name}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PosterCard({ item, isFocused, elRef }) {
+  const [err, setErr] = useState(false);
+  const src = item.cover || item.stream_icon || null;
+  const rating = item.rating;
+  let rLabel = null;
+  if (rating != null && rating !== "") {
+    rLabel = typeof rating === "number" ? Math.round(rating) : rating;
+  }
+  return (
+    <div
+      ref={elRef}
+      className={isFocused ? "tvl-card tvl-card--on" : "tvl-card"}
+    >
+      <div className="tvl-card-img">
+        {src && !err ? (
+          <img src={src} alt="" onError={() => setErr(true)} loading="lazy" />
+        ) : (
+          <div className="tvl-card-ph">📺</div>
+        )}
+        {rLabel && <span className="tvl-card-rating">{rLabel}</span>}
+      </div>
+      <div className="tvl-card-title">{item.name}</div>
+    </div>
+  );
+}

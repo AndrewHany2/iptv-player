@@ -1,0 +1,244 @@
+/**
+ * TV Remote Focus Styles
+ * Visual feedback for TV remote navigation
+ */
+
+/* Base focus style for all focusable elements */
+.tv-focused {
+  outline: 3px solid #e50914 !important;
+  outline-offset: 4px;
+  box-shadow: 0 0 0 6px rgba(229, 9, 20, 0.3) !important;
+  transform: scale(1.05) !important;
+  z-index: 10 !important;
+  transition: all 0.2s ease !important;
+}
+
+/* Focus for buttons */
+button.tv-focused,
+.tv-btn.tv-focused {
+  background: #f40612 !important;
+  border-color: #fff !important;
+}
+
+/* Focus for poster cards */
+.tv-poster.tv-focused {
+  transform: scale(1.1) !important;
+  box-shadow: 0 8px 32px rgba(229, 9, 20, 0.6) !important;
+  z-index: 20 !important;
+}
+
+/* Focus for channel cards */
+.tv-channel.tv-focused {
+  transform: translateY(-12px) scale(1.05) !important;
+  box-shadow: 0 12px 40px rgba(229, 9, 20, 0.5) !important;
+}
+
+/* Focus for history items */
+.tv-history-item.tv-focused {
+  background: rgba(229, 9, 20, 0.15) !important;
+  border-color: #e50914 !important;
+  transform: translateX(12px) scale(1.02) !important;
+}
+
+/* Focus for account items */
+.tv-accounts-item.tv-focused {
+  background: rgba(229, 9, 20, 0.15) !important;
+  border-color: #e50914 !important;
+  transform: scale(1.02) !important;
+}
+
+/* Focus for input fields */
+input.tv-focused,
+textarea.tv-focused,
+select.tv-focused {
+  border-color: #e50914 !important;
+  box-shadow: 0 0 0 4px rgba(229, 9, 20, 0.2) !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Focus for shelf titles */
+.tv-shelf-title.tv-focused {
+  color: #e50914 !important;
+  transform: translateX(8px) !important;
+}
+
+/* Focus for pills/chips */
+.tv-pill.tv-focused {
+  background: #e50914 !important;
+  border-color: #e50914 !important;
+  transform: translateY(-4px) scale(1.05) !important;
+}
+
+/* Focus for season buttons */
+.tv-season-btn.tv-focused {
+  background: #e50914 !important;
+  border-color: #fff !important;
+  transform: scale(1.08) !important;
+}
+
+/* Focus for episodes */
+.tv-episode.tv-focused {
+  background: rgba(229, 9, 20, 0.15) !important;
+  border-left: 4px solid #e50914 !important;
+  transform: translateX(12px) !important;
+}
+
+/* Focus for action buttons */
+.tv-accounts-action-btn.tv-focused,
+.tv-channel-favorite.tv-focused,
+.tv-history-play.tv-focused,
+.tv-episode-play.tv-focused {
+  background: #e50914 !important;
+  transform: scale(1.15) !important;
+  box-shadow: 0 4px 16px rgba(229, 9, 20, 0.5) !important;
+}
+
+/* Focus for navigation items */
+.tv-nav-item.tv-focused {
+  color: #fff !important;
+  border-bottom: 3px solid #e50914 !important;
+}
+
+/* Focus for search input */
+.tv-search.tv-focused {
+  border-color: #e50914 !important;
+  box-shadow: 0 0 0 3px rgba(229, 9, 20, 0.3) !important;
+}
+
+/* Focus for sort dropdown */
+.tv-sort.tv-focused {
+  border-color: #e50914 !important;
+  background: rgba(229, 9, 20, 0.1) !important;
+}
+
+/* Disable default focus outline */
+*:focus {
+  outline: none;
+}
+
+/* Focus indicator for grid navigation */
+.tv-grid-focused {
+  position: relative;
+}
+
+.tv-grid-focused::before {
+  content: "";
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  right: -8px;
+  bottom: -8px;
+  border: 3px solid #e50914;
+  border-radius: 12px;
+  pointer-events: none;
+  animation: tv-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes tv-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.02);
+  }
+}
+
+/* Focus for modal/dialog elements */
+.tv-modal.tv-focused,
+.tv-accounts-modal.tv-focused {
+  box-shadow: 0 0 0 4px rgba(229, 9, 20, 0.5) !important;
+}
+
+/* Smooth transitions for all focusable elements */
+button,
+.tv-btn,
+.tv-poster,
+.tv-channel,
+.tv-history-item,
+.tv-accounts-item,
+.tv-episode,
+input,
+select,
+textarea {
+  transition: all 0.2s ease;
+}
+
+/* Accessibility: High contrast mode */
+@media (prefers-contrast: high) {
+  .tv-focused {
+    outline-width: 4px !important;
+    outline-offset: 6px !important;
+  }
+}
+
+/* Reduced motion for accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .tv-focused,
+  button,
+  .tv-btn,
+  .tv-poster,
+  .tv-channel,
+  .tv-history-item,
+  .tv-accounts-item,
+  .tv-episode {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* Focus visible only for keyboard navigation */
+.tv-focusable {
+  position: relative;
+}
+
+/* Loading state - disable focus */
+.tv-loading .tv-focused,
+[disabled].tv-focused {
+  outline: none !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+/* Focus ring animation */
+@keyframes tv-focus-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgba(229, 9, 20, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(229, 9, 20, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(229, 9, 20, 0);
+  }
+}
+
+.tv-focused.tv-focus-ring {
+  animation: tv-focus-ring 1s ease-out;
+}
+
+/* Focus for specific TV platforms */
+/* webOS specific */
+body[data-platform="webos"] .tv-focused {
+  outline-width: 4px;
+}
+
+/* Tizen specific */
+body[data-platform="tizen"] .tv-focused {
+  outline-width: 4px;
+  outline-style: solid;
+}
+
+/* Focus trap for modals */
+.tv-modal-open {
+  overflow: hidden;
+}
+
+.tv-modal-open .tv-focused:not(.tv-modal *) {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Made with Bob */
