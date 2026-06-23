@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { YStack, XStack, Text, Input } from "tamagui";
+import { YStack, XStack, Text } from "tamagui";
 import { useApp } from "../context/AppContext";
 import { isSupabaseConfigured } from "../services/supabase";
 import { ss } from "../utils/scaleSize";
@@ -17,6 +17,7 @@ import HistoryScreenTV from "../screens/HistoryScreen.tv";
 import AccountsScreenWeb from "../screens/AccountsScreen";
 import AccountsScreenTV from "../screens/AccountsScreen.tv";
 import VideoPlayerScreen from "../screens/VideoPlayerScreen";
+import SettingsScreen from "../screens/SettingsScreen.web";
 import { usePlatform } from "../platform/PlatformProvider";
 
 // Use TV-optimized screens on TV platforms (resolved at module load from build flag)
@@ -53,11 +54,11 @@ if (typeof document !== "undefined") {
       transition: transform 0.2s ease, box-shadow 0.2s ease;
       cursor: pointer !important; overflow: hidden !important;
     }
-    .lumen-poster:hover { transform: scale(1.05); z-index: 2; box-shadow: 0 ${ss(8)}px ${ss(28)}px rgba(0,0,0,0.6), 0 0 0 1.5px #e94560; }
+    body:not(.keyboard-nav) .lumen-poster:hover { transform: scale(1.05); z-index: 2; box-shadow: 0 0 0 1.5px #e94560, 0 ${ss(8)}px ${ss(28)}px rgba(0,0,0,0.6); }
     .lumen-live-card { transition: border-color 0.15s ease, background-color 0.15s ease; cursor: pointer !important; }
-    .lumen-live-card:hover { border-color: #e94560 !important; background-color: #20203a !important; }
-    .lumen-icon-btn:hover { background: rgba(255,255,255,0.10) !important; }
-    .lumen-avatar:hover { border-color: #e94560 !important; }
+    body:not(.keyboard-nav) .lumen-live-card:hover { border-color: #e94560 !important; background-color: #20203a !important; }
+    body:not(.keyboard-nav) .lumen-icon-btn:hover { background: rgba(255,255,255,0.10) !important; }
+    body:not(.keyboard-nav) .lumen-avatar:hover { border-color: #e94560 !important; }
     .lumen-shelf-nav {
       opacity: 0; transition: opacity 0.15s;
       position: absolute; top: 0; bottom: 0; z-index: 4;
@@ -66,7 +67,7 @@ if (typeof document !== "undefined") {
       border: none; cursor: pointer; color: #fff; font-size: ${ss(28)}px; padding: 0 ${ss(14)}px; width: ${ss(56)}px;
     }
     .lumen-shelf-nav.right { background: linear-gradient(to left, rgba(15,15,35,0.95), rgba(15,15,35,0)); right: 0; left: auto; justify-content: flex-end; }
-    .lumen-shelf-rail:hover .lumen-shelf-nav { opacity: 1; }
+    body:not(.keyboard-nav) .lumen-shelf-rail:hover .lumen-shelf-nav { opacity: 1; }
     @keyframes lumen-blink { 50% { opacity: 0.25; } }
     .lumen-live-dot {
       display: inline-flex; align-items: center; gap: ${ss(5)}px;
@@ -80,17 +81,17 @@ if (typeof document !== "undefined") {
       border-radius: ${ss(8)}px; transition: transform 0.2s ease, box-shadow 0.2s ease;
       cursor: pointer !important; overflow: hidden !important; position: relative !important;
     }
-    .lumen-cw-card:hover { transform: scale(1.04); z-index: 2; box-shadow: 0 ${ss(8)}px ${ss(24)}px rgba(0,0,0,0.5); }
+    body:not(.keyboard-nav) .lumen-cw-card:hover { transform: scale(1.04); z-index: 2; box-shadow: 0 0 0 1.5px #e94560, 0 ${ss(8)}px ${ss(24)}px rgba(0,0,0,0.5); }
     .lumen-cw-play {
       position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
       background: rgba(0,0,0,0.4); opacity: 0; transition: opacity 0.15s ease;
       font-size: ${ss(38)}px; color: #fff; pointer-events: none; z-index: 5;
     }
-    .lumen-cw-card:hover .lumen-cw-play { opacity: 1; }
+    body:not(.keyboard-nav) .lumen-cw-card:hover .lumen-cw-play { opacity: 1; }
     .lumen-shelf-title-btn { cursor: pointer !important; }
-    .lumen-shelf-title-btn:hover span, .lumen-shelf-title-btn:hover div { opacity: 0.8; }
+    body:not(.keyboard-nav) .lumen-shelf-title-btn:hover span, body:not(.keyboard-nav) .lumen-shelf-title-btn:hover div { opacity: 0.8; }
     .lumen-load-cta { cursor: pointer !important; transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease; }
-    .lumen-load-cta:hover { background: rgba(233,69,96,0.12) !important; border-color: rgba(233,69,96,0.45) !important; transform: translateY(-1px); }
+    body:not(.keyboard-nav) .lumen-load-cta:hover { background: rgba(233,69,96,0.12) !important; border-color: rgba(233,69,96,0.45) !important; transform: translateY(-1px); }
     ${
       globalThis.__TV__
         ? `
@@ -108,17 +109,17 @@ if (typeof document !== "undefined") {
 }
 
 const NAV_ITEMS = [
+  { id: "home", label: "Home" },
   { id: "live", label: "Live TV" },
   { id: "movies", label: "Movies" },
   { id: "series", label: "Series" },
-  { id: "mylist", label: "My List" },
 ];
 
 const CONTENT_MAP = {
   live: LiveTVScreen,
   movies: MoviesScreen,
   series: SeriesScreen,
-  mylist: HistoryScreen,
+  home: HistoryScreen,
 };
 
 function BrandGlyph() {
@@ -181,16 +182,17 @@ function TopNav({
   onSelect,
   activeProfile,
   onAccounts,
+  onSettings,
   onSwitchProfile,
   navFocused,
   focusedNavIdx,
   idxAccounts,
+  idxSettings,
   idxProfile,
 }) {
   const { isTV } = usePlatform();
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [search, setSearch] = useState("");
   const accountsFocused = navFocused && focusedNavIdx === idxAccounts;
+  const settingsFocused = navFocused && focusedNavIdx === idxSettings;
   const profileFocused = navFocused && focusedNavIdx === idxProfile;
 
   const S = isTV
@@ -266,54 +268,6 @@ function TopNav({
       </XStack>
 
       <XStack alignItems="center" gap={ss(16)}>
-        {!isTV &&
-          (searchOpen ? (
-            <XStack
-              alignItems="center"
-              gap={ss(6)}
-              backgroundColor="rgba(0,0,0,0.7)"
-              borderWidth={1}
-              borderColor="#2a2a4e"
-              borderRadius={ss(8)}
-              paddingHorizontal={ss(12)}
-              paddingVertical={ss(6)}
-              width={ss(220)}
-            >
-              <Text color="#888" fontSize={ss(13)} marginRight={ss(6)}>
-                🔍
-              </Text>
-              <Input
-                autoFocus
-                flex={1}
-                placeholder="Titles, channels, people"
-                placeholderTextColor="#666"
-                value={search}
-                onChangeText={setSearch}
-                onBlur={() => {
-                  if (!search) setSearchOpen(false);
-                }}
-                color="#fff"
-                fontSize={ss(13)}
-                backgroundColor="transparent"
-                borderWidth={0}
-                padding={0}
-              />
-            </XStack>
-          ) : (
-            <YStack
-              width={S.icon}
-              height={S.icon}
-              borderRadius={S.iconR}
-              justifyContent="center"
-              alignItems="center"
-              cursor="pointer"
-              onPress={() => setSearchOpen(true)}
-              pressStyle={{ opacity: 0.7 }}
-              {...{ className: "lumen-icon-btn" }}
-            >
-              <Text fontSize={S.iconFont}>🔍</Text>
-            </YStack>
-          ))}
         <YStack
           width={S.icon}
           height={S.icon}
@@ -328,6 +282,21 @@ function TopNav({
           {...{ className: "lumen-icon-btn" }}
         >
           <Text fontSize={S.iconFont}>📡</Text>
+        </YStack>
+        <YStack
+          width={S.icon}
+          height={S.icon}
+          borderRadius={S.iconR}
+          justifyContent="center"
+          alignItems="center"
+          cursor="pointer"
+          onPress={onSettings}
+          pressStyle={{ opacity: 0.7 }}
+          borderWidth={settingsFocused ? 2 : 0}
+          borderColor={settingsFocused ? "#e94560" : "transparent"}
+          {...{ className: "lumen-icon-btn" }}
+        >
+          <Text fontSize={S.iconFont}>⚙</Text>
         </YStack>
         <YStack
           width={S.avatar}
@@ -359,12 +328,27 @@ export default function AppNavigator() {
     activeProfile,
     currentVideo,
     switchProfile,
+    setSearchQuery,
   } = useApp();
   const [activeTab, setActiveTab] = useState("live");
   const [showAccounts, setShowAccounts] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [navFocused, setNavFocused] = useState(false);
   const [focusedNavIdx, setFocusedNavIdx] = useState(0);
   const navIdxRef = useRef(0);
+  // Suppress hover effects while the user is navigating with the keyboard.
+  // Any keydown adds .keyboard-nav to <body>; mousemove removes it.
+  useEffect(() => {
+    const onKey = () => document.body.classList.add("keyboard-nav");
+    const onMouse = () => document.body.classList.remove("keyboard-nav");
+    document.addEventListener("keydown", onKey, { capture: true });
+    document.addEventListener("mousemove", onMouse);
+    return () => {
+      document.removeEventListener("keydown", onKey, { capture: true });
+      document.removeEventListener("mousemove", onMouse);
+    };
+  }, []);
+
   // Capture-phase handler: preventDefault on LG back key so webOS doesn't
   // exit the app or navigate browser history. Bubble-phase handlers in each
   // screen and in the nav/accounts effects below handle the actual action.
@@ -391,10 +375,11 @@ export default function AppNavigator() {
   }, [activeTab]);
 
   // Nav keyboard handler — only active when navFocused
-  // Nav items + accounts icon + profile avatar
-  const NAV_TOTAL = NAV_ITEMS.length + 2;
+  // Nav items + accounts icon + settings icon + profile avatar
   const IDX_ACCOUNTS = NAV_ITEMS.length;
-  const IDX_PROFILE = NAV_ITEMS.length + 1;
+  const IDX_SETTINGS = NAV_ITEMS.length + 1;
+  const IDX_PROFILE = NAV_ITEMS.length + 2;
+  const NAV_TOTAL = NAV_ITEMS.length + 3;
 
   useEffect(() => {
     if (!navFocused) return;
@@ -419,13 +404,19 @@ export default function AppNavigator() {
           setActiveTab(NAV_ITEMS[idx].id);
         } else if (idx === IDX_ACCOUNTS) {
           setShowAccounts(true);
+        } else if (idx === IDX_SETTINGS) {
+          setShowSettings(true);
         } else if (idx === IDX_PROFILE) {
           switchProfile(null);
         }
         blurNav();
       } else if (
-        e.key === "ArrowDown" || e.keyCode === 40 ||
-        e.key === "Escape" || e.keyCode === 27 || e.keyCode === 461 || e.keyCode === 10009
+        e.key === "ArrowDown" ||
+        e.keyCode === 40 ||
+        e.key === "Escape" ||
+        e.keyCode === 27 ||
+        e.keyCode === 461 ||
+        e.keyCode === 10009
       ) {
         e.preventDefault();
         blurNav();
@@ -446,6 +437,18 @@ export default function AppNavigator() {
     globalThis.addEventListener("keydown", handler);
     return () => globalThis.removeEventListener("keydown", handler);
   }, [showAccounts]);
+
+  useEffect(() => {
+    if (!showSettings) return;
+    const handler = (e) => {
+      if (e.key === "Escape" || e.keyCode === 461 || e.keyCode === 10009) {
+        e.preventDefault();
+        setShowSettings(false);
+      }
+    };
+    globalThis.addEventListener("keydown", handler);
+    return () => globalThis.removeEventListener("keydown", handler);
+  }, [showSettings]);
 
   const [routeParams, setRouteParams] = useState({});
 
@@ -492,15 +495,18 @@ export default function AppNavigator() {
       <TopNav
         active={activeTab}
         onSelect={(tab) => {
+          if (tab !== activeTab) setSearchQuery("");
           setActiveTab(tab);
           setNavFocused(false);
         }}
         activeProfile={activeProfile}
         onAccounts={() => setShowAccounts(true)}
+        onSettings={() => setShowSettings(true)}
         onSwitchProfile={() => switchProfile(null)}
         navFocused={navFocused}
         focusedNavIdx={focusedNavIdx}
         idxAccounts={IDX_ACCOUNTS}
+        idxSettings={IDX_SETTINGS}
         idxProfile={IDX_PROFILE}
       />
       <YStack flex={1} minHeight={0} overflow="hidden">
@@ -576,6 +582,74 @@ export default function AppNavigator() {
               </button>
             </div>
             <AccountsScreen navigation={webNavigation} />
+          </dialog>
+        </div>
+      )}
+
+      {showSettings && (
+        // eslint-disable-next-line jsx-a11y/no-static-element-interactions
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "rgba(0,0,0,0.7)",
+            zIndex: 200,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowSettings(false);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setShowSettings(false);
+          }}
+        >
+          <dialog
+            open
+            style={{
+              position: "static",
+              margin: 0,
+              padding: 0,
+              border: "none",
+              width: ss(560),
+              maxWidth: "90vw",
+              backgroundColor: "#1a1a2e",
+              borderRadius: ss(16),
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: `${ss(16)}px ${ss(20)}px`,
+                borderBottom: "1px solid #2a2a4e",
+              }}
+            >
+              <span
+                style={{ color: "#fff", fontSize: ss(18), fontWeight: 700 }}
+              >
+                Settings
+              </span>
+              <button
+                onClick={() => setShowSettings(false)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "#aaa",
+                  fontSize: ss(22),
+                  cursor: "pointer",
+                  lineHeight: 1,
+                  padding: `0 ${ss(4)}px`,
+                }}
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+            <SettingsScreen />
           </dialog>
         </div>
       )}

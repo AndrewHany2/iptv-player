@@ -322,7 +322,11 @@ export default function VideoPlayerScreen() {
   const [selectedAudio, setSelectedAudio] = useState(0);
   const [subtitleTracks, setSubtitleTracks] = useState([]);
   const [selectedSubtitle, setSelectedSubtitle] = useState(-1);
-  const [aspectRatio, setAspectRatio] = useState("default");
+  const [aspectRatio, setAspectRatio] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("lumen_settings") || "{}").defaultAspect || "default";
+    } catch { return "default"; }
+  });
 
   // TV-specific state
   const [tvControlsVisible, setTvControlsVisible] = useState(true);

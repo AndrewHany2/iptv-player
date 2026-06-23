@@ -2,7 +2,6 @@ import { useRef, useEffect, useCallback, useState } from "react";
 import { Image, View } from "react-native";
 import { YStack, Text, ScrollView } from "tamagui";
 import { useApp } from "../context/AppContext";
-import { useTVNavigation } from "../hooks/useTVNavigation";
 import { ss } from "../utils/scaleSize";
 import MovieDetail from "../components/MovieDetail.web";
 import SeriesDetail from "../components/SeriesDetail.web";
@@ -81,7 +80,7 @@ const getEpLabel = (item) => {
 };
 
 /* ── My List Poster Card ── */
-function MyListCard({ item, onPress, onRemove, focused }) {
+function MyListCard({ item, onPress, onRemove }) {
   const poster = item.cover || item.movie_image || item.stream_icon || null;
   const epLabel = getEpLabel(item);
 
@@ -92,8 +91,6 @@ function MyListCard({ item, onPress, onRemove, focused }) {
       cursor="pointer"
       onPress={onPress}
       pressStyle={{ opacity: 0.8 }}
-      hoverStyle={{ scale: 1.03 }}
-      animation="quick"
       {...{ className: "lumen-poster" }}
     >
       <YStack
@@ -103,8 +100,6 @@ function MyListCard({ item, onPress, onRemove, focused }) {
         backgroundColor="#16213e"
         overflow="hidden"
         position="relative"
-        borderWidth={2}
-        borderColor={focused ? "#e94560" : "transparent"}
       >
         {poster ? (
           <Image source={{ uri: poster }} style={FILL} resizeMode="cover" />
@@ -178,7 +173,7 @@ function MyListCard({ item, onPress, onRemove, focused }) {
 }
 
 /* ── Continue Watching Card ── */
-function CWCard({ item, onPress, onRemove, focused }) {
+function CWCard({ item, onPress, onRemove }) {
   const progress =
     item.duration > 0
       ? Math.min((item.currentTime / item.duration) * 100, 100)
@@ -198,8 +193,6 @@ function CWCard({ item, onPress, onRemove, focused }) {
       cursor="pointer"
       onPress={onPress}
       pressStyle={{ opacity: 0.85 }}
-      hoverStyle={{ scale: 1.02 }}
-      animation="quick"
       {...{ className: "lumen-cw-card" }}
     >
       <YStack
@@ -209,8 +202,6 @@ function CWCard({ item, onPress, onRemove, focused }) {
         backgroundColor="#16213e"
         overflow="hidden"
         position="relative"
-        borderWidth={2}
-        borderColor={focused ? "#e94560" : "transparent"}
       >
         {bg ? (
           <Image source={{ uri: bg }} style={FILL} resizeMode="cover" />
@@ -344,27 +335,6 @@ export default function HistoryScreen({ navigation }) {
 
   const watchedHistory = watchHistory.filter((item) => item.type !== "live");
 
-  const tvRows = [
-    ...(myList.length > 0
-      ? [{ items: myList, onSelect: (i) => openDetail(myList[i]) }]
-      : []),
-    ...(watchedHistory.length > 0
-      ? [
-          {
-            items: watchedHistory,
-            onSelect: (i) => openDetail(watchedHistory[i]),
-          },
-        ]
-      : []),
-  ];
-  const myListRowIdx = myList.length > 0 ? 0 : -1;
-  const historyRowIdx =
-    watchedHistory.length > 0 ? (myList.length > 0 ? 1 : 0) : -1;
-  const { focusedRow, focusedCol } = useTVNavigation({
-    active: !currentDetail,
-    rows: tvRows,
-  });
-
   if (currentDetail?.type === "movies")
     return (
       <MovieDetail
@@ -400,10 +370,10 @@ export default function HistoryScreen({ navigation }) {
           fontWeight="700"
           marginBottom={ss(8)}
         >
-          Your list is empty
+          Nothing here yet
         </Text>
         <Text color="#888" fontSize={ss(14)} textAlign="center">
-          Open a movie or series and tap ♡ Favorites to save it here
+          Start watching something and it will appear here
         </Text>
       </YStack>
     );
@@ -425,7 +395,7 @@ export default function HistoryScreen({ navigation }) {
             paddingHorizontal={ss(48)}
             marginBottom={ss(20)}
           >
-            Favorites
+            My List
           </Text>
           <div style={{ position: "relative" }} className="lumen-shelf-rail">
             <button
@@ -451,7 +421,6 @@ export default function HistoryScreen({ navigation }) {
                 <MyListCard
                   key={item.id}
                   item={item}
-                  focused={focusedRow === myListRowIdx && focusedCol === idx}
                   onPress={() => openDetail(item)}
                   onRemove={() => removeFromMyList(item.id)}
                 />
@@ -477,7 +446,7 @@ export default function HistoryScreen({ navigation }) {
             paddingHorizontal={ss(48)}
             marginBottom={ss(20)}
           >
-            Watch History
+            Continue Watching
           </Text>
           <div style={{ position: "relative" }} className="lumen-shelf-rail">
             <button
@@ -503,7 +472,6 @@ export default function HistoryScreen({ navigation }) {
                 <CWCard
                   key={item.id}
                   item={item}
-                  focused={focusedRow === historyRowIdx && focusedCol === idx}
                   onPress={() => openDetail(item)}
                   onRemove={() => removeFromWatchHistory(item.id)}
                 />

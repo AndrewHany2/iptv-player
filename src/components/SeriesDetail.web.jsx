@@ -105,6 +105,9 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
       ep.id,
       ep.container_extension || "mp4",
     );
+    const epHistory = watchHistory.find(
+      (h) => h.type === "series" && String(h.streamId) === String(ep.id),
+    );
     onPlayEpisode({
       type: "series",
       streamId: ep.id,
@@ -116,7 +119,7 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
       seasonNum,
       episodeNum: epNum,
       seriesSeasons: episodes,
-      startTime: 0,
+      startTime: epHistory?.currentTime || 0,
     });
   };
 

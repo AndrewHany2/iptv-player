@@ -328,11 +328,12 @@ export default function LiveTVScreen({ navigation }) {
     setChannels,
     saveChannels,
     playVideo,
+    searchQuery,
+    setSearchQuery,
   } = useApp();
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState([]);
   const [channelsByCategory, setChannelsByCategory] = useState({});
-  const [searchQuery, setSearchQuery] = useState("");
   const [epgCache, setEpgCache] = useState({});
   const [showAddChannel, setShowAddChannel] = useState(false);
   const [newChannelName, setNewChannelName] = useState("");

@@ -248,8 +248,8 @@ function CategoryPage({
   hasRemote,
   loadingMore,
 }) {
+  const { searchQuery: search, setSearchQuery: setSearch } = useApp();
   const [displayCount, setDisplayCount] = useState(GRID_PAGE);
-  const [search, setSearch] = useState("");
   const [focusedIdx, setFocusedIdx] = useState(0);
   const focusedIdxRef = useRef(0);
   const navHasFocusRef = useRef(false);

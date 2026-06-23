@@ -8,6 +8,7 @@ import "./MoviesScreen.tv.css";
 const CAT_COLS = 4;
 const MOV_COLS = 6;
 const MOV_PAGE = 24;
+const ALPHA = ["ALL", ..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"];
 
 const KEY_LEFT = 37;
 const KEY_UP = 38;
@@ -50,6 +51,19 @@ export default function MoviesScreenTV({ navigation, route }) {
   const movElRef = useRef(null);
   const btnElRef = useRef(null);
   const navActiveRef = useRef(false);
+
+  const [filterZone, setFilterZone] = useState("grid");
+  const filterZoneRef = useRef("grid");
+  const [filterIdx, setFilterIdx] = useState(0);
+  const filterIdxRef = useRef(0);
+  const [filterLetter, setFilterLetter] = useState("all");
+  const filterLetterRef = useRef("all");
+
+  const getFilteredItems = (items) => {
+    const letter = filterLetterRef.current;
+    if (!items || letter === "all") return items || [];
+    return items.filter((m) => m.name?.toLowerCase().startsWith(letter));
+  };
 
   const focusNav = () => {
     navActiveRef.current = true;
@@ -135,9 +149,19 @@ export default function MoviesScreenTV({ navigation, route }) {
     }
   };
 
+  const resetFilter = () => {
+    filterLetterRef.current = "all";
+    setFilterLetter("all");
+    filterZoneRef.current = "grid";
+    setFilterZone("grid");
+    filterIdxRef.current = 0;
+    setFilterIdx(0);
+  };
+
   const closePage = () => {
     setPage(null);
     pageRef.current = null;
+    resetFilter();
   };
 
   // ── Detail ────────────────────────────────────────────────────────────────
@@ -263,9 +287,10 @@ export default function MoviesScreenTV({ navigation, route }) {
     setPage(n);
   };
   const growPage = (pg) => {
+    const filtered = getFilteredItems(pg.items);
     const n = {
       ...pg,
-      display: Math.min(pg.display + MOV_PAGE, pg.items.length),
+      display: Math.min(pg.display + MOV_PAGE, filtered.length),
     };
     pageRef.current = n;
     setPage(n);
@@ -275,52 +300,99 @@ export default function MoviesScreenTV({ navigation, route }) {
     if (pg.focus > 0) movMovFocus(pg, pg.focus - 1);
   };
   const onMovRight = (pg) => {
-    const max = Math.min(pg.display, pg.items.length) - 1;
+    const filtered = getFilteredItems(pg.items);
+    const max = Math.min(pg.display, filtered.length) - 1;
     if (pg.focus >= max) return;
     movMovFocus(pg, pg.focus + 1);
-    if (pg.focus + 1 >= pg.display - MOV_COLS && pg.display < pg.items.length)
+    if (pg.focus + 1 >= pg.display - MOV_COLS && pg.display < filtered.length)
       growPage(pg);
   };
   const onMovUp = (pg) => {
     if (pg.focus >= MOV_COLS) movMovFocus(pg, pg.focus - MOV_COLS);
-    else focusNav();
+    else {
+      filterZoneRef.current = "filter";
+      setFilterZone("filter");
+    }
   };
   const onMovDown = (pg) => {
-    const max = Math.min(pg.display, pg.items.length) - 1;
+    const filtered = getFilteredItems(pg.items);
+    const max = Math.min(pg.display, filtered.length) - 1;
     const next = Math.min(pg.focus + MOV_COLS, max);
     movMovFocus(pg, next);
-    if (next >= pg.display - MOV_COLS && pg.display < pg.items.length)
+    if (next >= pg.display - MOV_COLS && pg.display < filtered.length)
       growPage(pg);
   };
   const onMovEnter = (pg) => {
-    const item = pg.items[pg.focus];
+    const filtered = getFilteredItems(pg.items);
+    const item = filtered[pg.focus];
     if (item) openDetail(item);
   };
 
-  const handleMovKey = (k, e) => {
+  const onFilterLeft = () => {
+    if (filterIdxRef.current > 0) {
+      filterIdxRef.current -= 1;
+      setFilterIdx(filterIdxRef.current);
+    }
+  };
+  const onFilterRight = () => {
+    if (filterIdxRef.current < ALPHA.length - 1) {
+      filterIdxRef.current += 1;
+      setFilterIdx(filterIdxRef.current);
+    }
+  };
+  const onFilterUp = () => {
+    filterZoneRef.current = "grid";
+    setFilterZone("grid");
+    focusNav();
+  };
+  const onFilterDown = () => {
+    filterZoneRef.current = "grid";
+    setFilterZone("grid");
+  };
+  const onFilterEnter = () => {
+    const letter = ALPHA[filterIdxRef.current] === "ALL" ? "all" : ALPHA[filterIdxRef.current].toLowerCase();
+    filterLetterRef.current = letter;
+    setFilterLetter(letter);
     const pg = pageRef.current;
+    if (pg?.items) {
+      const filtered = getFilteredItems(pg.items);
+      const updated = { ...pg, focus: 0, display: Math.min(MOV_PAGE, filtered.length) };
+      pageRef.current = updated;
+      setPage(updated);
+    }
+    filterZoneRef.current = "grid";
+    setFilterZone("grid");
+  };
+
+  const handleMovKey = (k, e) => {
     e.preventDefault();
     if (KEY_BACK.has(k)) {
-      closePage();
+      if (filterZoneRef.current === "filter") {
+        filterZoneRef.current = "grid";
+        setFilterZone("grid");
+      } else {
+        closePage();
+      }
       return;
     }
+    if (filterZoneRef.current === "filter") {
+      switch (k) {
+        case KEY_LEFT: onFilterLeft(); break;
+        case KEY_RIGHT: onFilterRight(); break;
+        case KEY_UP: onFilterUp(); break;
+        case KEY_DOWN: onFilterDown(); break;
+        case KEY_ENTER: onFilterEnter(); break;
+      }
+      return;
+    }
+    const pg = pageRef.current;
     if (!pg?.items) return;
     switch (k) {
-      case KEY_LEFT:
-        onMovLeft(pg);
-        break;
-      case KEY_RIGHT:
-        onMovRight(pg);
-        break;
-      case KEY_UP:
-        onMovUp(pg);
-        break;
-      case KEY_DOWN:
-        onMovDown(pg);
-        break;
-      case KEY_ENTER:
-        onMovEnter(pg);
-        break;
+      case KEY_LEFT: onMovLeft(pg); break;
+      case KEY_RIGHT: onMovRight(pg); break;
+      case KEY_UP: onMovUp(pg); break;
+      case KEY_DOWN: onMovDown(pg); break;
+      case KEY_ENTER: onMovEnter(pg); break;
     }
   };
 
@@ -537,26 +609,55 @@ export default function MoviesScreenTV({ navigation, route }) {
 
   // ── Movie grid ────────────────────────────────────────────────────────────
   if (page) {
-    const displayed = page.items ? page.items.slice(0, page.display) : null;
+    const filteredItems = page.items ? getFilteredItems(page.items) : null;
+    const displayed = filteredItems ? filteredItems.slice(0, page.display) : null;
     return (
       <div className="tvl-screen">
         <div className="tvl-topbar">
-          <button className="tvl-topbar-back" onClick={closePage}>
-            ◀
-          </button>
-          <button
-            className="tvl-topbar-title tvl-topbar-title--back"
-            onClick={closePage}
-          >
+          <button className="tvl-topbar-back" onClick={closePage}>◀</button>
+          <button className="tvl-topbar-title tvl-topbar-title--back" onClick={closePage}>
             {page.name}
           </button>
-          {page.items && (
+          {filteredItems && (
             <span className="tvl-topbar-count">
-              {page.items.length.toLocaleString()}
+              {filteredItems.length.toLocaleString()}
             </span>
           )}
         </div>
-        {displayed ? (
+        <div className="tvl-letter-bar">
+          {ALPHA.map((letter, i) => {
+            const val = letter === "ALL" ? "all" : letter.toLowerCase();
+            return (
+              <button
+                key={letter}
+                className={[
+                  "tvl-letter-btn",
+                  filterZone === "filter" && i === filterIdx ? "tvl-letter-btn--focused" : "",
+                  filterLetter === val ? "tvl-letter-btn--active" : "",
+                ].filter(Boolean).join(" ")}
+                onClick={() => {
+                  filterIdxRef.current = i;
+                  setFilterIdx(i);
+                  onFilterEnter();
+                }}
+              >
+                {letter}
+              </button>
+            );
+          })}
+        </div>
+        {!displayed && (
+          <div className="tvl-center">
+            <div className="tvl-spinner" />
+            <p>Loading movies…</p>
+          </div>
+        )}
+        {displayed?.length === 0 && (
+          <div className="tvl-center">
+            <p className="tvl-empty-msg">No titles starting with "{filterLetter.toUpperCase()}"</p>
+          </div>
+        )}
+        {displayed && displayed.length > 0 && (
           <div className="tvl-scroll">
             <div className="tvl-mov-grid">
               {displayed.map((item, i) => (
@@ -568,11 +669,6 @@ export default function MoviesScreenTV({ navigation, route }) {
                 />
               ))}
             </div>
-          </div>
-        ) : (
-          <div className="tvl-center">
-            <div className="tvl-spinner" />
-            <p>Loading movies…</p>
           </div>
         )}
       </div>

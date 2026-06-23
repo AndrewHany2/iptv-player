@@ -105,6 +105,45 @@
   font-size: 18px;
 }
 
+/* ── Letter filter bar ───────────────────────────────────────────────────── */
+
+.tvl-letter-bar {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 4px;
+  padding: 8px 48px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  flex-shrink: 0;
+  border-bottom: 1px solid #1e1e3a;
+}
+.tvl-letter-bar::-webkit-scrollbar { display: none; }
+
+.tvl-letter-btn {
+  flex-shrink: 0;
+  padding: 6px 10px;
+  min-width: 36px;
+  background: transparent;
+  border: 1.5px solid transparent;
+  border-radius: 6px;
+  color: #aaa;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: none;
+}
+.tvl-letter-btn--focused {
+  border-color: #fff;
+  color: #fff;
+  background: #1e1e3a;
+}
+.tvl-letter-btn--active {
+  border-color: #e94560;
+  color: #e94560;
+  background: #1a1128;
+}
+
 /* Trailer */
 .tvl-mov-trailer {
   height: 260px;

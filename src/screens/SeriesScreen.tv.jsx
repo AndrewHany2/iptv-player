@@ -17,6 +17,7 @@ const getTrailerUrl = (t) => {
 const CAT_COLS = 4;
 const SER_COLS = 6;
 const SER_PAGE = 24;
+const ALPHA = ["ALL", ..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"];
 
 const KEY_LEFT = 37;
 const KEY_UP = 38;
@@ -54,6 +55,19 @@ export default function SeriesScreenTV({ navigation, route }) {
   const snElRef = useRef(null);
   const actionElRef = useRef(null);
   const navActiveRef = useRef(false);
+
+  const [filterZone, setFilterZone] = useState("grid");
+  const filterZoneRef = useRef("grid");
+  const [filterIdx, setFilterIdx] = useState(0);
+  const filterIdxRef = useRef(0);
+  const [filterLetter, setFilterLetter] = useState("all");
+  const filterLetterRef = useRef("all");
+
+  const getFilteredItems = (items) => {
+    const letter = filterLetterRef.current;
+    if (!items || letter === "all") return items || [];
+    return items.filter((s) => s.name?.toLowerCase().startsWith(letter));
+  };
 
   const focusNav = () => {
     navActiveRef.current = true;
@@ -142,9 +156,19 @@ export default function SeriesScreenTV({ navigation, route }) {
     }
   };
 
+  const resetFilter = () => {
+    filterLetterRef.current = "all";
+    setFilterLetter("all");
+    filterZoneRef.current = "grid";
+    setFilterZone("grid");
+    filterIdxRef.current = 0;
+    setFilterIdx(0);
+  };
+
   const closeGrid = () => {
     setGrid(null);
     gridRef.current = null;
+    resetFilter();
   };
 
   // ── Open series detail ────────────────────────────────────────────────────
@@ -338,7 +362,8 @@ export default function SeriesScreenTV({ navigation, route }) {
     setGrid(n);
   };
   const growGrid = (g) => {
-    const n = { ...g, display: Math.min(g.display + SER_PAGE, g.items.length) };
+    const filtered = getFilteredItems(g.items);
+    const n = { ...g, display: Math.min(g.display + SER_PAGE, filtered.length) };
     gridRef.current = n;
     setGrid(n);
   };
@@ -347,51 +372,98 @@ export default function SeriesScreenTV({ navigation, route }) {
     if (g.focus > 0) movGrid(g, g.focus - 1);
   };
   const onGridRight = (g) => {
-    const max = Math.min(g.display, g.items.length) - 1;
+    const filtered = getFilteredItems(g.items);
+    const max = Math.min(g.display, filtered.length) - 1;
     if (g.focus >= max) return;
     movGrid(g, g.focus + 1);
-    if (g.focus + 1 >= g.display - SER_COLS && g.display < g.items.length)
+    if (g.focus + 1 >= g.display - SER_COLS && g.display < filtered.length)
       growGrid(g);
   };
   const onGridUp = (g) => {
     if (g.focus >= SER_COLS) movGrid(g, g.focus - SER_COLS);
-    else focusNav();
+    else {
+      filterZoneRef.current = "filter";
+      setFilterZone("filter");
+    }
   };
   const onGridDown = (g) => {
-    const max = Math.min(g.display, g.items.length) - 1;
+    const filtered = getFilteredItems(g.items);
+    const max = Math.min(g.display, filtered.length) - 1;
     const next = Math.min(g.focus + SER_COLS, max);
     movGrid(g, next);
-    if (next >= g.display - SER_COLS && g.display < g.items.length) growGrid(g);
+    if (next >= g.display - SER_COLS && g.display < filtered.length) growGrid(g);
   };
   const onGridEnter = (g) => {
-    const item = g.items[g.focus];
+    const filtered = getFilteredItems(g.items);
+    const item = filtered[g.focus];
     if (item) openDetail(item);
   };
 
-  const handleGridKey = (k, e) => {
+  const onFilterLeft = () => {
+    if (filterIdxRef.current > 0) {
+      filterIdxRef.current -= 1;
+      setFilterIdx(filterIdxRef.current);
+    }
+  };
+  const onFilterRight = () => {
+    if (filterIdxRef.current < ALPHA.length - 1) {
+      filterIdxRef.current += 1;
+      setFilterIdx(filterIdxRef.current);
+    }
+  };
+  const onFilterUp = () => {
+    filterZoneRef.current = "grid";
+    setFilterZone("grid");
+    focusNav();
+  };
+  const onFilterDown = () => {
+    filterZoneRef.current = "grid";
+    setFilterZone("grid");
+  };
+  const onFilterEnter = () => {
+    const letter = ALPHA[filterIdxRef.current] === "ALL" ? "all" : ALPHA[filterIdxRef.current].toLowerCase();
+    filterLetterRef.current = letter;
+    setFilterLetter(letter);
     const g = gridRef.current;
+    if (g?.items) {
+      const filtered = getFilteredItems(g.items);
+      const updated = { ...g, focus: 0, display: Math.min(SER_PAGE, filtered.length) };
+      gridRef.current = updated;
+      setGrid(updated);
+    }
+    filterZoneRef.current = "grid";
+    setFilterZone("grid");
+  };
+
+  const handleGridKey = (k, e) => {
     e.preventDefault();
     if (KEY_BACK.has(k)) {
-      closeGrid();
+      if (filterZoneRef.current === "filter") {
+        filterZoneRef.current = "grid";
+        setFilterZone("grid");
+      } else {
+        closeGrid();
+      }
       return;
     }
+    if (filterZoneRef.current === "filter") {
+      switch (k) {
+        case KEY_LEFT: onFilterLeft(); break;
+        case KEY_RIGHT: onFilterRight(); break;
+        case KEY_UP: onFilterUp(); break;
+        case KEY_DOWN: onFilterDown(); break;
+        case KEY_ENTER: onFilterEnter(); break;
+      }
+      return;
+    }
+    const g = gridRef.current;
     if (!g?.items) return;
     switch (k) {
-      case KEY_LEFT:
-        onGridLeft(g);
-        break;
-      case KEY_RIGHT:
-        onGridRight(g);
-        break;
-      case KEY_UP:
-        onGridUp(g);
-        break;
-      case KEY_DOWN:
-        onGridDown(g);
-        break;
-      case KEY_ENTER:
-        onGridEnter(g);
-        break;
+      case KEY_LEFT: onGridLeft(g); break;
+      case KEY_RIGHT: onGridRight(g); break;
+      case KEY_UP: onGridUp(g); break;
+      case KEY_DOWN: onGridDown(g); break;
+      case KEY_ENTER: onGridEnter(g); break;
     }
   };
 
@@ -736,26 +808,54 @@ export default function SeriesScreenTV({ navigation, route }) {
 
   // ── Grid view ─────────────────────────────────────────────────────────────
   if (grid) {
-    const displayed = grid.items ? grid.items.slice(0, grid.display) : null;
+    const filteredItems = grid.items ? getFilteredItems(grid.items) : null;
+    const displayed = filteredItems ? filteredItems.slice(0, grid.display) : null;
     return (
       <div className="tvl-screen">
         <div className="tvl-topbar">
-          <button className="tvl-topbar-back" onClick={closeGrid}>
-            ◀
-          </button>
-          <button
-            className="tvl-topbar-title tvl-topbar-title--back"
-            onClick={closeGrid}
-          >
+          <button className="tvl-topbar-back" onClick={closeGrid}>◀</button>
+          <button className="tvl-topbar-title tvl-topbar-title--back" onClick={closeGrid}>
             {grid.name}
           </button>
-          {grid.items && (
+          {filteredItems && (
             <span className="tvl-topbar-count">
-              {grid.items.length.toLocaleString()}
+              {filteredItems.length.toLocaleString()}
             </span>
           )}
         </div>
-        {displayed ? (
+        <div className="tvl-letter-bar">
+          {ALPHA.map((letter, i) => {
+            const val = letter === "ALL" ? "all" : letter.toLowerCase();
+            return (
+              <button
+                key={letter}
+                className={[
+                  "tvl-letter-btn",
+                  filterZone === "filter" && i === filterIdx ? "tvl-letter-btn--focused" : "",
+                  filterLetter === val ? "tvl-letter-btn--active" : "",
+                ].filter(Boolean).join(" ")}
+                onClick={() => {
+                  filterIdxRef.current = i;
+                  setFilterIdx(i);
+                  onFilterEnter();
+                }}
+              >
+                {letter}
+              </button>
+            );
+          })}
+        </div>
+        {!displayed && (
+          <div className="tvl-center">
+            <div className="tvl-spinner" />
+          </div>
+        )}
+        {displayed?.length === 0 && (
+          <div className="tvl-center">
+            <p className="tvl-empty-msg">No titles starting with "{filterLetter.toUpperCase()}"</p>
+          </div>
+        )}
+        {displayed && displayed.length > 0 && (
           <div className="tvl-scroll">
             <div className="tvl-ser-grid">
               {displayed.map((item, i) => (
@@ -767,10 +867,6 @@ export default function SeriesScreenTV({ navigation, route }) {
                 />
               ))}
             </div>
-          </div>
-        ) : (
-          <div className="tvl-center">
-            <div className="tvl-spinner" />
           </div>
         )}
       </div>
