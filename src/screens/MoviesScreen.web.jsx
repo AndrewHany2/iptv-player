@@ -4,32 +4,25 @@ import { YStack, XStack, Text, Input, ScrollView, Spinner } from "tamagui";
 import { useApp } from "../context/AppContext";
 import { useTVNavigation } from "../hooks/useTVNavigation";
 import { ss } from "../utils/scaleSize";
-import {
-  getConfig,
-  shouldUseTMDB,
-  shouldPrefetch,
-} from "../utils/tvOptimizations";
+import { getConfig, isTV } from "../utils/tvOptimizations";
 import iptvApi from "../services/iptvApi";
 import tmdbApi from "../services/tmdbApi";
 import MovieDetail from "../components/MovieDetail.web";
 import TVPosterCard from "../components/TVPosterCard";
-import TVButton from "../components/TVButton";
 
-const FILL = { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 };
+
 const config = getConfig();
 const SHELF_PAGE = config.shelfPageSize;
 const GRID_PAGE = config.gridPageSize;
 
 async function prefetchTopRated() {
-  // Skip prefetch on TV for performance
-  if (!shouldPrefetch()) return null;
+  if (isTV) return null;
 
   try {
     const streams = await iptvApi.getAllVODStreamsRobust();
     if (!streams?.length) return null;
 
-    // Skip TMDB on TV for performance
-    if (!shouldUseTMDB() || !tmdbApi.hasKey) {
+    if (isTV || !tmdbApi.hasKey) {
       return {
         streams,
         matched: [...streams]
@@ -60,99 +53,6 @@ async function prefetchTopRated() {
 // Using TVPosterCard for better TV performance
 const PosterCard = TVPosterCard;
 
-function PosterCardOld({ item, onPress, isFocused }) {
-  const poster = item.stream_icon || item.cover || item.movie_image || null;
-  const ratingValue = item.tmdb_rating ?? item.rating;
-  const ratingLabel =
-    ratingValue != null && ratingValue !== ""
-      ? typeof ratingValue === "number"
-        ? ratingValue.toFixed(1)
-        : ratingValue
-      : null;
-  return (
-    <YStack
-      width={ss(200)}
-      cursor="pointer"
-      onPress={() => onPress(item)}
-      pressStyle={{ opacity: 0.8 }}
-      hoverStyle={{ scale: 1.03 }}
-      animation={config.disableAnimations ? undefined : "quick"}
-      {...{
-        className: "lumen-poster",
-        "data-item-id": String(item.stream_id),
-        "data-tv-focused": isFocused ? "true" : undefined,
-        style: isFocused
-          ? {
-              outline: "2px solid #e94560",
-              outlineOffset: "2px",
-              borderRadius: ss(8),
-            }
-          : undefined,
-      }}
-    >
-      <YStack
-        width={ss(200)}
-        aspectRatio={2 / 3}
-        borderRadius={ss(8)}
-        backgroundColor="#16213e"
-        overflow="hidden"
-        position="relative"
-      >
-        <ProxiedImage
-          source={{ uri: poster }}
-          style={FILL}
-          resizeMode="cover"
-          fallbackColor="#16213e"
-        />
-        <YStack
-          position="absolute"
-          top={ss(8)}
-          right={ss(8)}
-          zIndex={4}
-          backgroundColor="rgba(0,0,0,0.65)"
-          borderRadius={ss(4)}
-          paddingHorizontal={ss(5)}
-          paddingVertical={ss(2)}
-        >
-          <Text
-            color="#ccc"
-            fontSize={ss(9)}
-            fontWeight="700"
-            letterSpacing={0.5}
-          >
-            HD
-          </Text>
-        </YStack>
-        {ratingLabel && (
-          <YStack
-            position="absolute"
-            top={ss(8)}
-            left={ss(8)}
-            zIndex={4}
-            backgroundColor="rgba(0,0,0,0.7)"
-            borderRadius={ss(4)}
-            paddingHorizontal={ss(5)}
-            paddingVertical={ss(2)}
-          >
-            <Text color="#ffd700" fontSize={ss(9)} fontWeight="700">
-              ⭐ {ratingLabel}
-            </Text>
-          </YStack>
-        )}
-      </YStack>
-      <Text
-        color="#fff"
-        fontSize={ss(13)}
-        fontWeight="600"
-        marginTop={ss(10)}
-        lineHeight={ss(17)}
-        numberOfLines={2}
-      >
-        {item.name}
-      </Text>
-    </YStack>
-  );
-}
 
 /* ─── Shelf ─── */
 function Shelf({

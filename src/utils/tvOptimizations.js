@@ -10,7 +10,7 @@ export const isTV = (() => {
 })();
 
 // Detect specific TV platform
-export const tvPlatform = (() => {
+const tvPlatform = (() => {
   if (typeof window === "undefined") return "unknown";
   const ua = window.navigator.userAgent;
   if (ua.includes("webOS") || ua.includes("Web0S")) return "webos";
@@ -19,63 +19,21 @@ export const tvPlatform = (() => {
   return "unknown";
 })();
 
-// TV-optimized settings
-export const TV_CONFIG = {
-  // Disable heavy features on TV
-  disableTMDB: true, // Don't fetch TMDB data (slow API calls)
-  disableAnimations: true, // Disable Tamagui animations
-  reducedItemsPerPage: true, // Show fewer items per page
-  disablePrefetch: true, // Don't prefetch data
-  simplifiedUI: true, // Use simpler UI components
-
-  // Optimized pagination
-  shelfPageSize: 8, // Fewer items per shelf
-  gridPageSize: 20, // Fewer items in grid view
-
-  // Performance settings
-  removeClippedSubviews: true, // Remove off-screen views
-  maxToRenderPerBatch: 5, // Render fewer items at once
-  windowSize: 3, // Smaller render window
-
-  // Additional performance optimizations
-  focusTransitionSpeed: 100, // Fast focus transitions (ms)
-  scrollDebounce: 50, // Debounce scroll events (ms)
-  resizeDebounce: 100, // Debounce resize events (ms)
-  maxCachedItems: 50, // Limit cached items
-  enableVirtualScrolling: true, // Use virtual scrolling
-  reducedMotion: true, // Reduce motion for performance
+const TV_CONFIG = {
+  shelfPageSize: 8,
+  gridPageSize: 20,
+  disableAnimations: true,
 };
 
-// Desktop/Electron settings (full features)
-export const DESKTOP_CONFIG = {
-  disableTMDB: false,
-  disableAnimations: false,
-  reducedItemsPerPage: false,
-  disablePrefetch: false,
-  simplifiedUI: false,
-
+const DESKTOP_CONFIG = {
   shelfPageSize: 12,
   gridPageSize: 40,
-
-  removeClippedSubviews: false,
-  maxToRenderPerBatch: 10,
-  windowSize: 5,
-
-  focusTransitionSpeed: 200,
-  scrollDebounce: 100,
-  resizeDebounce: 200,
-  maxCachedItems: 100,
-  enableVirtualScrolling: false,
-  reducedMotion: false,
+  disableAnimations: false,
 };
 
 // Get config based on platform
 export const getConfig = () => (isTV ? TV_CONFIG : DESKTOP_CONFIG);
 
-// Check if feature should be enabled
-export const shouldUseTMDB = () => !isTV || !TV_CONFIG.disableTMDB;
-export const shouldAnimate = () => !isTV || !TV_CONFIG.disableAnimations;
-export const shouldPrefetch = () => !isTV || !TV_CONFIG.disablePrefetch;
 
 // Apply TV-specific optimizations to DOM
 export function applyTVOptimizations() {
@@ -177,8 +135,3 @@ if (typeof globalThis !== "undefined") {
   globalThis.__TV_PLATFORM__ = tvPlatform;
 }
 
-// Log platform info
-console.log("Platform:", isTV ? `TV (${tvPlatform})` : "Desktop");
-console.log("Config:", getConfig());
-
-// Made with Bob

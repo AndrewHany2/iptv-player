@@ -81,8 +81,8 @@ export const AppProvider = ({ children }) => {
   const usersKey = activeProfileId ? `iptv_users_${activeProfileId}` : 'iptv_users';
 
   // ─── Auth functions ────────────────────────────────────────────────────────
-  const signIn  = useCallback((u, p) => supabaseSignIn(u, p), []);
-  const signUp  = useCallback((u, p, e) => supabaseSignUp(u, p, e), []);
+  const signIn  = supabaseSignIn;
+  const signUp  = supabaseSignUp;
   const signOut = useCallback(async () => {
     await supabaseSignOut();
     setAuthUser(null); setProfile(null); setAppProfiles([]);

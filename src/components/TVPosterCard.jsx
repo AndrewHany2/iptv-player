@@ -8,7 +8,7 @@ import ProxiedImage from "./ProxiedImage";
  */
 export default function TVPosterCard({ item, onPress, isFocused }) {
   const [imageError, setImageError] = useState(false);
-  const poster = item.stream_icon || item.cover || item.movie_image || null;
+  const poster = item.stream_icon || item.cover || item.movie_image || item.backdrop_path || null;
   const ratingValue = item.tmdb_rating ?? item.rating;
   const ratingLabel =
     ratingValue != null && ratingValue !== ""
@@ -210,4 +210,3 @@ export default function TVPosterCard({ item, onPress, isFocused }) {
   );
 }
 
-// Made with Bob

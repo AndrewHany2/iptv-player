@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { Image, View } from "react-native";
-import { YStack, Text } from "tamagui";
+import { Image, View, Text } from "react-native";
 
 /**
  * Simplified Image component - loads directly for performance
@@ -29,17 +28,8 @@ export default function ProxiedImage({
     if (!showPlaceholder) return null;
 
     return (
-      <View style={[style, { backgroundColor: fallbackColor }]} {...props}>
-        <YStack
-          flex={1}
-          justifyContent="center"
-          alignItems="center"
-          backgroundColor={fallbackColor}
-        >
-          <Text color="#555" fontSize={32}>
-            🎬
-          </Text>
-        </YStack>
+      <View style={[style, { backgroundColor: fallbackColor, justifyContent: "center", alignItems: "center" }]} {...props}>
+        <Text style={{ color: "#555", fontSize: 32 }}>🎬</Text>
       </View>
     );
   }
@@ -56,4 +46,3 @@ export default function ProxiedImage({
   );
 }
 
-// Made with Bob
