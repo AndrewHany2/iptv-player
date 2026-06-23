@@ -72,6 +72,7 @@ export default function AuthScreen() {
 
   // TV / keyboard: Enter submits the form
   useEffect(() => {
+    if (Platform.OS !== "web") return;
     const handler = (e) => {
       if ((e.key === "Enter" || e.keyCode === 13) && !loading) handleSubmit();
     };

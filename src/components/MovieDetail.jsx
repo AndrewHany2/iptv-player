@@ -1,5 +1,5 @@
 import { useState, useEffect, memo } from "react";
-import { Image, Linking, View } from "react-native";
+import { Image, Linking, View, Platform } from "react-native";
 import { YStack, XStack, Text, ScrollView, Spinner } from "tamagui";
 import { useApp } from "../context/AppContext";
 import iptvApi from "../services/iptvApi";
@@ -52,6 +52,7 @@ export default function MovieDetail({ item, onBack, onPlay }) {
 
   // TV / keyboard navigation
   useEffect(() => {
+    if (Platform.OS !== "web") return;
     const handler = (e) => {
       if (e.key === "Escape" || e.keyCode === 27) onBack();
       else if ((e.key === "Enter" || e.keyCode === 13) && !isLoading) {

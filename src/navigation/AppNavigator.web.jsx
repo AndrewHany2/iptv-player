@@ -362,6 +362,17 @@ export default function AppNavigator() {
   const [navFocused, setNavFocused] = useState(false);
   const [focusedNavIdx, setFocusedNavIdx] = useState(0);
   const navIdxRef = useRef(0);
+  // Capture-phase handler: preventDefault on LG back key so webOS doesn't
+  // exit the app or navigate browser history. Bubble-phase handlers in each
+  // screen and in the nav/accounts effects below handle the actual action.
+  useEffect(() => {
+    if (!isTV) return;
+    const onBack = (e) => {
+      if (e.keyCode === 461 || e.keyCode === 10009) e.preventDefault();
+    };
+    document.addEventListener("keydown", onBack, true);
+    return () => document.removeEventListener("keydown", onBack, true);
+  }, []);
 
   // Content signals "go to nav" by dispatching this custom event
   useEffect(() => {
@@ -409,10 +420,11 @@ export default function AppNavigator() {
           switchProfile(null);
         }
         blurNav();
-      } else if (e.key === "ArrowDown" || e.keyCode === 40) {
+      } else if (
+        e.key === "ArrowDown" || e.keyCode === 40 ||
+        e.key === "Escape" || e.keyCode === 27 || e.keyCode === 461 || e.keyCode === 10009
+      ) {
         e.preventDefault();
-        blurNav();
-      } else if (e.key === "Escape" || e.keyCode === 27) {
         blurNav();
       }
     };
@@ -423,7 +435,10 @@ export default function AppNavigator() {
   useEffect(() => {
     if (!showAccounts) return;
     const handler = (e) => {
-      if (e.key === "Escape") setShowAccounts(false);
+      if (e.key === "Escape" || e.keyCode === 461 || e.keyCode === 10009) {
+        e.preventDefault();
+        setShowAccounts(false);
+      }
     };
     globalThis.addEventListener("keydown", handler);
     return () => globalThis.removeEventListener("keydown", handler);

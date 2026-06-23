@@ -1,5 +1,8 @@
 import { useState } from "react";
+import { Platform } from "react-native";
 import { useTVNavigation } from "../hooks/useTVNavigation";
+
+const isNative = Platform.OS !== "web";
 import {
   YStack,
   XStack,
@@ -396,8 +399,7 @@ export default function ProfilesScreen() {
                 cursor="pointer"
                 onPress={() => switchProfile(p.id)}
                 pressStyle={{ opacity: 0.8 }}
-                hoverStyle={{ scale: 1.05 }}
-                animation="quick"
+                {...(!isNative && { hoverStyle: { scale: 1.05 }, animation: "quick" })}
               >
                 <YStack
                   width={90}
@@ -409,9 +411,7 @@ export default function ProfilesScreen() {
                   borderWidth={2}
                   borderColor={focused ? "#e94560" : "#2a2a4e"}
                   marginBottom={10}
-                  scale={focused ? 1.08 : 1}
-                  hoverStyle={{ borderColor: "#e94560", backgroundColor: "#1e1e38" }}
-                  animation="quick"
+                  {...(!isNative && { scale: focused ? 1.08 : 1, hoverStyle: { borderColor: "#e94560", backgroundColor: "#1e1e38" }, animation: "quick" })}
                 >
                   <Text fontSize={44}>{p.avatar}</Text>
                 </YStack>
@@ -432,8 +432,7 @@ export default function ProfilesScreen() {
                 cursor="pointer"
                 onPress={openAdd}
                 pressStyle={{ opacity: 0.5 }}
-                hoverStyle={{ scale: 1.05, opacity: 1 }}
-                animation="quick"
+                {...(!isNative && { hoverStyle: { scale: 1.05, opacity: 1 }, animation: "quick" })}
               >
                 <YStack
                   width={90}
@@ -446,9 +445,7 @@ export default function ProfilesScreen() {
                   borderColor={focused ? "#e94560" : "#444"}
                   borderStyle="dashed"
                   marginBottom={10}
-                  scale={focused ? 1.08 : 1}
-                  hoverStyle={{ borderColor: "#e94560" }}
-                  animation="quick"
+                  {...(!isNative && { scale: focused ? 1.08 : 1, hoverStyle: { borderColor: "#e94560" }, animation: "quick" })}
                 >
                   <Text fontSize={36} color={focused ? "#e94560" : "#888"}>+</Text>
                 </YStack>
@@ -470,14 +467,11 @@ export default function ProfilesScreen() {
               cursor="pointer"
               onPress={() => setView("manage")}
               pressStyle={{ opacity: 0.7 }}
-              hoverStyle={{ opacity: 1 }}
-              animation="quick"
               borderBottomWidth={2}
               borderColor={focused ? "#e94560" : "transparent"}
+              {...(!isNative && { hoverStyle: { opacity: 1 }, animation: "quick" })}
             >
-              <Text color={focused ? "#fff" : "#888"} fontSize={14} fontWeight={focused ? "700" : "400"}
-                hoverStyle={{ color: "#fff" }}
-              >
+              <Text color={focused ? "#fff" : "#888"} fontSize={14} fontWeight={focused ? "700" : "400"}>
                 Manage Profiles
               </Text>
             </XStack>
@@ -493,14 +487,11 @@ export default function ProfilesScreen() {
               cursor="pointer"
               onPress={signOut}
               pressStyle={{ opacity: 0.7 }}
-              hoverStyle={{ opacity: 1 }}
-              animation="quick"
               borderBottomWidth={2}
               borderColor={focused ? "#e94560" : "transparent"}
+              {...(!isNative && { hoverStyle: { opacity: 1 }, animation: "quick" })}
             >
-              <Text color={focused ? "#fff" : "#e94560"} fontSize={14} fontWeight="600"
-                hoverStyle={{ color: "#ff6b81" }}
-              >
+              <Text color={focused ? "#fff" : "#e94560"} fontSize={14} fontWeight="600">
                 Sign Out
               </Text>
             </XStack>

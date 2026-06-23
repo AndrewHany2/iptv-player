@@ -286,9 +286,13 @@ export const AppProvider = ({ children }) => {
       })();
       return;
     }
-    getSession().then((session) => { setAuthUser(session?.user ?? null); setAuthLoading(false); });
+    const authTimeout = setTimeout(() => setAuthLoading(false), 8000);
+    getSession()
+      .then((session) => { setAuthUser(session?.user ?? null); })
+      .catch(() => {})
+      .finally(() => { clearTimeout(authTimeout); setAuthLoading(false); });
     const unsub = onAuthStateChange((user) => { setAuthUser(user); setAuthLoading(false); });
-    return unsub;
+    return () => { clearTimeout(authTimeout); unsub(); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -297,11 +301,12 @@ export const AppProvider = ({ children }) => {
     const meta = authUser.user_metadata;
     if (meta?.username) {
       upsertProfile(authUser.id, meta.username, authUser.email)
-        .then(() => fetchProfile(authUser.id).then((p) => setProfile(p)));
+        .then(() => fetchProfile(authUser.id).then((p) => setProfile(p)).catch(() => {}))
+        .catch(() => fetchProfile(authUser.id).then((p) => setProfile(p)).catch(() => {}));
     } else {
-      fetchProfile(authUser.id).then((p) => setProfile(p));
+      fetchProfile(authUser.id).then((p) => setProfile(p)).catch(() => {});
     }
-    fetchAppProfiles(authUser.id).then(setAppProfiles);
+    fetchAppProfiles(authUser.id).then(setAppProfiles).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authUser?.id]);
 

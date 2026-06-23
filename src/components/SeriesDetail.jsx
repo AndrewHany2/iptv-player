@@ -1,5 +1,5 @@
 import { useState, useEffect, memo } from "react";
-import { Image, Linking, View, SectionList } from "react-native";
+import { Image, Linking, View, SectionList, Platform } from "react-native";
 import { YStack, XStack, Text, ScrollView, Spinner } from "tamagui";
 import { useApp } from "../context/AppContext";
 import iptvApi from "../services/iptvApi";
@@ -65,6 +65,7 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
 
   // TV / keyboard navigation
   useEffect(() => {
+    if (Platform.OS !== "web") return;
     const handler = (e) => {
       if (e.key === "Escape" || e.keyCode === 27) {
         if (showEpisodes) setShowEpisodes(false);

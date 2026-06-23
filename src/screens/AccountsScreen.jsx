@@ -101,7 +101,7 @@ export default function AccountsScreen({ navigation }) {
 
   // TV / keyboard: Enter submits the form
   useEffect(() => {
-    if (!showForm) return;
+    if (Platform.OS !== "web" || !showForm) return;
     const handler = (e) => {
       if ((e.key === "Enter" || e.keyCode === 13) && !loading) handleSave();
     };

@@ -1,4 +1,8 @@
 import { useState, useEffect, useRef } from "react";
+import { Platform } from "react-native";
+
+// Check if we're on a web platform (includes TV platforms like WebOS)
+const isWeb = Platform.OS === "web";
 
 /**
  * 2D remote-control navigation for LG TV (WebOS).
@@ -7,6 +11,9 @@ import { useState, useEffect, useRef } from "react";
  * Arrow left/right moves within a row; up/down moves between rows.
  * When pressing UP at row 0, dispatches the custom event "tv-nav-focus"
  * so the top navigation bar can claim focus.
+ *
+ * NOTE: This hook only works on web/TV platforms. On mobile (iOS/Android),
+ * it returns default values without setting up event listeners.
  *
  * @param {object} options
  * @param {{ items: any[], onSelect: (index, item) => void }[]} options.rows
@@ -27,17 +34,24 @@ export function useTVNavigation({ rows, active = true }) {
 
   // Pause when navbar claims focus; resume when navbar returns it
   useEffect(() => {
-    const onNavFocus = () => { navHasFocusRef.current = true; };
-    const onNavBlur  = () => { navHasFocusRef.current = false; };
+    if (!isWeb) return;
+
+    const onNavFocus = () => {
+      navHasFocusRef.current = true;
+    };
+    const onNavBlur = () => {
+      navHasFocusRef.current = false;
+    };
     globalThis.addEventListener("tv-nav-focus", onNavFocus);
-    globalThis.addEventListener("tv-nav-blur",  onNavBlur);
+    globalThis.addEventListener("tv-nav-blur", onNavBlur);
     return () => {
       globalThis.removeEventListener("tv-nav-focus", onNavFocus);
-      globalThis.removeEventListener("tv-nav-blur",  onNavBlur);
+      globalThis.removeEventListener("tv-nav-blur", onNavBlur);
     };
   }, []);
 
   useEffect(() => {
+    if (!isWeb) return;
     if (!active || !rows.length) return;
 
     const handleKey = (e) => {

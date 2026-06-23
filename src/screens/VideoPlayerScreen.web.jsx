@@ -315,23 +315,25 @@ export default function VideoPlayerScreen() {
   const [error, setError] = useState(null);
   const [qualityLevels, setQualityLevels] = useState([]);
   const [selectedLevel, setSelectedLevel] = useState(-1);
-  const [showQuality, setShowQuality] = useState(false);
+  const [openMenu, setOpenMenu] = useState(null);
   const [playbackRate, setPlaybackRate] = useState(1);
-  const [showSpeed, setShowSpeed] = useState(false);
   const [audioTracks, setAudioTracks] = useState([]);
   const [selectedAudio, setSelectedAudio] = useState(0);
-  const [showAudio, setShowAudio] = useState(false);
   const [subtitleTracks, setSubtitleTracks] = useState([]);
   const [selectedSubtitle, setSelectedSubtitle] = useState(-1);
-  const [showSubtitle, setShowSubtitle] = useState(false);
   const [aspectRatio, setAspectRatio] = useState("default");
-  const [showAspect, setShowAspect] = useState(false);
 
   // TV-specific state
   const [tvControlsVisible, setTvControlsVisible] = useState(true);
   const [tvPaused, setTvPaused] = useState(false);
   const [tvCurrentTime, setTvCurrentTime] = useState(0);
   const [tvDuration, setTvDuration] = useState(0);
+
+  const hlsRecoveryRef = useRef({ networkRetries: 0, mediaRetries: 0 });
+  const reloadCountRef = useRef(0);
+  const [reloadKey, setReloadKey] = useState(0);
+  const [liveError, setLiveError] = useState(false);
+  const autoReloadTimerRef = useRef(null);
 
   const qualityRef = useRef(null);
   const speedRef = useRef(null);
@@ -343,6 +345,25 @@ export default function VideoPlayerScreen() {
     clearInterval(progressRef.current);
     progressRef.current = null;
   }, []);
+
+  const reloadStream = useCallback(() => {
+    clearTimeout(autoReloadTimerRef.current);
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
+    if (videoRef.current) videoRef.current.src = "";
+    lastUrlRef.current = null;
+    hlsRecoveryRef.current = { networkRetries: 0, mediaRetries: 0 };
+    setIsLoading(true);
+    setReloadKey((k) => k + 1);
+  }, []);
+
+  const handleRetry = useCallback(() => {
+    reloadCountRef.current = 0;
+    setError(null);
+    reloadStream();
+  }, [reloadStream]);
 
   const handleClose = useCallback(() => {
     const video = videoRef.current;
@@ -386,7 +407,9 @@ export default function VideoPlayerScreen() {
     setError(null);
     setQualityLevels([]);
     setSelectedLevel(-1);
-    setShowQuality(false);
+    setOpenMenu(null);
+    hlsRecoveryRef.current = { networkRetries: 0, mediaRetries: 0 };
+    reloadCountRef.current = 0;
     video.playbackRate = 1;
     setPlaybackRate(1);
     setAudioTracks([]);
@@ -421,6 +444,7 @@ export default function VideoPlayerScreen() {
       hls.attachMedia(video);
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         setIsLoading(false);
+        setLiveError(false);
         setQualityLevels(hls.levels);
         if (currentVideo.startTime > 0)
           video.currentTime = currentVideo.startTime;
@@ -440,7 +464,35 @@ export default function VideoPlayerScreen() {
         setSelectedSubtitle(d.id),
       );
       hls.on(Hls.Events.ERROR, (_e, d) => {
-        if (d.fatal) {
+        if (!d.fatal) return;
+        const rec = hlsRecoveryRef.current;
+        const isSessionExpired = d.response?.code === 403 || d.response?.code === 401;
+
+        if (d.type === Hls.ErrorTypes.MEDIA_ERROR && rec.mediaRetries < 2) {
+          rec.mediaRetries++;
+          hls.recoverMediaError();
+        } else if (
+          d.type === Hls.ErrorTypes.NETWORK_ERROR &&
+          !isSessionExpired &&
+          rec.networkRetries < 3
+        ) {
+          // Transient network blip — retry without reinitialising
+          rec.networkRetries++;
+          hls.startLoad();
+        } else if (currentVideo?.type === "live") {
+          // 403/401 = session expired, or retries exhausted: full HLS reinit
+          if (reloadCountRef.current >= 3) {
+            setError("Stream unavailable. The server rejected the connection.");
+            setIsLoading(false);
+          } else {
+            reloadCountRef.current++;
+            setLiveError(true);
+            autoReloadTimerRef.current = setTimeout(() => {
+              setLiveError(false);
+              reloadStream();
+            }, 3000);
+          }
+        } else {
           setError(`Stream error: ${d.type}`);
           setIsLoading(false);
         }
@@ -460,6 +512,7 @@ export default function VideoPlayerScreen() {
     if (isTV) showTvControls();
 
     return () => {
+      clearTimeout(autoReloadTimerRef.current);
       stopProgress();
       if (hlsRef.current) {
         hlsRef.current.destroy();
@@ -467,7 +520,7 @@ export default function VideoPlayerScreen() {
       }
       video.removeEventListener("loadedmetadata", onMeta);
     };
-  }, [currentVideo?.url]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentVideo?.url, reloadKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!currentVideo) lastUrlRef.current = null;
@@ -509,12 +562,26 @@ export default function VideoPlayerScreen() {
     const onTimeUpdate = () => setTvCurrentTime(video.currentTime);
     const onError = () => {
       if (!hlsRef.current) {
-        setError("Failed to load video");
-        setIsLoading(false);
+        if (currentVideo?.type === "live") {
+          if (reloadCountRef.current >= 3) {
+            setError("Stream unavailable. The server rejected the connection.");
+            setIsLoading(false);
+          } else {
+            reloadCountRef.current++;
+            setLiveError(true);
+            autoReloadTimerRef.current = setTimeout(() => {
+              setLiveError(false);
+              reloadStream();
+            }, 3000);
+          }
+        } else {
+          setError("Failed to load video");
+          setIsLoading(false);
+        }
       }
     };
     const onWait = () => setIsLoading(true);
-    const onCanPlay = () => setIsLoading(false);
+    const onCanPlay = () => { setIsLoading(false); setLiveError(false); };
 
     video.addEventListener("play", onPlay);
     video.addEventListener("pause", onPause);
@@ -642,30 +709,19 @@ export default function VideoPlayerScreen() {
   // Close dropdowns on outside click (web only)
   useEffect(() => {
     if (isTV) return;
-    if (
-      !showQuality &&
-      !showSpeed &&
-      !showAudio &&
-      !showSubtitle &&
-      !showAspect
-    )
-      return;
+    if (!openMenu) return;
     const onClick = (e) => {
       if (
         ![qualityRef, speedRef, audioRef, subtitleRef, aspectRef].some((r) =>
           r.current?.contains(e.target),
         )
       ) {
-        setShowQuality(false);
-        setShowSpeed(false);
-        setShowAudio(false);
-        setShowSubtitle(false);
-        setShowAspect(false);
+        setOpenMenu(null);
       }
     };
     document.addEventListener("mousedown", onClick);
     return () => document.removeEventListener("mousedown", onClick);
-  }, [showQuality, showSpeed, showAudio, showSubtitle, showAspect]);
+  }, [openMenu]);
 
   // Next episode helpers
   const getNextEpisode = useCallback(() => {
@@ -753,6 +809,25 @@ export default function VideoPlayerScreen() {
   const pct =
     tvDuration > 0 ? Math.min((tvCurrentTime / tvDuration) * 100, 100) : 0;
 
+  const liveToast = liveError && (
+    <div
+      style={{
+        position: "absolute",
+        bottom: isTV ? 48 : 16,
+        right: isTV ? 48 : 16,
+        backgroundColor: "rgba(233,69,96,0.92)",
+        color: "#fff",
+        padding: isTV ? "12px 22px" : "8px 14px",
+        borderRadius: isTV ? 10 : 8,
+        fontSize: isTV ? 18 : 13,
+        fontWeight: 600,
+        zIndex: 30,
+      }}
+    >
+      Stream error — reloading...
+    </div>
+  );
+
   // ── TV render ───────────────────────────────────────────────────────────────
   if (isTV) {
     return (
@@ -838,20 +913,37 @@ export default function VideoPlayerScreen() {
               Failed to load stream
             </p>
             <p style={{ margin: 0, color: "#888", fontSize: 18 }}>{error}</p>
-            <button
-              style={{
-                ...TV.closeBtn,
-                borderRadius: 10,
-                width: "auto",
-                padding: "14px 32px",
-                fontSize: 18,
-              }}
-              onClick={handleClose}
-            >
-              Close
-            </button>
+            <div style={{ display: "flex", gap: 16 }}>
+              <button
+                style={{
+                  ...TV.closeBtn,
+                  borderRadius: 10,
+                  width: "auto",
+                  padding: "14px 32px",
+                  fontSize: 18,
+                  background: "rgba(255,255,255,0.15)",
+                }}
+                onClick={handleRetry}
+              >
+                Retry
+              </button>
+              <button
+                style={{
+                  ...TV.closeBtn,
+                  borderRadius: 10,
+                  width: "auto",
+                  padding: "14px 32px",
+                  fontSize: 18,
+                }}
+                onClick={handleClose}
+              >
+                Close
+              </button>
+            </div>
           </div>
         )}
+
+        {liveToast}
 
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
@@ -873,10 +965,10 @@ export default function VideoPlayerScreen() {
         <span style={S.title}>{currentVideo.name}</span>
 
         <div style={S.dropdown} ref={speedRef}>
-          <button style={S.btn} onClick={() => setShowSpeed((p) => !p)}>
+          <button style={S.btn} onClick={() => setOpenMenu((m) => m === "speed" ? null : "speed")}>
             ▶ {playbackRate}x
           </button>
-          {showSpeed && (
+          {openMenu === "speed" && (
             <div style={S.menu}>
               {SPEEDS.map((r) => (
                 <button
@@ -887,7 +979,7 @@ export default function VideoPlayerScreen() {
                       videoRef.current.playbackRate = r;
                     }
                     setPlaybackRate(r);
-                    setShowSpeed(false);
+                    setOpenMenu(null);
                   }}
                 >
                   {r}x{r === 1 ? " (Normal)" : ""}
@@ -899,10 +991,10 @@ export default function VideoPlayerScreen() {
 
         {audioTracks.length > 1 && (
           <div style={S.dropdown} ref={audioRef}>
-            <button style={S.btn} onClick={() => setShowAudio((p) => !p)}>
+            <button style={S.btn} onClick={() => setOpenMenu((m) => m === "audio" ? null : "audio")}>
               ♪ {audioTracks[selectedAudio]?.name || "Audio"}
             </button>
-            {showAudio && (
+            {openMenu === "audio" && (
               <div style={S.menu}>
                 {audioTracks.map((t, i) => (
                   <div
@@ -913,7 +1005,7 @@ export default function VideoPlayerScreen() {
                         hlsRef.current.audioTrack = i;
                       }
                       setSelectedAudio(i);
-                      setShowAudio(false);
+                      setOpenMenu(null);
                     }}
                   >
                     {t.name || `Track ${i + 1}`}
@@ -926,14 +1018,14 @@ export default function VideoPlayerScreen() {
 
         {subtitleTracks.length > 0 && (
           <div style={S.dropdown} ref={subtitleRef}>
-            <button style={S.btn} onClick={() => setShowSubtitle((p) => !p)}>
+            <button style={S.btn} onClick={() => setOpenMenu((m) => m === "subtitle" ? null : "subtitle")}>
               CC{" "}
               {selectedSubtitle === -1
                 ? "Off"
                 : subtitleTracks[selectedSubtitle]?.name ||
                   `Track ${selectedSubtitle + 1}`}
             </button>
-            {showSubtitle && (
+            {openMenu === "subtitle" && (
               <div style={S.menu}>
                 <button
                   style={S.menuItem(selectedSubtitle === -1)}
@@ -942,7 +1034,7 @@ export default function VideoPlayerScreen() {
                       hlsRef.current.subtitleTrack = -1;
                     }
                     setSelectedSubtitle(-1);
-                    setShowSubtitle(false);
+                    setOpenMenu(null);
                   }}
                 >
                   Off
@@ -956,7 +1048,7 @@ export default function VideoPlayerScreen() {
                         hlsRef.current.subtitleTrack = i;
                       }
                       setSelectedSubtitle(i);
-                      setShowSubtitle(false);
+                      setOpenMenu(null);
                     }}
                   >
                     {t.name || `Track ${i + 1}`}
@@ -968,10 +1060,10 @@ export default function VideoPlayerScreen() {
         )}
 
         <div style={S.dropdown} ref={aspectRef}>
-          <button style={S.btn} onClick={() => setShowAspect((p) => !p)}>
+          <button style={S.btn} onClick={() => setOpenMenu((m) => m === "aspect" ? null : "aspect")}>
             ⊡ {aspectRatio === "default" ? "Aspect" : aspectRatio}
           </button>
-          {showAspect && (
+          {openMenu === "aspect" && (
             <div style={S.menu}>
               {ASPECT_RATIOS.map(({ value, label }) => (
                 <button
@@ -979,7 +1071,7 @@ export default function VideoPlayerScreen() {
                   style={S.menuItem(aspectRatio === value)}
                   onClick={() => {
                     setAspectRatio(value);
-                    setShowAspect(false);
+                    setOpenMenu(null);
                   }}
                 >
                   {label}
@@ -991,10 +1083,10 @@ export default function VideoPlayerScreen() {
 
         {qualityLevels.length > 1 && (
           <div style={S.dropdown} ref={qualityRef}>
-            <button style={S.btn} onClick={() => setShowQuality((p) => !p)}>
+            <button style={S.btn} onClick={() => setOpenMenu((m) => m === "quality" ? null : "quality")}>
               ⚙ {currentQualityLabel}
             </button>
-            {showQuality && (
+            {openMenu === "quality" && (
               <div style={S.menu}>
                 <button
                   style={S.menuItem(selectedLevel === -1)}
@@ -1003,7 +1095,7 @@ export default function VideoPlayerScreen() {
                       hlsRef.current.currentLevel = -1;
                     }
                     setSelectedLevel(-1);
-                    setShowQuality(false);
+                    setOpenMenu(null);
                   }}
                 >
                   Auto
@@ -1020,7 +1112,7 @@ export default function VideoPlayerScreen() {
                           hlsRef.current.currentLevel = i;
                         }
                         setSelectedLevel(i);
-                        setShowQuality(false);
+                        setOpenMenu(null);
                       }}
                     >
                       {getLevelLabel(l, qualityLevels)}
@@ -1072,11 +1164,17 @@ export default function VideoPlayerScreen() {
           <div style={S.errorOverlay}>
             <p style={{ margin: 0, fontSize: 16 }}>Failed to load stream</p>
             <p style={{ margin: 0, color: "#888", fontSize: 13 }}>{error}</p>
-            <button style={{ ...S.btn, marginTop: 8 }} onClick={handleClose}>
-              Close
-            </button>
+            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+              <button style={S.btn} onClick={handleRetry}>
+                Retry
+              </button>
+              <button style={S.btn} onClick={handleClose}>
+                Close
+              </button>
+            </div>
           </div>
         )}
+        {liveToast}
       </div>
 
       <div style={S.footer}>
