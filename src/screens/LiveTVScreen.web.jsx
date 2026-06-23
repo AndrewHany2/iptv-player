@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Modal, Alert, TouchableOpacity } from "react-native";
 import { YStack, XStack, Text, Input, ScrollView, Spinner } from "tamagui";
 import { useApp } from "../context/AppContext";
+import { useContentService } from "../domain/hooks/useContentService";
 import { ss } from "../utils/scaleSize";
 import iptvApi from "../services/iptvApi";
 import ProxiedImage from "../components/ProxiedImage";
@@ -321,9 +322,8 @@ function LiveShelf({ cat, onVisible, epgCache, fetchEpg, onPress }) {
 }
 
 export default function LiveTVScreen({ navigation }) {
+  const { activeUser, activeUserId } = useContentService();
   const {
-    users,
-    activeUserId,
     channels,
     setChannels,
     saveChannels,
@@ -411,14 +411,12 @@ export default function LiveTVScreen({ navigation }) {
   }, []);
 
   const loadChannels = async () => {
-    const user = users.find((u) => u.id === activeUserId);
-    if (!user) return;
+    if (!activeUser) return;
     setLoading(true);
     loadedRef.current.clear();
     setCategories([]);
     setChannelsByCategory({});
     try {
-      iptvApi.setCredentials(user.host, user.username, user.password);
       const cats = await iptvApi.getLiveCategories();
       if (!cats?.length) {
         setLoading(false);

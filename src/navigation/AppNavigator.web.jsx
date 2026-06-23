@@ -17,14 +17,15 @@ import HistoryScreenTV from "../screens/HistoryScreen.tv";
 import AccountsScreenWeb from "../screens/AccountsScreen";
 import AccountsScreenTV from "../screens/AccountsScreen.tv";
 import VideoPlayerScreen from "../screens/VideoPlayerScreen";
-import { isTV } from "../utils/tvOptimizations";
+import { usePlatform } from "../platform/PlatformProvider";
 
-// Use TV-optimized screens on TV platforms
-const LiveTVScreen = isTV ? LiveTVScreenTV : LiveTVScreenWeb;
-const MoviesScreen = isTV ? MoviesScreenTV : MoviesScreenWeb;
-const SeriesScreen = isTV ? SeriesScreenTV : SeriesScreenWeb;
-const HistoryScreen = isTV ? HistoryScreenTV : HistoryScreenWeb;
-const AccountsScreen = isTV ? AccountsScreenTV : AccountsScreenWeb;
+// Use TV-optimized screens on TV platforms (resolved at module load from build flag)
+const _isTV = !!globalThis.__TV__;
+const LiveTVScreen = _isTV ? LiveTVScreenTV : LiveTVScreenWeb;
+const MoviesScreen = _isTV ? MoviesScreenTV : MoviesScreenWeb;
+const SeriesScreen = _isTV ? SeriesScreenTV : SeriesScreenWeb;
+const HistoryScreen = _isTV ? HistoryScreenTV : HistoryScreenWeb;
+const AccountsScreen = _isTV ? AccountsScreenTV : AccountsScreenWeb;
 
 // ── Global CSS injected once ──────────────────────────────────────────────────
 if (typeof document !== "undefined") {
@@ -186,6 +187,7 @@ function TopNav({
   idxAccounts,
   idxProfile,
 }) {
+  const { isTV } = usePlatform();
   const [searchOpen, setSearchOpen] = useState(false);
   const [search, setSearch] = useState("");
   const accountsFocused = navFocused && focusedNavIdx === idxAccounts;
@@ -349,6 +351,7 @@ function TopNav({
 }
 
 export default function AppNavigator() {
+  const { isTV } = usePlatform();
   const {
     authUser,
     authLoading,

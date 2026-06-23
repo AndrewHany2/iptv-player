@@ -2,9 +2,10 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { View } from "react-native";
 import { YStack, XStack, Text, Input, ScrollView, Spinner } from "tamagui";
 import { useApp } from "../context/AppContext";
+import { useContentService } from "../domain/hooks/useContentService";
 import { useTVNavigation } from "../hooks/useTVNavigation";
 import { ss } from "../utils/scaleSize";
-import { getConfig, isTV } from "../utils/tvOptimizations";
+import { getConfig } from "../utils/tvOptimizations";
 import iptvApi from "../services/iptvApi";
 import tmdbApi from "../services/tmdbApi";
 import MovieDetail from "../components/MovieDetail.web";
@@ -16,13 +17,13 @@ const SHELF_PAGE = config.shelfPageSize;
 const GRID_PAGE = config.gridPageSize;
 
 async function prefetchTopRated() {
-  if (isTV) return null;
+  if (globalThis.__TV__) return null;
 
   try {
     const streams = await iptvApi.getAllVODStreamsRobust();
     if (!streams?.length) return null;
 
-    if (isTV || !tmdbApi.hasKey) {
+    if (globalThis.__TV__ || !tmdbApi.hasKey) {
       return {
         streams,
         matched: [...streams]
@@ -472,7 +473,8 @@ function CategoryPage({
 
 /* ─── Screen ─── */
 export default function MoviesScreen({ navigation }) {
-  const { users, activeUserId, playVideo } = useApp();
+  const { activeUser, activeUserId } = useContentService();
+  const { playVideo } = useApp();
   const [loading, setLoading] = useState(false);
   const [shelves, setShelves] = useState([]);
   const [currentCategory, setCurrentCategory] = useState(null);
@@ -491,8 +493,7 @@ export default function MoviesScreen({ navigation }) {
   }, [activeUserId]);
 
   const load = async () => {
-    const user = users.find((u) => u.id === activeUserId);
-    if (!user) return;
+    if (!activeUser) return;
     setLoading(true);
     loadedRef.current.clear();
     allShuffledRef.current = [];
@@ -500,7 +501,6 @@ export default function MoviesScreen({ navigation }) {
     prefetchRef.current = { topRated: null };
     setShelves([]);
     try {
-      iptvApi.setCredentials(user.host, user.username, user.password);
       const cats = await iptvApi.getVODCategories();
       if (!cats?.length) {
         setLoading(false);

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useApp } from "../context/AppContext";
 import iptvApi from "../services/iptvApi";
+import { useContentService } from "../domain/hooks/useContentService";
 import "../styles/tvl.css";
 import "./HistoryScreen.tv.css";
 import "./MoviesScreen.tv.css";
@@ -23,9 +24,9 @@ const getTrailerUrl = (t) => {
 };
 
 export default function HistoryScreenTV({ navigation }) {
+  // Credentials are kept in sync automatically by useContentService
+  useContentService();
   const {
-    users,
-    activeUserId,
     playVideo,
     watchHistory,
     removeFromWatchHistory,
@@ -68,11 +69,6 @@ export default function HistoryScreenTV({ navigation }) {
     navActiveRef.current = true;
     globalThis.dispatchEvent(new CustomEvent("tv-nav-focus"));
   };
-
-  useEffect(() => {
-    const user = users.find((u) => u.id === activeUserId);
-    if (user) iptvApi.setCredentials(user.host, user.username, user.password);
-  }, [activeUserId]);
 
   // ── Keep refs fresh for D-pad handler ────────────────────────────────────
   const favItems = myList || [];

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useApp } from "../context/AppContext";
 import iptvApi from "../services/iptvApi";
+import { useContentService } from "../domain/hooks/useContentService";
 import "../styles/tvl.css";
 import "./MoviesScreen.tv.css";
 
@@ -25,8 +26,9 @@ const getTrailerUrl = (t) => {
 };
 
 export default function MoviesScreenTV({ navigation, route }) {
+  const { contentService, activeUser, activeUserId } = useContentService();
   const {
-    users, activeUserId, playVideo, watchHistory,
+    playVideo, watchHistory,
     isInMyList, addToMyList, removeFromMyList,
     currentVideo,
   } = useApp();
@@ -92,18 +94,12 @@ export default function MoviesScreenTV({ navigation, route }) {
   }, [route?.params?.openDetail]);
 
   const loadCats = async () => {
-    const user = users.find((u) => u.id === activeUserId);
-    if (!user) return;
+    if (!activeUser) return;
     setLoading(true);
     allItemsRef.current.clear();
     try {
-      iptvApi.setCredentials(user.host, user.username, user.password);
-      const raw = await iptvApi.getVODCategories();
-      if (!raw?.length) return;
-      const list = raw.map((c) => ({
-        id: c.category_id,
-        name: c.category_name,
-      }));
+      const list = await contentService.getMovieCategories();
+      if (!list?.length) return;
       setCats(list);
       catsRef.current = list;
     } catch (e) {

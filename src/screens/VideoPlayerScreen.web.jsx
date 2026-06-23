@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import Hls from "hls.js";
 import { useApp } from "../context/AppContext";
 import iptvApi from "../services/iptvApi";
-import { isTV } from "../utils/tvOptimizations";
+import { usePlatform } from "../platform";
 
 const SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2];
 const ASPECT_RATIOS = [
@@ -297,6 +297,7 @@ function fmtTime(s) {
 }
 
 export default function VideoPlayerScreen() {
+  const { isTV } = usePlatform();
   const {
     currentVideo,
     closeVideo,

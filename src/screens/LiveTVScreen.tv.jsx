@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useApp } from "../context/AppContext";
 import iptvApi from "../services/iptvApi";
+import { useContentService } from "../domain/hooks/useContentService";
 import "../styles/tvl.css";
 import "./LiveTVScreen.tv.css";
 
@@ -16,7 +17,8 @@ const KEY_ENTER = 13;
 const KEY_BACK = new Set([27, 461, 10009, 8]);
 
 export default function LiveTVScreenTV({ navigation }) {
-  const { users, activeUserId, playVideo, currentVideo } = useApp();
+  const { contentService, activeUser, activeUserId } = useContentService();
+  const { playVideo, currentVideo } = useApp();
   const currentVideoRef = useRef(null);
   useEffect(() => { currentVideoRef.current = currentVideo; }, [currentVideo]);
 
@@ -50,18 +52,12 @@ export default function LiveTVScreenTV({ navigation }) {
   }, [activeUserId]);
 
   const loadCats = async () => {
-    const user = users.find((u) => u.id === activeUserId);
-    if (!user) return;
+    if (!activeUser) return;
     setLoading(true);
     allItemsRef.current.clear();
     try {
-      iptvApi.setCredentials(user.host, user.username, user.password);
-      const raw = await iptvApi.getLiveCategories();
-      if (!raw?.length) return;
-      const list = raw.map((c) => ({
-        id: c.category_id,
-        name: c.category_name,
-      }));
+      const list = await contentService.getLiveCategories();
+      if (!list?.length) return;
       setCats(list);
       catsRef.current = list;
     } catch (e) {

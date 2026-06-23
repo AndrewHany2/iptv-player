@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { isTV } from "../utils/tvOptimizations";
+import { usePlatform } from "../platform";
 import ProxiedImage from "./ProxiedImage";
 
 /**
@@ -7,6 +7,7 @@ import ProxiedImage from "./ProxiedImage";
  * Uses native HTML/CSS on TV for better performance
  */
 export default function TVPosterCard({ item, onPress, isFocused }) {
+  const { isTV } = usePlatform();
   const [imageError, setImageError] = useState(false);
   const poster = item.stream_icon || item.cover || item.movie_image || item.backdrop_path || null;
   const ratingValue = item.tmdb_rating ?? item.rating;

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { View } from "react-native";
 import { YStack, XStack, Text, Input, ScrollView, Spinner } from "tamagui";
 import { useApp } from "../context/AppContext";
+import { useContentService } from "../domain/hooks/useContentService";
 import { useTVNavigation } from "../hooks/useTVNavigation";
 import { ss } from "../utils/scaleSize";
 import iptvApi from "../services/iptvApi";
@@ -471,7 +472,8 @@ function CategoryPage({
 
 /* ─── Screen ─── */
 export default function SeriesScreen({ navigation }) {
-  const { users, activeUserId, playVideo } = useApp();
+  const { activeUser, activeUserId } = useContentService();
+  const { playVideo } = useApp();
   const [loading, setLoading] = useState(false);
   const [shelves, setShelves] = useState([]);
   const [currentCategory, setCurrentCategory] = useState(null);
@@ -490,8 +492,7 @@ export default function SeriesScreen({ navigation }) {
   }, [activeUserId]);
 
   const load = async () => {
-    const user = users.find((u) => u.id === activeUserId);
-    if (!user) return;
+    if (!activeUser) return;
     setLoading(true);
     loadedRef.current.clear();
     allShuffledRef.current = [];
@@ -499,7 +500,6 @@ export default function SeriesScreen({ navigation }) {
     prefetchRef.current = { topRated: null };
     setShelves([]);
     try {
-      iptvApi.setCredentials(user.host, user.username, user.password);
       const cats = await iptvApi.getSeriesCategories();
       if (!cats?.length) {
         setLoading(false);

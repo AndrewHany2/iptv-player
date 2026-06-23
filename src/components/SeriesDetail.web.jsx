@@ -4,7 +4,7 @@ import { YStack, XStack, Text, ScrollView, Spinner } from "tamagui";
 import { useApp } from "../context/AppContext";
 import iptvApi from "../services/iptvApi";
 import ProxiedImage from "./ProxiedImage";
-import { isTV } from "../utils/tvOptimizations";
+import { usePlatform } from "../platform";
 
 const FILL = { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 };
 
@@ -27,6 +27,7 @@ const getEpisodeNumber = (ep) => {
 };
 
 export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
+  const { isTV } = usePlatform();
   const { watchHistory, isInMyList, addToMyList, removeFromMyList } = useApp();
   const [info, setInfo] = useState(null);
   const [episodes, setEpisodes] = useState({});
