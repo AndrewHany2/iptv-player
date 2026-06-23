@@ -481,16 +481,14 @@ export default function VideoPlayerScreen() {
           hls.startLoad();
         } else if (currentVideo?.type === "live") {
           // 403/401 = session expired, or retries exhausted: full HLS reinit
-          if (reloadCountRef.current >= 3) {
+          if (reloadCountRef.current >= 1) {
             setError("Stream unavailable. The server rejected the connection.");
             setIsLoading(false);
           } else {
             reloadCountRef.current++;
             setLiveError(true);
-            autoReloadTimerRef.current = setTimeout(() => {
-              setLiveError(false);
-              reloadStream();
-            }, 3000);
+            setIsLoading(true);
+            autoReloadTimerRef.current = setTimeout(reloadStream, 1500);
           }
         } else {
           setError(`Stream error: ${d.type}`);
@@ -563,16 +561,14 @@ export default function VideoPlayerScreen() {
     const onError = () => {
       if (!hlsRef.current) {
         if (currentVideo?.type === "live") {
-          if (reloadCountRef.current >= 3) {
+          if (reloadCountRef.current >= 1) {
             setError("Stream unavailable. The server rejected the connection.");
             setIsLoading(false);
           } else {
             reloadCountRef.current++;
             setLiveError(true);
-            autoReloadTimerRef.current = setTimeout(() => {
-              setLiveError(false);
-              reloadStream();
-            }, 3000);
+            setIsLoading(true);
+            autoReloadTimerRef.current = setTimeout(reloadStream, 1500);
           }
         } else {
           setError("Failed to load video");
