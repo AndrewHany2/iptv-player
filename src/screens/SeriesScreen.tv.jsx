@@ -129,7 +129,7 @@ export default function SeriesScreenTV({ navigation, route }) {
     try {
       let all = allItemsRef.current.get(cat.id);
       if (!all) {
-        all = (await iptvApi.getSeries(cat.id)) ?? [];
+        all = await contentService.getSeriesByCategory(cat.id);
         allItemsRef.current.set(cat.id, all);
       }
       const updated = { ...next, items: all };
@@ -215,11 +215,7 @@ export default function SeriesScreenTV({ navigation, route }) {
 
   // ── Play episode ──────────────────────────────────────────────────────────
   const playEpisode = (series, episode) => {
-    const url = iptvApi.buildStreamUrl(
-      "series",
-      episode.id,
-      episode.container_extension || "mp4",
-    );
+    const url = contentService.buildEpisodeUrl(episode.id, episode.container_extension || "mp4");
 
     // Check if there's watch history for this episode
     const historyEntry = (watchHistory || []).find(
@@ -248,7 +244,7 @@ export default function SeriesScreenTV({ navigation, route }) {
       (h) => h.type === "series" && String(h.seriesId) === String(seriesId),
     );
     if (!entry) return;
-    const url = iptvApi.buildStreamUrl("series", entry.streamId, "mp4");
+    const url = contentService.buildEpisodeUrl(entry.streamId);
     playVideo({
       type: "series",
       streamId: entry.streamId,

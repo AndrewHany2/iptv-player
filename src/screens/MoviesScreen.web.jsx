@@ -5,16 +5,15 @@ import { useApp } from "../context/AppContext";
 import { useContentService } from "../domain/hooks/useContentService";
 import { useTVNavigation } from "../hooks/useTVNavigation";
 import { ss } from "../utils/scaleSize";
-import { getConfig } from "../utils/tvOptimizations";
+import { detectPlatform, getPlatformConfig } from "../platform/configs/detectPlatform";
 import iptvApi from "../services/iptvApi";
 import tmdbApi from "../services/tmdbApi";
 import MovieDetail from "../components/MovieDetail.web";
 import TVPosterCard from "../components/TVPosterCard";
 
-
-const config = getConfig();
-const SHELF_PAGE = config.shelfPageSize;
-const GRID_PAGE = config.gridPageSize;
+const _platformConfig = getPlatformConfig(detectPlatform());
+const SHELF_PAGE = _platformConfig.performance.shelfPageSize;
+const GRID_PAGE = _platformConfig.performance.gridPageSize;
 
 async function prefetchTopRated() {
   if (globalThis.__TV__) return null;
@@ -872,7 +871,7 @@ export default function MoviesScreen({ navigation }) {
                 onPress={() => handleTitlePress(pill.id, pill.label)}
                 pressStyle={{ opacity: 0.75 }}
                 hoverStyle={{ borderColor: "#e94560" }}
-                animation={config.disableAnimations ? undefined : "quick"}
+                animation={_platformConfig.ui.enableAnimations ? "quick" : undefined}
                 scale={focusedRow === 0 && focusedCol === idx ? 1.05 : 1}
                 {...{ className: "lumen-load-cta" }}
               >

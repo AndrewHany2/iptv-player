@@ -13,6 +13,7 @@
   cursor: pointer;
   overflow: hidden;
   background: #131328;
+  contain: layout style;
 }
 .tvl-ch-card--on { border-color: #e94560; }
 

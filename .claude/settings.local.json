@@ -46,7 +46,8 @@
       "Bash(node --input-type=module --eval \"import * as t from 'tamagui'; const keys = Object.keys\\(t\\).filter\\(k => k.includes\\('Stack'\\) || k.includes\\('stack'\\)\\); console.log\\(keys.join\\(', '\\)\\);\")",
       "Bash(powershell -Command \"node --input-type=module --eval \\\\\"import * as t from 'tamagui'; const stacks = Object.keys\\(t\\).filter\\(k => k.toLowerCase\\(\\).includes\\('stack'\\)\\); console.log\\(stacks.join\\(', '\\)\\);\\\\\"\")",
       "WebFetch(domain:api.anthropic.com)",
-      "WebFetch(domain:fec3f78a-97c5-45fb-8bba-034fbb94c425.claudeusercontent.com)"
+      "WebFetch(domain:fec3f78a-97c5-45fb-8bba-034fbb94c425.claudeusercontent.com)",
+      "Bash(node --test 'src/**/__tests__/*.test.js')"
     ]
   }
 }

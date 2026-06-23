@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 import { useApp } from "../context/AppContext";
-import iptvApi from "../services/iptvApi";
 import { useContentService } from "../domain/hooks/useContentService";
 import "../styles/tvl.css";
 import "./LiveTVScreen.tv.css";
@@ -80,7 +79,7 @@ export default function LiveTVScreenTV({ navigation }) {
     try {
       let all = allItemsRef.current.get(cat.id);
       if (!all) {
-        all = (await iptvApi.getLiveStreamsByCategory(cat.id)) ?? [];
+        all = await contentService.getLiveChannels(cat.id);
         allItemsRef.current.set(cat.id, all);
       }
       const updated = { ...next, items: all };
@@ -99,11 +98,7 @@ export default function LiveTVScreenTV({ navigation }) {
   };
 
   const play = (item) => {
-    const url = iptvApi.buildStreamUrl(
-      "live",
-      item.stream_id,
-      item.container_extension || "ts",
-    );
+    const url = contentService.buildLiveUrl(item.stream_id, item.container_extension || "ts");
     playVideo({
       type: "live",
       streamId: item.stream_id,

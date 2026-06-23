@@ -122,7 +122,7 @@ export default function MoviesScreenTV({ navigation, route }) {
     try {
       let all = allItemsRef.current.get(cat.id);
       if (!all) {
-        all = (await iptvApi.getVODStreams(cat.id)) ?? [];
+        all = await contentService.getMoviesByCategory(cat.id);
         allItemsRef.current.set(cat.id, all);
       }
       const updated = { ...next, items: all };
@@ -172,11 +172,7 @@ export default function MoviesScreenTV({ navigation, route }) {
   const playMovie = (d, startTime = 0) => {
     const item = d.item;
     const streamId = item.stream_id ?? item.streamId;
-    const url = iptvApi.buildStreamUrl(
-      "movie",
-      streamId,
-      item.container_extension || "mp4",
-    );
+    const url = contentService.buildMovieUrl(streamId, item.container_extension || "mp4");
     playVideo({
       type: "movies",
       streamId,

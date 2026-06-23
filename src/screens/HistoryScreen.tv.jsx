@@ -130,11 +130,7 @@ export default function HistoryScreenTV({ navigation }) {
 
   const playMovie = (d, startTime = 0) => {
     const streamId = d.item.stream_id ?? d.item.streamId;
-    const url = iptvApi.buildStreamUrl(
-      "movie",
-      streamId,
-      d.item.container_extension || "mp4",
-    );
+    const url = contentService.buildMovieUrl(streamId, d.item.container_extension || "mp4");
     playVideo({
       type: "movies",
       streamId,
@@ -192,11 +188,7 @@ export default function HistoryScreenTV({ navigation }) {
   };
 
   const playEpisode = (series, episode) => {
-    const url = iptvApi.buildStreamUrl(
-      "series",
-      episode.id,
-      episode.container_extension || "mp4",
-    );
+    const url = contentService.buildEpisodeUrl(episode.id, episode.container_extension || "mp4");
     const epHistory = (watchHistory || []).find(
       (h) =>
         h.type === "series" && String(h.episodeId) === String(episode.id),
@@ -221,7 +213,7 @@ export default function HistoryScreenTV({ navigation }) {
       (h) => h.type === "series" && String(h.seriesId) === String(seriesId),
     );
     if (!entry) return;
-    const url = iptvApi.buildStreamUrl("series", entry.streamId, "mp4");
+    const url = contentService.buildEpisodeUrl(entry.streamId);
     playVideo({
       type: "series",
       streamId: entry.streamId,
@@ -240,11 +232,7 @@ export default function HistoryScreenTV({ navigation }) {
   const openItem = (item) => {
     const type = item.type;
     if (type === "live") {
-      const url = iptvApi.buildStreamUrl(
-        "live",
-        item.streamId,
-        item.containerExtension || "ts",
-      );
+      const url = contentService.buildLiveUrl(item.streamId, item.containerExtension || "ts");
       playVideo({
         type: "live",
         streamId: item.streamId,
