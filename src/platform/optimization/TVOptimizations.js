@@ -28,7 +28,7 @@ export class TVOptimizations {
         transition-duration: 0s !important;
       }
       /* Allow a single fast outline pulse for focus feedback */
-      .tv-focused { outline: 3px solid #e94560 !important; outline-offset: 4px !important; }
+      .tv-focused { outline: 3px solid #6C5CE7 !important; outline-offset: 4px !important; }
     `;
     document.head.appendChild(s);
   }

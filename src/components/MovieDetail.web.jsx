@@ -96,7 +96,7 @@ export default function MovieDetail({ item, onBack, onPlay }) {
   return (
     <ScrollView
       flex={1}
-      backgroundColor="#0f0f23"
+      backgroundColor="#0A0E1A"
       contentContainerStyle={{ paddingBottom: 80 }}
     >
       {/* Hero */}
@@ -110,7 +110,7 @@ export default function MovieDetail({ item, onBack, onPlay }) {
           source={{ uri: backdrop }}
           style={FILL}
           resizeMode="cover"
-          fallbackColor="#16213e"
+          fallbackColor="#141A2E"
         />
         {/* CSS gradient — keep as raw View since Tamagui doesn't forward the `background` CSS prop */}
         <View
@@ -118,7 +118,7 @@ export default function MovieDetail({ item, onBack, onPlay }) {
             FILL,
             {
               background:
-                "linear-gradient(to top, #0f0f23 0%, rgba(15,15,35,0.6) 55%, rgba(15,15,35,0.15) 100%)",
+                "linear-gradient(to top, #0A0E1A 0%, rgba(10, 14, 26,0.6) 55%, rgba(10, 14, 26,0.15) 100%)",
             },
           ]}
         />
@@ -137,7 +137,7 @@ export default function MovieDetail({ item, onBack, onPlay }) {
           pressStyle={{ opacity: 0.8 }}
         >
           <Text
-            color="#e94560"
+            color="#6C5CE7"
             fontSize={backSize}
             fontWeight={isTV ? "700" : "600"}
           >
@@ -164,7 +164,7 @@ export default function MovieDetail({ item, onBack, onPlay }) {
           </Text>
 
           {isLoading ? (
-            <Spinner color="#e94560" marginVertical={12} />
+            <Spinner color="#6C5CE7" marginVertical={12} />
           ) : (
             <XStack
               alignItems="center"
@@ -175,13 +175,13 @@ export default function MovieDetail({ item, onBack, onPlay }) {
               {year ? (
                 <YStack
                   borderWidth={isTV ? 2 : 1}
-                  borderColor="#3a3a5e"
+                  borderColor="#28324E"
                   borderRadius={isTV ? 8 : 4}
                   paddingHorizontal={isTV ? 14 : 8}
                   paddingVertical={isTV ? 8 : 3}
                 >
                   <Text
-                    color="#aaa"
+                    color="#7A86A8"
                     fontSize={metaSize}
                     fontWeight={isTV ? "600" : "400"}
                   >
@@ -192,13 +192,13 @@ export default function MovieDetail({ item, onBack, onPlay }) {
               {data.genre ? (
                 <YStack
                   borderWidth={isTV ? 2 : 1}
-                  borderColor="#3a3a5e"
+                  borderColor="#28324E"
                   borderRadius={isTV ? 8 : 4}
                   paddingHorizontal={isTV ? 14 : 8}
                   paddingVertical={isTV ? 8 : 3}
                 >
                   <Text
-                    color="#aaa"
+                    color="#7A86A8"
                     fontSize={metaSize}
                     fontWeight={isTV ? "600" : "400"}
                   >
@@ -218,13 +218,13 @@ export default function MovieDetail({ item, onBack, onPlay }) {
               {data.age ? (
                 <YStack
                   borderWidth={isTV ? 2 : 1}
-                  borderColor="#e94560"
+                  borderColor="#6C5CE7"
                   borderRadius={isTV ? 8 : 4}
                   paddingHorizontal={isTV ? 14 : 8}
                   paddingVertical={isTV ? 8 : 3}
                 >
                   <Text
-                    color="#e94560"
+                    color="#6C5CE7"
                     fontSize={metaSize}
                     fontWeight={isTV ? "700" : "400"}
                   >
@@ -259,7 +259,7 @@ export default function MovieDetail({ item, onBack, onPlay }) {
                   paddingVertical={buttonPadV}
                   borderRadius={isTV ? 12 : 8}
                   borderWidth={isTV ? 2 : 1}
-                  borderColor="#3a3a5e"
+                  borderColor="#28324E"
                   cursor="pointer"
                   onPress={() => handlePlay(0)}
                   pressStyle={{ opacity: 0.8 }}
@@ -295,7 +295,7 @@ export default function MovieDetail({ item, onBack, onPlay }) {
                 paddingVertical={buttonPadV}
                 borderRadius={isTV ? 12 : 8}
                 borderWidth={isTV ? 2 : 1}
-                borderColor="#3a3a5e"
+                borderColor="#28324E"
                 cursor="pointer"
                 onPress={() => setShowTrailer((v) => !v)}
                 pressStyle={{ opacity: 0.8 }}
@@ -309,17 +309,17 @@ export default function MovieDetail({ item, onBack, onPlay }) {
             )}
             <YStack
               backgroundColor={
-                inFav ? "rgba(233,69,96,0.15)" : "rgba(40,40,60,0.85)"
+                inFav ? "rgba(108, 92, 231,0.15)" : "rgba(40,40,60,0.85)"
               }
               paddingHorizontal={isTV ? 36 : 22}
               paddingVertical={buttonPadV}
               borderRadius={isTV ? 12 : 8}
               borderWidth={isTV ? 2 : 1}
-              borderColor={inFav ? "#e94560" : "#3a3a5e"}
+              borderColor={inFav ? "#6C5CE7" : "#28324E"}
               cursor="pointer"
               onPress={toggleFav}
               pressStyle={{ opacity: 0.8 }}
-              hoverStyle={{ borderColor: "#e94560" }}
+              hoverStyle={{ borderColor: "#6C5CE7" }}
               animation="quick"
             >
               <Text color="#fff" fontSize={buttonTextSize} fontWeight="600">
@@ -370,10 +370,10 @@ export default function MovieDetail({ item, onBack, onPlay }) {
               padding={isTV ? 24 : 0}
               borderRadius={isTV ? 12 : 0}
               borderLeftWidth={isTV ? 4 : 0}
-              borderLeftColor={isTV ? "#e94560" : "transparent"}
+              borderLeftColor={isTV ? "#6C5CE7" : "transparent"}
             >
               <Text
-                color={isTV ? "#e0e0e0" : "#ccc"}
+                color={isTV ? "#e0e0e0" : "#7A86A8"}
                 fontSize={descSize}
                 lineHeight={descLineHeight}
                 marginBottom={isTV ? 20 : 12}
@@ -384,7 +384,7 @@ export default function MovieDetail({ item, onBack, onPlay }) {
             </YStack>
           )}
           {data.cast && (
-            <Text color="#aaa" fontSize={castSize} lineHeight={castLineHeight}>
+            <Text color="#7A86A8" fontSize={castSize} lineHeight={castLineHeight}>
               <Text color="#fff" fontWeight="700" fontSize={isTV ? 22 : 14}>
                 Cast:{" "}
               </Text>
@@ -392,7 +392,7 @@ export default function MovieDetail({ item, onBack, onPlay }) {
             </Text>
           )}
           {data.director && (
-            <Text color="#aaa" fontSize={castSize} lineHeight={castLineHeight}>
+            <Text color="#7A86A8" fontSize={castSize} lineHeight={castLineHeight}>
               <Text color="#fff" fontWeight="700" fontSize={isTV ? 22 : 14}>
                 Director:{" "}
               </Text>

@@ -38,50 +38,53 @@ if (typeof document !== "undefined") {
   }
   style.textContent = `
     *, *::before, *::after { box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; height: 100%; background: #0f0f23; }
+    html, body { margin: 0; padding: 0; height: 100%; background: #0A0E1A; color: #EAF0FF; font-family: Inter, -apple-system, "Segoe UI", Roboto, sans-serif; }
     #root, #app, [data-reactroot] { height: 100%; }
-    * { scrollbar-width: thin; scrollbar-color: #2a2a4e transparent; }
+    .aurora-grad-bg { background: linear-gradient(100deg, #6C5CE7, #22D3EE) !important; }
+    * { scrollbar-width: thin; scrollbar-color: #28324E transparent; }
     ::-webkit-scrollbar { width: ${ss(8)}px; height: ${ss(8)}px; }
-    ::-webkit-scrollbar-thumb { background: #2a2a4e; border-radius: ${ss(4)}px; }
+    ::-webkit-scrollbar-thumb { background: #28324E; border-radius: ${ss(4)}px; }
     ::-webkit-scrollbar-track { background: transparent; }
     input:focus, textarea:focus {
       outline: none !important;
-      border-color: #e94560 !important;
-      box-shadow: 0 0 0 ${ss(3)}px rgba(233,69,96,0.15) !important;
+      border-color: #22D3EE !important;
+      box-shadow: 0 0 0 ${ss(3)}px rgba(34,211,238,0.18) !important;
     }
     .lumen-topnav { position: sticky !important; top: 0 !important; z-index: 30 !important; }
     .lumen-poster {
       transition: transform 0.2s ease, box-shadow 0.2s ease;
       cursor: pointer !important; overflow: hidden !important;
     }
-    body:not(.keyboard-nav) .lumen-poster:hover { transform: scale(1.05); z-index: 2; box-shadow: 0 0 0 1.5px #e94560, 0 ${ss(8)}px ${ss(28)}px rgba(0,0,0,0.6); }
+    .lumen-poster-card { transition: outline-color 0.12s ease; }
+    body:not(.keyboard-nav) .lumen-poster-card:hover { outline: 2px solid #22D3EE !important; outline-offset: 3px; }
+    body:not(.keyboard-nav) .lumen-poster:hover { transform: scale(1.05); z-index: 2; box-shadow: 0 0 0 1.5px #6C5CE7, 0 ${ss(8)}px ${ss(28)}px rgba(0,0,0,0.6); }
     .lumen-live-card { transition: border-color 0.15s ease, background-color 0.15s ease; cursor: pointer !important; }
-    body:not(.keyboard-nav) .lumen-live-card:hover { border-color: #e94560 !important; background-color: #20203a !important; }
+    body:not(.keyboard-nav) .lumen-live-card:hover { border-color: #6C5CE7 !important; background-color: #1B2236 !important; }
     body:not(.keyboard-nav) .lumen-icon-btn:hover { background: rgba(255,255,255,0.10) !important; }
-    body:not(.keyboard-nav) .lumen-avatar:hover { border-color: #e94560 !important; }
+    body:not(.keyboard-nav) .lumen-avatar:hover { border-color: #6C5CE7 !important; }
     .lumen-shelf-nav {
       opacity: 0; transition: opacity 0.15s;
       position: absolute; top: 0; bottom: 0; z-index: 4;
       display: flex; align-items: center;
-      background: linear-gradient(to right, rgba(15,15,35,0.95), rgba(15,15,35,0));
+      background: linear-gradient(to right, rgba(10, 14, 26,0.95), rgba(10, 14, 26,0));
       border: none; cursor: pointer; color: #fff; font-size: ${ss(28)}px; padding: 0 ${ss(14)}px; width: ${ss(56)}px;
     }
-    .lumen-shelf-nav.right { background: linear-gradient(to left, rgba(15,15,35,0.95), rgba(15,15,35,0)); right: 0; left: auto; justify-content: flex-end; }
+    .lumen-shelf-nav.right { background: linear-gradient(to left, rgba(10, 14, 26,0.95), rgba(10, 14, 26,0)); right: 0; left: auto; justify-content: flex-end; }
     body:not(.keyboard-nav) .lumen-shelf-rail:hover .lumen-shelf-nav { opacity: 1; }
     @keyframes lumen-blink { 50% { opacity: 0.25; } }
     .lumen-live-dot {
       display: inline-flex; align-items: center; gap: ${ss(5)}px;
-      font-size: ${ss(10)}px; font-weight: 700; color: #e94560; letter-spacing: 0.08em;
+      font-size: ${ss(10)}px; font-weight: 700; color: #6C5CE7; letter-spacing: 0.08em;
     }
     .lumen-live-dot::before {
       content: ''; width: ${ss(6)}px; height: ${ss(6)}px; border-radius: 50%;
-      background: #e94560; animation: lumen-blink 1.6s ease-in-out infinite; flex-shrink: 0;
+      background: #6C5CE7; animation: lumen-blink 1.6s ease-in-out infinite; flex-shrink: 0;
     }
     .lumen-cw-card {
       border-radius: ${ss(8)}px; transition: transform 0.2s ease, box-shadow 0.2s ease;
       cursor: pointer !important; overflow: hidden !important; position: relative !important;
     }
-    body:not(.keyboard-nav) .lumen-cw-card:hover { transform: scale(1.04); z-index: 2; box-shadow: 0 0 0 1.5px #e94560, 0 ${ss(8)}px ${ss(24)}px rgba(0,0,0,0.5); }
+    body:not(.keyboard-nav) .lumen-cw-card:hover { transform: scale(1.04); z-index: 2; box-shadow: 0 0 0 1.5px #6C5CE7, 0 ${ss(8)}px ${ss(24)}px rgba(0,0,0,0.5); }
     .lumen-cw-play {
       position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
       background: rgba(0,0,0,0.4); opacity: 0; transition: opacity 0.15s ease;
@@ -91,14 +94,14 @@ if (typeof document !== "undefined") {
     .lumen-shelf-title-btn { cursor: pointer !important; }
     body:not(.keyboard-nav) .lumen-shelf-title-btn:hover span, body:not(.keyboard-nav) .lumen-shelf-title-btn:hover div { opacity: 0.8; }
     .lumen-load-cta { cursor: pointer !important; transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease; }
-    body:not(.keyboard-nav) .lumen-load-cta:hover { background: rgba(233,69,96,0.12) !important; border-color: rgba(233,69,96,0.45) !important; transform: translateY(-1px); }
+    body:not(.keyboard-nav) .lumen-load-cta:hover { background: rgba(108, 92, 231,0.12) !important; border-color: rgba(108, 92, 231,0.45) !important; transform: translateY(-1px); }
     ${
       globalThis.__TV__
         ? `
       *, *::before, *::after { transition: none !important; animation: none !important; will-change: auto !important; }
       .lumen-poster:hover { transform: none !important; box-shadow: none !important; }
       .lumen-cw-card:hover { transform: none !important; box-shadow: none !important; }
-      .lumen-live-card:hover { border-color: #2a2a4e !important; background-color: #1a1a2e !important; }
+      .lumen-live-card:hover { border-color: #28324E !important; background-color: #1B2236 !important; }
       .lumen-load-cta:hover { transform: none !important; }
       .lumen-shelf-rail { contain: layout style; }
       .lumen-live-dot::before { animation: none !important; opacity: 1; }
@@ -137,9 +140,9 @@ function BrandGlyph() {
           key={i}
           width={ss(3)}
           height={b.h}
-          backgroundColor="#e94560"
           borderRadius={1}
           opacity={b.o}
+          {...{ className: "aurora-grad-bg" }}
         />
       ))}
     </XStack>
@@ -166,11 +169,13 @@ function NavLink({ item, isActive, isFocused, onPress, fontSize }) {
       </YStack>
       {(isActive || isFocused) && (
         <YStack
-          height={ss(2)}
+          height={ss(3)}
           width="100%"
-          backgroundColor={isFocused ? "#fff" : "#e94560"}
-          borderRadius={1}
+          borderRadius={2}
           marginTop={ss(6)}
+          {...(isFocused
+            ? { backgroundColor: "#EAF0FF" }
+            : { className: "aurora-grad-bg" })}
         />
       )}
     </YStack>
@@ -231,9 +236,9 @@ function TopNav({
       paddingHorizontal={S.px}
       height={S.h}
       gap={S.gap}
-      backgroundColor="rgba(15,15,35,0.97)"
+      backgroundColor="rgba(10, 14, 26,0.97)"
       borderBottomWidth={1}
-      borderBottomColor="#2a2a4e"
+      borderBottomColor="#28324E"
       {...{ className: "lumen-topnav" }}
     >
       <XStack
@@ -245,7 +250,7 @@ function TopNav({
       >
         <BrandGlyph />
         <Text
-          color="#e94560"
+          color="#6C5CE7"
           fontSize={S.brand}
           fontWeight="700"
           letterSpacing={-0.5}
@@ -278,7 +283,7 @@ function TopNav({
           onPress={onAccounts}
           pressStyle={{ opacity: 0.7 }}
           borderWidth={accountsFocused ? 2 : 0}
-          borderColor={accountsFocused ? "#e94560" : "transparent"}
+          borderColor={accountsFocused ? "#6C5CE7" : "transparent"}
           {...{ className: "lumen-icon-btn" }}
         >
           <Text fontSize={S.iconFont}>📡</Text>
@@ -293,7 +298,7 @@ function TopNav({
           onPress={onSettings}
           pressStyle={{ opacity: 0.7 }}
           borderWidth={settingsFocused ? 2 : 0}
-          borderColor={settingsFocused ? "#e94560" : "transparent"}
+          borderColor={settingsFocused ? "#6C5CE7" : "transparent"}
           {...{ className: "lumen-icon-btn" }}
         >
           <Text fontSize={S.iconFont}>⚙</Text>
@@ -302,9 +307,9 @@ function TopNav({
           width={S.avatar}
           height={S.avatar}
           borderRadius={S.avatarR}
-          backgroundColor="#1a1a2e"
+          backgroundColor="#1B2236"
           borderWidth={2}
-          borderColor={profileFocused ? "#e94560" : "#2a2a4e"}
+          borderColor={profileFocused ? "#6C5CE7" : "#28324E"}
           justifyContent="center"
           alignItems="center"
           cursor="pointer"
@@ -491,7 +496,7 @@ export default function AppNavigator() {
   const ContentComponent = CONTENT_MAP[activeTab] || LiveTVScreen;
 
   return (
-    <YStack flex={1} backgroundColor="#0f0f23" position="relative">
+    <YStack flex={1} backgroundColor="#0A0E1A" position="relative">
       <TopNav
         active={activeTab}
         onSelect={(tab) => {
@@ -546,7 +551,7 @@ export default function AppNavigator() {
               border: "none",
               width: ss(600),
               maxWidth: "90vw",
-              backgroundColor: "#1a1a2e",
+              backgroundColor: "#1B2236",
               borderRadius: ss(16),
               overflow: "hidden",
             }}
@@ -557,7 +562,7 @@ export default function AppNavigator() {
                 alignItems: "center",
                 justifyContent: "space-between",
                 padding: `${ss(16)}px ${ss(20)}px`,
-                borderBottom: "1px solid #2a2a4e",
+                borderBottom: "1px solid #28324E",
               }}
             >
               <span
@@ -614,7 +619,7 @@ export default function AppNavigator() {
               border: "none",
               width: ss(560),
               maxWidth: "90vw",
-              backgroundColor: "#1a1a2e",
+              backgroundColor: "#1B2236",
               borderRadius: ss(16),
               overflow: "hidden",
             }}
@@ -625,7 +630,7 @@ export default function AppNavigator() {
                 alignItems: "center",
                 justifyContent: "space-between",
                 padding: `${ss(16)}px ${ss(20)}px`,
-                borderBottom: "1px solid #2a2a4e",
+                borderBottom: "1px solid #28324E",
               }}
             >
               <span

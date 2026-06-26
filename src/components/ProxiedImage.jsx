@@ -9,7 +9,7 @@ export default function ProxiedImage({
   source,
   style,
   resizeMode = "cover",
-  fallbackColor = "#16213e",
+  fallbackColor = "#141A2E",
   showPlaceholder = true,
   ...props
 }) {

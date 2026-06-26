@@ -82,12 +82,12 @@ export default function AuthScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: "#0f0f23" }}
+      style={{ flex: 1, backgroundColor: "#0A0E1A" }}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: "center", padding: 20 }} keyboardShouldPersistTaps="handled">
         <YStack
-          backgroundColor="#1a1a2e"
+          backgroundColor="#1B2236"
           borderRadius={16}
           padding={28}
           shadowColor="#000"
@@ -100,11 +100,11 @@ export default function AuthScreen() {
           <Text fontSize={26} fontWeight="bold" color="#fff" textAlign="center" marginBottom={4}>
             IPTV Player
           </Text>
-          <Text fontSize={14} color="#aaa" textAlign="center" marginBottom={24}>
+          <Text fontSize={14} color="#7A86A8" textAlign="center" marginBottom={24}>
             {mode === "login" ? "Sign in to your account" : "Create an account"}
           </Text>
 
-          <Text fontSize={13} color="#ccc" marginBottom={6} marginTop={12}>
+          <Text fontSize={13} color="#7A86A8" marginBottom={6} marginTop={12}>
             {mode === "login" ? "Username or Email" : "Username"}
           </Text>
           <Input
@@ -115,19 +115,19 @@ export default function AuthScreen() {
             autoCapitalize="none"
             autoCorrect={false}
             disabled={loading}
-            backgroundColor="#0f0f23"
+            backgroundColor="#0A0E1A"
             color="#fff"
             borderRadius={10}
             paddingHorizontal={14}
             paddingVertical={12}
             fontSize={15}
             borderWidth={1}
-            borderColor="#333"
+            borderColor="#28324E"
           />
 
           {mode === "register" && (
             <>
-              <Text fontSize={13} color="#ccc" marginBottom={6} marginTop={12}>Email</Text>
+              <Text fontSize={13} color="#7A86A8" marginBottom={6} marginTop={12}>Email</Text>
               <Input
                 placeholder="you@example.com"
                 placeholderTextColor="#666"
@@ -137,19 +137,19 @@ export default function AuthScreen() {
                 autoCapitalize="none"
                 autoCorrect={false}
                 disabled={loading}
-                backgroundColor="#0f0f23"
+                backgroundColor="#0A0E1A"
                 color="#fff"
                 borderRadius={10}
                 paddingHorizontal={14}
                 paddingVertical={12}
                 fontSize={15}
                 borderWidth={1}
-                borderColor="#333"
+                borderColor="#28324E"
               />
             </>
           )}
 
-          <Text fontSize={13} color="#ccc" marginBottom={6} marginTop={12}>Password</Text>
+          <Text fontSize={13} color="#7A86A8" marginBottom={6} marginTop={12}>Password</Text>
           <Input
             placeholder="••••••••"
             placeholderTextColor="#666"
@@ -157,19 +157,19 @@ export default function AuthScreen() {
             onChangeText={setPassword}
             secureTextEntry
             disabled={loading}
-            backgroundColor="#0f0f23"
+            backgroundColor="#0A0E1A"
             color="#fff"
             borderRadius={10}
             paddingHorizontal={14}
             paddingVertical={12}
             fontSize={15}
             borderWidth={1}
-            borderColor="#333"
+            borderColor="#28324E"
           />
 
           {mode === "register" && (
             <>
-              <Text fontSize={13} color="#ccc" marginBottom={6} marginTop={12}>Confirm Password</Text>
+              <Text fontSize={13} color="#7A86A8" marginBottom={6} marginTop={12}>Confirm Password</Text>
               <Input
                 placeholder="••••••••"
                 placeholderTextColor="#666"
@@ -177,24 +177,24 @@ export default function AuthScreen() {
                 onChangeText={setConfirmPassword}
                 secureTextEntry
                 disabled={loading}
-                backgroundColor="#0f0f23"
+                backgroundColor="#0A0E1A"
                 color="#fff"
                 borderRadius={10}
                 paddingHorizontal={14}
                 paddingVertical={12}
                 fontSize={15}
                 borderWidth={1}
-                borderColor="#333"
+                borderColor="#28324E"
               />
             </>
           )}
 
           {!!error && (
-            <Text color="#e94560" fontSize={13} marginTop={12} textAlign="center">{error}</Text>
+            <Text color="#6C5CE7" fontSize={13} marginTop={12} textAlign="center">{error}</Text>
           )}
 
           <YStack
-            backgroundColor="#e94560"
+            backgroundColor="#6C5CE7"
             borderRadius={10}
             paddingVertical={14}
             marginTop={20}
@@ -214,9 +214,9 @@ export default function AuthScreen() {
           <XStack justifyContent="center" marginTop={20}>
             {mode === "login" ? (
               <>
-                <Text color="#aaa" fontSize={14}>Don't have an account? </Text>
+                <Text color="#7A86A8" fontSize={14}>Don't have an account? </Text>
                 <Text
-                  color="#e94560"
+                  color="#6C5CE7"
                   fontSize={14}
                   fontWeight="600"
                   cursor="pointer"
@@ -228,9 +228,9 @@ export default function AuthScreen() {
               </>
             ) : (
               <>
-                <Text color="#aaa" fontSize={14}>Already have an account? </Text>
+                <Text color="#7A86A8" fontSize={14}>Already have an account? </Text>
                 <Text
-                  color="#e94560"
+                  color="#6C5CE7"
                   fontSize={14}
                   fontWeight="600"
                   cursor="pointer"

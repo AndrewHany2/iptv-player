@@ -19,7 +19,7 @@
   overflow-x: auto;
   scrollbar-width: none;
   flex-shrink: 0;
-  border-bottom: 1px solid #1e1e3a;
+  border-bottom: 1px solid #28324E;
 }
 .tvl-letter-bar::-webkit-scrollbar { display: none; }
 
@@ -30,7 +30,7 @@
   background: transparent;
   border: 1.5px solid transparent;
   border-radius: 6px;
-  color: #aaa;
+  color: #7A86A8;
   font-size: 15px;
   font-weight: 600;
   font-family: inherit;
@@ -38,14 +38,14 @@
   transition: none;
 }
 .tvl-letter-btn--focused {
-  border-color: #fff;
+  border-color: #22D3EE;
   color: #fff;
-  background: #1e1e3a;
+  background: #28324E;
 }
 .tvl-letter-btn--active {
-  border-color: #e94560;
-  color: #e94560;
-  background: #1a1128;
+  border-color: #6C5CE7;
+  color: #6C5CE7;
+  background: #1B2236;
 }
 
 /* ── Action buttons (Continue / Favorites) ───────────────────────────────── */
@@ -58,10 +58,10 @@
 
 .tvl-det-act-btn {
   padding: 10px 20px;
-  border: 2px solid #3a3a5e;
+  border: 2px solid #28324E;
   border-radius: 8px;
-  background: #1a1a2e;
-  color: #ccc;
+  background: #1B2236;
+  color: #7A86A8;
   font-size: 14px;
   font-weight: 600;
   font-family: inherit;
@@ -70,8 +70,8 @@
   transition: border-color 0.15s;
 }
 .tvl-det-act-btn--on {
-  border-color: #e94560;
-  background: #e94560;
+  border-color: #22D3EE;
+  background: #6C5CE7;
   color: #fff;
 }
 
@@ -79,7 +79,7 @@
   height: 220px;
   flex-shrink: 0;
   background: #000;
-  border-bottom: 1px solid #1e1e3a;
+  border-bottom: 1px solid #28324E;
 }
 
 /* ── Seasons row ─────────────────────────────────────────────────────────── */
@@ -87,7 +87,7 @@
   display: flex;
   gap: 10px;
   padding: 18px 60px;
-  border-bottom: 1px solid #1e1e3a;
+  border-bottom: 1px solid #28324E;
   flex-shrink: 0;
   overflow-x: auto;
   scrollbar-width: none;
@@ -98,10 +98,10 @@
 
 .tvl-season-btn {
   padding: 10px 22px;
-  background: #131328;
-  border: 2px solid #1e1e3a;
+  background: #141A2E;
+  border: 2px solid #28324E;
   border-radius: 6px;
-  color: #aaa;
+  color: #7A86A8;
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
@@ -110,9 +110,9 @@
   flex-shrink: 0;
 }
 .tvl-season-btn--on {
-  border-color: #e94560;
+  border-color: #22D3EE;
   color: #fff;
-  background: #1a1a38;
+  background: #1B2236;
 }
 
 /* ── Episodes list ───────────────────────────────────────────────────────── */
@@ -137,15 +137,15 @@
   margin-bottom: 6px;
 }
 .tvl-episode--on {
-  border-color: #e94560;
-  background: #131328;
+  border-color: #22D3EE;
+  background: #141A2E;
 }
 
 .tvl-ep-badge {
   font-size: 12px;
   font-weight: 700;
   color: #fff;
-  background: #b5213a;
+  background: #6C5CE7;
   border-radius: 5px;
   padding: 4px 9px;
   flex-shrink: 0;
@@ -161,7 +161,7 @@
 }
 .tvl-ep-plot {
   font-size: 16px;
-  color: #aaa;
+  color: #7A86A8;
   margin-top: 8px;
   line-height: 1.6;
   overflow: hidden;
@@ -172,11 +172,11 @@
 }
 .tvl-ep-dur {
   font-size: 14px;
-  color: #888;
+  color: #7A86A8;
   margin-top: 6px;
 }
 .tvl-ep-play {
   font-size: 20px;
-  color: #e94560;
+  color: #6C5CE7;
   flex-shrink: 0;
 }

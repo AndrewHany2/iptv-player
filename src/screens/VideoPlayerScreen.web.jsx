@@ -81,7 +81,7 @@ const S = {
     whiteSpace: "nowrap",
   },
   closeBtn: {
-    backgroundColor: "rgba(233,69,96,0.9)",
+    backgroundColor: "rgba(108, 92, 231,0.9)",
     border: "none",
     color: "#fff",
     borderRadius: "50%",
@@ -96,7 +96,7 @@ const S = {
     justifyContent: "center",
   },
   nextBtn: {
-    backgroundColor: "rgba(233,69,96,0.9)",
+    backgroundColor: "rgba(108, 92, 231,0.9)",
     border: "none",
     color: "#fff",
     borderRadius: 6,
@@ -110,8 +110,8 @@ const S = {
     position: "absolute",
     top: "110%",
     right: 0,
-    backgroundColor: "#1a1a2e",
-    border: "1px solid #2a2a4e",
+    backgroundColor: "#1B2236",
+    border: "1px solid #28324E",
     borderRadius: 8,
     padding: 4,
     minWidth: 130,
@@ -129,9 +129,9 @@ const S = {
     borderRadius: 6,
     cursor: "pointer",
     fontSize: 14,
-    color: active ? "#e94560" : "#ccc",
+    color: active ? "#6C5CE7" : "#7A86A8",
     fontWeight: active ? 700 : 400,
-    backgroundColor: active ? "rgba(233,69,96,0.12)" : "transparent",
+    backgroundColor: active ? "rgba(108, 92, 231,0.12)" : "transparent",
   }),
   loadingOverlay: {
     position: "absolute",
@@ -206,7 +206,7 @@ const TV = {
     flexShrink: 0,
   },
   closeBtn: {
-    background: "rgba(233,69,96,0.9)",
+    background: "rgba(108, 92, 231,0.9)",
     border: "none",
     color: "#fff",
     borderRadius: "50%",
@@ -231,7 +231,7 @@ const TV = {
     textOverflow: "ellipsis",
   },
   nextBtn: {
-    background: "rgba(233,69,96,0.9)",
+    background: "rgba(108, 92, 231,0.9)",
     border: "none",
     color: "#fff",
     borderRadius: 8,
@@ -275,7 +275,7 @@ const TV = {
   progressFill: (pct) => ({
     height: "100%",
     width: `${pct}%`,
-    background: "#e94560",
+    background: "#6C5CE7",
     borderRadius: 3,
     transition: "width 0.5s linear",
   }),
@@ -816,7 +816,7 @@ export default function VideoPlayerScreen() {
         position: "absolute",
         bottom: isTV ? 48 : 16,
         right: isTV ? 48 : 16,
-        backgroundColor: "rgba(233,69,96,0.92)",
+        backgroundColor: "rgba(108, 92, 231,0.92)",
         color: "#fff",
         padding: isTV ? "12px 22px" : "8px 14px",
         borderRadius: isTV ? 10 : 8,
@@ -870,7 +870,7 @@ export default function VideoPlayerScreen() {
                   width: 64,
                   height: 64,
                   border: "5px solid rgba(255,255,255,0.2)",
-                  borderTopColor: "#e94560",
+                  borderTopColor: "#6C5CE7",
                   borderRadius: "50%",
                   animation: "spin 0.8s linear infinite",
                 }}
@@ -913,7 +913,7 @@ export default function VideoPlayerScreen() {
             <p style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>
               Failed to load stream
             </p>
-            <p style={{ margin: 0, color: "#888", fontSize: 18 }}>{error}</p>
+            <p style={{ margin: 0, color: "#7A86A8", fontSize: 18 }}>{error}</p>
             <div style={{ display: "flex", gap: 16 }}>
               <button
                 style={{
@@ -1153,7 +1153,7 @@ export default function VideoPlayerScreen() {
                 width: 40,
                 height: 40,
                 border: "4px solid rgba(255,255,255,0.2)",
-                borderTopColor: "#e94560",
+                borderTopColor: "#6C5CE7",
                 borderRadius: "50%",
                 animation: "spin 0.8s linear infinite",
               }}
@@ -1164,7 +1164,7 @@ export default function VideoPlayerScreen() {
         {error && (
           <div style={S.errorOverlay}>
             <p style={{ margin: 0, fontSize: 16 }}>Failed to load stream</p>
-            <p style={{ margin: 0, color: "#888", fontSize: 13 }}>{error}</p>
+            <p style={{ margin: 0, color: "#7A86A8", fontSize: 13 }}>{error}</p>
             <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
               <button style={S.btn} onClick={handleRetry}>
                 Retry

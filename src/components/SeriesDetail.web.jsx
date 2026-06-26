@@ -155,26 +155,26 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
     const epPadH = isTV ? 80 : 48;
 
     return (
-      <YStack flex={1} backgroundColor="#0f0f23">
+      <YStack flex={1} backgroundColor="#0A0E1A">
         <XStack
           alignItems="center"
           gap={isTV ? 20 : 14}
           paddingHorizontal={epPadH}
           paddingVertical={isTV ? 28 : 18}
           borderBottomWidth={isTV ? 2 : 1}
-          borderBottomColor="#2a2a4e"
+          borderBottomColor="#28324E"
         >
           <YStack
             paddingVertical={isTV ? 12 : 8}
             paddingHorizontal={isTV ? 20 : 14}
-            backgroundColor="#1a1a2e"
+            backgroundColor="#1B2236"
             borderRadius={isTV ? 12 : 8}
             cursor="pointer"
             onPress={() => setShowEpisodes(false)}
             pressStyle={{ opacity: 0.8 }}
           >
             <Text
-              color="#e94560"
+              color="#6C5CE7"
               fontSize={epBackSize}
               fontWeight={isTV ? "700" : "600"}
             >
@@ -201,30 +201,30 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
           }}
           renderSectionHeader={({ section: { title } }) => (
             <YStack
-              backgroundColor="#16213e"
+              backgroundColor="#141A2E"
               paddingHorizontal={isTV ? 20 : 14}
               paddingVertical={isTV ? 16 : 10}
               marginBottom={isTV ? 12 : 6}
               marginTop={isTV ? 20 : 12}
               borderRadius={isTV ? 12 : 8}
             >
-              <Text color="#e94560" fontSize={epHeaderSize} fontWeight="700">
+              <Text color="#6C5CE7" fontSize={epHeaderSize} fontWeight="700">
                 {title}
               </Text>
             </YStack>
           )}
           renderItem={({ item: ep, section }) => (
             <YStack
-              backgroundColor="#1a1a2e"
+              backgroundColor="#1B2236"
               borderRadius={isTV ? 14 : 10}
               padding={isTV ? 20 : 12}
               marginBottom={isTV ? 12 : 6}
               borderWidth={isTV ? 2 : 1}
-              borderColor="#2a2a4e"
+              borderColor="#28324E"
               cursor="pointer"
               onPress={() => handleEpisodePress(ep, section.seasonNum)}
               pressStyle={{ opacity: 0.8 }}
-              hoverStyle={{ borderColor: "#e94560" }}
+              hoverStyle={{ borderColor: "#6C5CE7" }}
               animation="quick"
             >
               <XStack
@@ -232,7 +232,7 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
                 marginBottom={isTV && ep.info?.plot ? 12 : 0}
               >
                 <YStack
-                  backgroundColor="#e94560"
+                  backgroundColor="#6C5CE7"
                   borderRadius={isTV ? 10 : 6}
                   paddingHorizontal={isTV ? 14 : 8}
                   paddingVertical={isTV ? 8 : 4}
@@ -253,7 +253,7 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
                   </Text>
                   {!!ep.info?.duration && (
                     <Text
-                      color="#888"
+                      color="#7A86A8"
                       fontSize={epDurationSize}
                       marginTop={isTV ? 6 : 2}
                     >
@@ -262,7 +262,7 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
                   )}
                 </YStack>
                 <Text
-                  color="#e94560"
+                  color="#6C5CE7"
                   fontSize={isTV ? 24 : 16}
                   marginLeft={isTV ? 16 : 8}
                 >
@@ -271,7 +271,7 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
               </XStack>
               {isTV && ep.info?.plot && (
                 <Text
-                  color="#aaa"
+                  color="#7A86A8"
                   fontSize={epDescSize}
                   lineHeight={isTV ? 28 : 20}
                   numberOfLines={2}
@@ -306,7 +306,7 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
   return (
     <ScrollView
       flex={1}
-      backgroundColor="#0f0f23"
+      backgroundColor="#0A0E1A"
       contentContainerStyle={{ paddingBottom: 80 }}
     >
       <YStack
@@ -319,7 +319,7 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
           source={{ uri: backdrop }}
           style={FILL}
           resizeMode="cover"
-          fallbackColor="#16213e"
+          fallbackColor="#141A2E"
         />
         {/* CSS gradient — keep as raw View; Tamagui doesn't forward the `background` CSS prop */}
         <View
@@ -327,7 +327,7 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
             FILL,
             {
               background:
-                "linear-gradient(to top, #0f0f23 0%, rgba(15,15,35,0.6) 55%, rgba(15,15,35,0.15) 100%)",
+                "linear-gradient(to top, #0A0E1A 0%, rgba(10, 14, 26,0.6) 55%, rgba(10, 14, 26,0.15) 100%)",
             },
           ]}
         />
@@ -346,7 +346,7 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
           pressStyle={{ opacity: 0.8 }}
         >
           <Text
-            color="#e94560"
+            color="#6C5CE7"
             fontSize={backSize}
             fontWeight={isTV ? "700" : "600"}
           >
@@ -373,7 +373,7 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
           </Text>
 
           {isLoading ? (
-            <Spinner color="#e94560" marginVertical={12} />
+            <Spinner color="#6C5CE7" marginVertical={12} />
           ) : (
             <XStack
               alignItems="center"
@@ -384,13 +384,13 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
               {year ? (
                 <YStack
                   borderWidth={isTV ? 2 : 1}
-                  borderColor="#3a3a5e"
+                  borderColor="#28324E"
                   borderRadius={isTV ? 8 : 4}
                   paddingHorizontal={isTV ? 14 : 8}
                   paddingVertical={isTV ? 8 : 3}
                 >
                   <Text
-                    color="#aaa"
+                    color="#7A86A8"
                     fontSize={metaSize}
                     fontWeight={isTV ? "600" : "400"}
                   >
@@ -401,13 +401,13 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
               {data.genre ? (
                 <YStack
                   borderWidth={isTV ? 2 : 1}
-                  borderColor="#3a3a5e"
+                  borderColor="#28324E"
                   borderRadius={isTV ? 8 : 4}
                   paddingHorizontal={isTV ? 14 : 8}
                   paddingVertical={isTV ? 8 : 3}
                 >
                   <Text
-                    color="#aaa"
+                    color="#7A86A8"
                     fontSize={metaSize}
                     fontWeight={isTV ? "600" : "400"}
                   >
@@ -454,7 +454,7 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
               paddingVertical={buttonPadV}
               borderRadius={isTV ? 12 : 8}
               borderWidth={historyEntry ? (isTV ? 2 : 1) : 0}
-              borderColor="#3a3a5e"
+              borderColor="#28324E"
               cursor="pointer"
               onPress={() => setShowEpisodes(true)}
               pressStyle={{ opacity: 0.8 }}
@@ -476,7 +476,7 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
                 paddingVertical={buttonPadV}
                 borderRadius={isTV ? 12 : 8}
                 borderWidth={isTV ? 2 : 1}
-                borderColor="#3a3a5e"
+                borderColor="#28324E"
                 cursor="pointer"
                 onPress={() => setShowTrailer((v) => !v)}
                 pressStyle={{ opacity: 0.8 }}
@@ -490,17 +490,17 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
             )}
             <YStack
               backgroundColor={
-                inFav ? "rgba(233,69,96,0.15)" : "rgba(40,40,60,0.85)"
+                inFav ? "rgba(108, 92, 231,0.15)" : "rgba(40,40,60,0.85)"
               }
               paddingHorizontal={isTV ? 36 : 22}
               paddingVertical={buttonPadV}
               borderRadius={isTV ? 12 : 8}
               borderWidth={isTV ? 2 : 1}
-              borderColor={inFav ? "#e94560" : "#3a3a5e"}
+              borderColor={inFav ? "#6C5CE7" : "#28324E"}
               cursor="pointer"
               onPress={toggleFav}
               pressStyle={{ opacity: 0.8 }}
-              hoverStyle={{ borderColor: "#e94560" }}
+              hoverStyle={{ borderColor: "#6C5CE7" }}
               animation="quick"
             >
               <Text color="#fff" fontSize={buttonTextSize} fontWeight="600">
@@ -545,7 +545,7 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
         >
           {(data.plot || data.description || data.overview) && (
             <Text
-              color="#ccc"
+              color="#7A86A8"
               fontSize={descSize}
               lineHeight={descLineHeight}
               marginBottom={isTV ? 20 : 12}
@@ -554,7 +554,7 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
             </Text>
           )}
           {data.cast && (
-            <Text color="#aaa" fontSize={castSize} lineHeight={castLineHeight}>
+            <Text color="#7A86A8" fontSize={castSize} lineHeight={castLineHeight}>
               <Text color="#fff" fontWeight="700" fontSize={isTV ? 22 : 14}>
                 Cast:{" "}
               </Text>
@@ -562,7 +562,7 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
             </Text>
           )}
           {data.director && (
-            <Text color="#aaa" fontSize={castSize} lineHeight={castLineHeight}>
+            <Text color="#7A86A8" fontSize={castSize} lineHeight={castLineHeight}>
               <Text color="#fff" fontWeight="700" fontSize={isTV ? 22 : 14}>
                 Director:{" "}
               </Text>

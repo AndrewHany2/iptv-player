@@ -783,12 +783,12 @@ export default function SeriesScreenTV({ navigation, route }) {
                     <div className="tvl-ep-body">
                       <div className="tvl-ep-title">
                         {ep.title || `Episode ${ep.episode_num}`}
-                        {isWatched && <span style={{ marginLeft: 8, color: "#6abf69" }}>✓</span>}
+                        {isWatched && <span style={{ marginLeft: 8, color: "#22D3EE" }}>✓</span>}
                       </div>
                       {ep.info?.plot && <div className="tvl-ep-plot">{ep.info.plot}</div>}
                       {ep.info?.duration && <div className="tvl-ep-dur">{ep.info.duration}</div>}
                       {hasProgress && !isWatched && (
-                        <div style={{ fontSize: 11, color: "#e94560", marginTop: 4 }}>
+                        <div style={{ fontSize: 11, color: "#6C5CE7", marginTop: 4 }}>
                           Continue from {Math.floor(epHistory.currentTime / 60)}:{String(Math.floor(epHistory.currentTime % 60)).padStart(2, "0")}
                         </div>
                       )}

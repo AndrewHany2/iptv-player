@@ -170,7 +170,7 @@ function Shelf({
             letterSpacing={-0.3}
           >
             {title}{" "}
-            <Text color="#e94560" fontSize={ss(18)}>
+            <Text color="#6C5CE7" fontSize={ss(18)}>
               ›
             </Text>
           </Text>
@@ -183,7 +183,7 @@ function Shelf({
       </XStack>
       {items === null ? (
         <YStack paddingHorizontal={ss(48)} paddingVertical={ss(18)}>
-          <Spinner size="small" color="#e94560" />
+          <Spinner size="small" color="#6C5CE7" />
         </YStack>
       ) : (
         <div style={{ position: "relative" }} className="lumen-shelf-rail">
@@ -216,13 +216,13 @@ function Shelf({
                 width={ss(200)}
                 aspectRatio={2 / 3}
                 borderRadius={ss(8)}
-                backgroundColor="#16213e"
+                backgroundColor="#141A2E"
                 borderWidth={1}
-                borderColor="#2a2a4e"
+                borderColor="#28324E"
                 justifyContent="center"
                 alignItems="center"
               >
-                <Spinner size="small" color="#e94560" />
+                <Spinner size="small" color="#6C5CE7" />
               </YStack>
             )}
           </div>
@@ -373,25 +373,25 @@ function CategoryPage({
   };
 
   return (
-    <YStack flex={1} backgroundColor="#0f0f23">
+    <YStack flex={1} backgroundColor="#0A0E1A">
       <XStack
         alignItems="center"
         gap={ss(14)}
         paddingHorizontal={ss(48)}
         paddingVertical={ss(18)}
         borderBottomWidth={1}
-        borderBottomColor="#2a2a4e"
+        borderBottomColor="#28324E"
       >
         <YStack
           paddingVertical={ss(8)}
           paddingHorizontal={ss(14)}
-          backgroundColor="#1a1a2e"
+          backgroundColor="#1B2236"
           borderRadius={ss(8)}
           cursor="pointer"
           onPress={onBack}
           pressStyle={{ opacity: 0.8 }}
         >
-          <Text color="#e94560" fontSize={ss(14)} fontWeight="600">
+          <Text color="#6C5CE7" fontSize={ss(14)} fontWeight="600">
             ← Back
           </Text>
         </YStack>
@@ -405,7 +405,7 @@ function CategoryPage({
             paddingHorizontal={ss(10)}
             paddingVertical={ss(4)}
           >
-            <Text color="#888" fontSize={ss(12)} fontWeight="600">
+            <Text color="#7A86A8" fontSize={ss(12)} fontWeight="600">
               {filtered.length.toLocaleString()}
             </Text>
           </YStack>
@@ -416,19 +416,19 @@ function CategoryPage({
           placeholderTextColor="#555"
           value={search}
           onChangeText={setSearch}
-          backgroundColor="#1a1a2e"
+          backgroundColor="#1B2236"
           color="#fff"
           borderRadius={ss(10)}
           paddingHorizontal={ss(14)}
           paddingVertical={ss(10)}
           fontSize={ss(14)}
           borderWidth={1}
-          borderColor="#2a2a4e"
+          borderColor="#28324E"
         />
       </XStack>
       {!displayed ? (
         <YStack flex={1} justifyContent="center" alignItems="center">
-          <Spinner size="large" color="#e94560" />
+          <Spinner size="large" color="#6C5CE7" />
         </YStack>
       ) : (
         <ScrollView
@@ -456,12 +456,13 @@ function CategoryPage({
                 item={item}
                 onPress={onPress}
                 isFocused={idx === focusedIdx}
+                width={ss(200)}
               />
             ))}
           </div>
           {(hasMore || loadingMore) && (
             <YStack alignItems="center" paddingVertical={ss(24)}>
-              <Spinner size="small" color="#e94560" />
+              <Spinner size="small" color="#6C5CE7" />
             </YStack>
           )}
         </ScrollView>
@@ -776,11 +777,11 @@ export default function SeriesScreen({ navigation }) {
         flex={1}
         justifyContent="center"
         alignItems="center"
-        backgroundColor="#0f0f23"
+        backgroundColor="#0A0E1A"
         padding={ss(24)}
       >
-        <Spinner size="large" color="#e94560" />
-        <Text color="#aaa" marginTop={ss(12)} fontSize={ss(14)}>
+        <Spinner size="large" color="#6C5CE7" />
+        <Text color="#7A86A8" marginTop={ss(12)} fontSize={ss(14)}>
           Loading series...
         </Text>
       </YStack>
@@ -793,7 +794,7 @@ export default function SeriesScreen({ navigation }) {
         flex={1}
         justifyContent="center"
         alignItems="center"
-        backgroundColor="#0f0f23"
+        backgroundColor="#0A0E1A"
         padding={ss(24)}
       >
         <Text fontSize={ss(48)} marginBottom={ss(12)}>
@@ -808,7 +809,7 @@ export default function SeriesScreen({ navigation }) {
           No IPTV Account
         </Text>
         <Text
-          color="#888"
+          color="#7A86A8"
           fontSize={ss(14)}
           textAlign="center"
           marginBottom={ss(20)}
@@ -816,7 +817,7 @@ export default function SeriesScreen({ navigation }) {
           Add your IPTV service from Settings
         </Text>
         <YStack
-          backgroundColor="#e94560"
+          backgroundColor="#6C5CE7"
           paddingHorizontal={ss(24)}
           paddingVertical={ss(12)}
           borderRadius={ss(10)}
@@ -835,7 +836,7 @@ export default function SeriesScreen({ navigation }) {
   const isTopRated = currentCategory?.catId === "top_rated";
 
   return (
-    <YStack flex={1} backgroundColor="#0f0f23" position="relative">
+    <YStack flex={1} backgroundColor="#0A0E1A" position="relative">
       <ScrollView flex={1} contentContainerStyle={{ paddingBottom: ss(80) }}>
         <YStack
           paddingHorizontal={ss(48)}
@@ -859,20 +860,18 @@ export default function SeriesScreen({ navigation }) {
                 gap={ss(10)}
                 paddingHorizontal={ss(18)}
                 paddingVertical={ss(11)}
-                backgroundColor="rgba(233,69,96,0.08)"
+                backgroundColor="rgba(108, 92, 231,0.08)"
                 borderWidth={1}
                 borderColor={
                   focusedRow === 0 && focusedCol === idx
-                    ? "#e94560"
-                    : "rgba(233,69,96,0.28)"
+                    ? "#22D3EE"
+                    : "rgba(108, 92, 231,0.28)"
                 }
                 borderRadius={999}
                 cursor="pointer"
                 onPress={() => handleTitlePress(pill.id, pill.label)}
                 pressStyle={{ opacity: 0.75 }}
-                hoverStyle={{ borderColor: "#e94560" }}
-                animation="quick"
-                scale={focusedRow === 0 && focusedCol === idx ? 1.05 : 1}
+                hoverStyle={{ borderColor: "#22D3EE" }}
                 {...{ className: "lumen-load-cta" }}
               >
                 <Text fontSize={ss(16)}>{pill.id === "all" ? "📺" : "⭐"}</Text>
@@ -884,7 +883,7 @@ export default function SeriesScreen({ navigation }) {
                 >
                   {pill.label}
                 </Text>
-                <Text color="#e94560" fontSize={ss(16)} fontWeight="700">
+                <Text color="#6C5CE7" fontSize={ss(16)} fontWeight="700">
                   →
                 </Text>
               </XStack>

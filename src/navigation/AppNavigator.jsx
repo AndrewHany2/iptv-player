@@ -26,12 +26,12 @@ function HeaderRight() {
   return (
     <XStack alignItems="center" gap={6} marginRight={12}>
       {isSyncing && (
-        <YStack backgroundColor="rgba(233,69,96,0.2)" borderRadius={8} paddingHorizontal={8} paddingVertical={3} borderWidth={1} borderColor="rgba(233,69,96,0.4)">
-          <Text color="#e94560" fontSize={11} fontWeight="600">↻ Syncing</Text>
+        <YStack backgroundColor="rgba(108, 92, 231,0.2)" borderRadius={8} paddingHorizontal={8} paddingVertical={3} borderWidth={1} borderColor="rgba(108, 92, 231,0.4)">
+          <Text color="#6C5CE7" fontSize={11} fontWeight="600">↻ Syncing</Text>
         </YStack>
       )}
       {activeUser && (
-        <YStack backgroundColor="#2a2a4e" borderRadius={8} paddingHorizontal={8} paddingVertical={3}>
+        <YStack backgroundColor="#28324E" borderRadius={8} paddingHorizontal={8} paddingVertical={3}>
           <Text color="#aaa" fontSize={11}>📡 {activeUser.nickname || activeUser.username}</Text>
         </YStack>
       )}
@@ -50,10 +50,10 @@ function HeaderRight() {
 function MainTabs() {
   return (
     <Tab.Navigator screenOptions={{
-      tabBarStyle: { backgroundColor: "#1a1a2e" },
-      tabBarActiveTintColor: "#e94560",
+      tabBarStyle: { backgroundColor: "#1B2236" },
+      tabBarActiveTintColor: "#6C5CE7",
       tabBarInactiveTintColor: "#888",
-      headerStyle: { backgroundColor: "#1a1a2e" },
+      headerStyle: { backgroundColor: "#1B2236" },
       headerTintColor: "#fff",
       headerRight: () => <HeaderRight />,
     }}>
@@ -73,10 +73,10 @@ export default function AppNavigator() {
 
   return (
     <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerStyle: { backgroundColor: "#1a1a2e" }, headerTintColor: "#fff", contentStyle: { backgroundColor: "#0f0f23" } }}>
+      <Stack.Navigator screenOptions={{ headerStyle: { backgroundColor: "#1B2236" }, headerTintColor: "#fff", contentStyle: { backgroundColor: "#0A0E1A" } }}>
         <Stack.Screen name="Main"        component={MainTabs}         options={{ headerShown: false }} />
         <Stack.Screen name="VideoPlayer" component={VideoPlayerScreen} options={{ headerShown: false, presentation: "fullScreenModal" }} />
-        <Stack.Screen name="Accounts"    component={AccountsScreen}   options={{ title: "IPTV Accounts", presentation: "modal", headerStyle: { backgroundColor: "#1a1a2e" }, headerTintColor: "#fff" }} />
+        <Stack.Screen name="Accounts"    component={AccountsScreen}   options={{ title: "IPTV Accounts", presentation: "modal", headerStyle: { backgroundColor: "#1B2236" }, headerTintColor: "#fff" }} />
       </Stack.Navigator>
     </NavigationContainer>
   );

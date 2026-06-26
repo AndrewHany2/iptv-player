@@ -97,14 +97,14 @@ function MyListCard({ item, onPress, onRemove }) {
         width={ss(200)}
         aspectRatio={2 / 3}
         borderRadius={ss(8)}
-        backgroundColor="#16213e"
+        backgroundColor="#141A2E"
         overflow="hidden"
         position="relative"
       >
         {poster ? (
           <Image source={{ uri: poster }} style={FILL} resizeMode="cover" />
         ) : (
-          <View style={[FILL, { backgroundColor: "#16213e" }]} />
+          <View style={[FILL, { backgroundColor: "#141A2E" }]} />
         )}
         <YStack
           position="absolute"
@@ -117,7 +117,7 @@ function MyListCard({ item, onPress, onRemove }) {
           paddingVertical={ss(2)}
         >
           <Text
-            color="#ccc"
+            color="#7A86A8"
             fontSize={ss(9)}
             fontWeight="700"
             letterSpacing={0.5}
@@ -160,7 +160,7 @@ function MyListCard({ item, onPress, onRemove }) {
       </Text>
       {epLabel && (
         <Text
-          color="#aaa"
+          color="#7A86A8"
           fontSize={ss(10)}
           marginTop={ss(5)}
           letterSpacing={0.3}
@@ -199,14 +199,14 @@ function CWCard({ item, onPress, onRemove }) {
         width={ss(320)}
         height={ss(180)}
         borderRadius={ss(8)}
-        backgroundColor="#16213e"
+        backgroundColor="#141A2E"
         overflow="hidden"
         position="relative"
       >
         {bg ? (
           <Image source={{ uri: bg }} style={FILL} resizeMode="cover" />
         ) : (
-          <View style={[FILL, { backgroundColor: "#16213e" }]} />
+          <View style={[FILL, { backgroundColor: "#141A2E" }]} />
         )}
         <View
           style={[
@@ -262,7 +262,7 @@ function CWCard({ item, onPress, onRemove }) {
               style={{
                 height: "100%",
                 width: `${progress}%`,
-                backgroundColor: "#e94560",
+                backgroundColor: "#6C5CE7",
               }}
             />
           </View>
@@ -280,7 +280,7 @@ function CWCard({ item, onPress, onRemove }) {
         </Text>
         {(epLabel || epTitle) && (
           <Text
-            color="#888"
+            color="#7A86A8"
             fontSize={ss(12)}
             marginBottom={ss(2)}
             numberOfLines={1}
@@ -289,7 +289,7 @@ function CWCard({ item, onPress, onRemove }) {
           </Text>
         )}
         {timeLeft && (
-          <Text color="#888" fontSize={ss(12)}>
+          <Text color="#7A86A8" fontSize={ss(12)}>
             {timeLeft}
           </Text>
         )}
@@ -358,7 +358,7 @@ export default function HistoryScreen({ navigation }) {
         flex={1}
         justifyContent="center"
         alignItems="center"
-        backgroundColor="#0f0f23"
+        backgroundColor="#0A0E1A"
         padding={ss(24)}
       >
         <Text fontSize={ss(48)} marginBottom={ss(12)}>
@@ -372,7 +372,7 @@ export default function HistoryScreen({ navigation }) {
         >
           Nothing here yet
         </Text>
-        <Text color="#888" fontSize={ss(14)} textAlign="center">
+        <Text color="#7A86A8" fontSize={ss(14)} textAlign="center">
           Start watching something and it will appear here
         </Text>
       </YStack>
@@ -382,7 +382,7 @@ export default function HistoryScreen({ navigation }) {
   return (
     <ScrollView
       flex={1}
-      backgroundColor="#0f0f23"
+      backgroundColor="#0A0E1A"
       contentContainerStyle={{ paddingTop: ss(40), paddingBottom: ss(80) }}
     >
       {myList.length > 0 && (

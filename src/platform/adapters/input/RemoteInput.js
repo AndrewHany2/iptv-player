@@ -14,16 +14,7 @@
  *   remote.destroy();
  */
 
-const KEY_CODES = {
-  37: 'left', 38: 'up', 39: 'right', 40: 'down',
-  13: 'enter',
-  27: 'back', 461: 'back', 10009: 'back', 8: 'back',
-};
-const KEY_NAMES = {
-  ArrowLeft: 'left', ArrowUp: 'up', ArrowRight: 'right', ArrowDown: 'down',
-  Enter: 'enter',
-  Escape: 'back',
-};
+import { resolveAction } from './keys';
 
 export class RemoteInput {
   constructor(focusManager = null) {
@@ -63,7 +54,7 @@ export class RemoteInput {
   }
 
   _onKeyDown(e) {
-    const action = KEY_NAMES[e.key] ?? KEY_CODES[e.keyCode] ?? KEY_CODES[e.which];
+    const action = resolveAction(e);
     if (!action) return;
     e.preventDefault();
 

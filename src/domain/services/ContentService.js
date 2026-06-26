@@ -5,6 +5,26 @@ import { normalizeSeries, normalizeSeriesInfo } from "../models/Series";
 import { normalizeChannel } from "../models/Channel";
 
 class ContentService {
+  // ── Configuration ──────────────────────────────────────────────────────────
+
+  /**
+   * Point the service at an IPTV account. Pass null to clear.
+   * Replaces callers reaching into iptvApi.setCredentials directly.
+   * @param {{ host: string, username: string, password: string } | null} credentials
+   */
+  configure(credentials) {
+    if (credentials) {
+      iptvApi.setCredentials(credentials.host, credentials.username, credentials.password);
+      this._configured = true;
+    } else {
+      this._configured = false;
+    }
+  }
+
+  get isConfigured() {
+    return this._configured === true;
+  }
+
   // ── Live TV ──────────────────────────────────────────────────────────────
 
   async getLiveCategories() {
@@ -47,6 +67,12 @@ class ContentService {
   async getMovieInfo(movieId) {
     const raw = await iptvApi.getVODInfo(movieId);
     return normalizeMovieInfo(raw);
+  }
+
+  /** Raw VOD info ({ info: {...}, movie_data: {...} }) for views that render the
+   *  provider's native shape directly (e.g. the TV detail screen). */
+  getMovieInfoRaw(movieId) {
+    return iptvApi.getVODInfo(movieId);
   }
 
   buildMovieUrl(movieId, containerExtension = "mp4") {

@@ -1,6 +1,5 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useApp } from "../../context/AppContext";
-import iptvApi from "../../services/iptvApi";
 import { contentService } from "../services/ContentService";
 
 /**
@@ -15,11 +14,16 @@ export function useContentService() {
     [users, activeUserId],
   );
 
-  // Keep iptvApi credentials in sync whenever the active user changes.
-  // ContentService delegates to iptvApi so this is sufficient.
-  useMemo(() => {
+  // Keep ContentService credentials in sync whenever the active user changes.
+  useEffect(() => {
     if (activeUser) {
-      iptvApi.setCredentials(activeUser.host, activeUser.username, activeUser.password);
+      contentService.configure({
+        host: activeUser.host,
+        username: activeUser.username,
+        password: activeUser.password,
+      });
+    } else {
+      contentService.configure(null);
     }
   }, [activeUser]);
 

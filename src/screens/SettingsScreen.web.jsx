@@ -13,7 +13,7 @@ const ASPECT_OPTIONS = [
 function SectionTitle({ children }) {
   return (
     <Text
-      color="#888"
+      color="#7A86A8"
       fontSize={ss(11)}
       fontWeight="700"
       letterSpacing={1}
@@ -32,7 +32,7 @@ function ToggleRow({ label, value, onChange }) {
       alignItems="center"
       paddingVertical={ss(14)}
       borderBottomWidth={1}
-      borderBottomColor="#1e1e3a"
+      borderBottomColor="#28324E"
     >
       <Text color="#fff" fontSize={ss(14)}>
         {label}
@@ -43,7 +43,7 @@ function ToggleRow({ label, value, onChange }) {
           width: ss(44),
           height: ss(24),
           borderRadius: ss(12),
-          backgroundColor: value ? "#e94560" : "#2a2a4e",
+          backgroundColor: value ? "#6C5CE7" : "#28324E",
           position: "relative",
           cursor: "pointer",
           transition: "background 0.2s",
@@ -69,8 +69,8 @@ function ToggleRow({ label, value, onChange }) {
 
 function ChipRow({ label, options, value, onChange }) {
   return (
-    <YStack paddingVertical={ss(14)} borderBottomWidth={1} borderBottomColor="#1e1e3a">
-      <Text color="#ccc" fontSize={ss(13)} marginBottom={ss(10)}>
+    <YStack paddingVertical={ss(14)} borderBottomWidth={1} borderBottomColor="#28324E">
+      <Text color="#7A86A8" fontSize={ss(13)} marginBottom={ss(10)}>
         {label}
       </Text>
       <XStack gap={ss(8)} flexWrap="wrap">
@@ -81,9 +81,9 @@ function ChipRow({ label, options, value, onChange }) {
             style={{
               padding: `${ss(6)}px ${ss(14)}px`,
               borderRadius: ss(6),
-              border: `1.5px solid ${value === opt.value ? "#e94560" : "#2a2a4e"}`,
-              backgroundColor: value === opt.value ? "rgba(233,69,96,0.12)" : "transparent",
-              color: value === opt.value ? "#e94560" : "#aaa",
+              border: `1.5px solid ${value === opt.value ? "#6C5CE7" : "#28324E"}`,
+              backgroundColor: value === opt.value ? "rgba(108, 92, 231,0.12)" : "transparent",
+              color: value === opt.value ? "#6C5CE7" : "#7A86A8",
               fontSize: ss(13),
               cursor: "pointer",
               fontWeight: value === opt.value ? "700" : "400",
@@ -104,7 +104,7 @@ export default function SettingsScreen() {
   return (
     <YStack
       flex={1}
-      backgroundColor="#0f0f23"
+      backgroundColor="#0A0E1A"
       padding={ss(24)}
       maxWidth={ss(520)}
       alignSelf="center"

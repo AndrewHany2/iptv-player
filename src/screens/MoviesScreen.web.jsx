@@ -1,253 +1,19 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import { View } from "react-native";
-import { YStack, XStack, Text, Input, ScrollView, Spinner } from "tamagui";
+import { useState, useEffect, useRef } from "react";
+import { YStack, XStack, Text, Input, ScrollView, Spinner } from "../ui/primitives";
 import { useApp } from "../context/AppContext";
-import { useContentService } from "../domain/hooks/useContentService";
+import { useMovies } from "../domain/hooks/useMovies";
 import { useTVNavigation } from "../hooks/useTVNavigation";
 import { ss } from "../utils/scaleSize";
-import { detectPlatform, getPlatformConfig } from "../platform/configs/detectPlatform";
-import iptvApi from "../services/iptvApi";
-import tmdbApi from "../services/tmdbApi";
+import { getPlatformConfig, detectPlatform } from "../platform/configs/detectPlatform";
+import ContentShelf from "../presentation/components/ContentShelf.web";
+import PosterCard from "../presentation/components/PosterCard.web";
 import MovieDetail from "../components/MovieDetail.web";
-import TVPosterCard from "../components/TVPosterCard";
 
-const _platformConfig = getPlatformConfig(detectPlatform());
-const SHELF_PAGE = _platformConfig.performance.shelfPageSize;
-const GRID_PAGE = _platformConfig.performance.gridPageSize;
+const _cfg = getPlatformConfig(detectPlatform());
+const GRID_PAGE = _cfg.performance.gridPageSize;
 
-async function prefetchTopRated() {
-  if (globalThis.__TV__) return null;
-
-  try {
-    const streams = await iptvApi.getAllVODStreamsRobust();
-    if (!streams?.length) return null;
-
-    if (globalThis.__TV__ || !tmdbApi.hasKey) {
-      return {
-        streams,
-        matched: [...streams]
-          .filter((s) => parseFloat(s.rating) > 0)
-          .sort((a, b) => parseFloat(b.rating) - parseFloat(a.rating)),
-        hasTmdb: false,
-        seenIds: new Set(),
-        totalPages: 0,
-        hasMore: false,
-      };
-    }
-    const seenIds = new Set();
-    const { matched, totalPages, hasMore } = await tmdbApi.matchTopRatedRange({
-      type: "movie",
-      iptvItems: streams,
-      idField: "stream_id",
-      fromPage: 1,
-      toPage: 5,
-      seenIds,
-    });
-    return { streams, matched, seenIds, totalPages, hasMore, hasTmdb: true };
-  } catch {
-    return null;
-  }
-}
-
-/* ─── Poster Card ─── */
-// Using TVPosterCard for better TV performance
-const PosterCard = TVPosterCard;
-
-
-/* ─── Shelf ─── */
-function Shelf({
-  catId,
-  title,
-  items,
-  totalCount,
-  hasMore,
-  loadingMore,
-  onVisible,
-  onPlay,
-  onTitlePress,
-  onLoadMore,
-  manual,
-}) {
-  const sentinelRef = useRef(null);
-  const railRef = useRef(null);
-  const isDragging = useRef(false);
-  const dragStartX = useRef(0);
-  const dragStartLeft = useRef(0);
-  const hasDragged = useRef(false);
-
-  useEffect(() => {
-    if (items !== null || manual) return;
-    const el = sentinelRef.current;
-    if (!el || typeof IntersectionObserver === "undefined") {
-      onVisible(catId);
-      return;
-    }
-    const obs = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          obs.disconnect();
-          onVisible(catId);
-        }
-      },
-      { rootMargin: "300px 0px" },
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, [catId, items, onVisible, manual]);
-
-  useEffect(() => {
-    const el = railRef.current;
-    if (!el) return;
-    const onMouseDown = (e) => {
-      isDragging.current = true;
-      hasDragged.current = false;
-      dragStartX.current = e.pageX;
-      dragStartLeft.current = el.scrollLeft;
-      el.style.cursor = "grabbing";
-    };
-    const onMouseMove = (e) => {
-      if (!isDragging.current) return;
-      const dx = e.pageX - dragStartX.current;
-      if (Math.abs(dx) > 4) {
-        hasDragged.current = true;
-        el.scrollLeft = dragStartLeft.current - dx;
-      }
-    };
-    const onMouseUp = () => {
-      isDragging.current = false;
-      el.style.cursor = "grab";
-    };
-    const onClickCapture = (e) => {
-      if (hasDragged.current) {
-        hasDragged.current = false;
-        e.stopPropagation();
-        e.preventDefault();
-      }
-    };
-    el.addEventListener("mousedown", onMouseDown);
-    el.addEventListener("click", onClickCapture, true);
-    window.addEventListener("mousemove", onMouseMove);
-    window.addEventListener("mouseup", onMouseUp);
-    return () => {
-      el.removeEventListener("mousedown", onMouseDown);
-      el.removeEventListener("click", onClickCapture, true);
-      window.removeEventListener("mousemove", onMouseMove);
-      window.removeEventListener("mouseup", onMouseUp);
-    };
-  }, [items !== null]);
-
-  if (items !== null && !items?.length) return null;
-
-  const scrollBy = (delta) => {
-    const el = railRef.current;
-    if (el) el.scrollLeft = Math.max(0, el.scrollLeft + delta);
-  };
-  const handleScroll = (e) => {
-    if (!hasMore || loadingMore) return;
-    const { scrollLeft, scrollWidth, clientWidth } = e.target;
-    if (scrollWidth - scrollLeft - clientWidth < 500) onLoadMore(catId);
-  };
-
-  return (
-    <YStack paddingTop={ss(28)} paddingBottom={ss(8)} overflow="visible">
-      <div ref={sentinelRef} style={{ height: 0 }} />
-      <XStack
-        alignItems="baseline"
-        justifyContent="space-between"
-        paddingHorizontal={ss(48)}
-        marginBottom={ss(14)}
-      >
-        <YStack
-          cursor="pointer"
-          onPress={() => onTitlePress?.(catId, title)}
-          pressStyle={{ opacity: 0.8 }}
-          {...{ className: "lumen-shelf-title-btn" }}
-        >
-          <Text
-            color="#fff"
-            fontSize={ss(22)}
-            fontWeight="700"
-            letterSpacing={-0.3}
-          >
-            {title}{" "}
-            <Text color="#e94560" fontSize={ss(18)}>
-              ›
-            </Text>
-          </Text>
-        </YStack>
-        {totalCount != null && (
-          <Text color="#555" fontSize={ss(13)} fontWeight="500">
-            {totalCount}
-          </Text>
-        )}
-      </XStack>
-      {items === null ? (
-        <YStack paddingHorizontal={ss(48)} paddingVertical={ss(18)}>
-          <Spinner size="small" color="#e94560" />
-        </YStack>
-      ) : (
-        <div style={{ position: "relative" }} className="lumen-shelf-rail">
-          <button className="lumen-shelf-nav" onClick={() => scrollBy(-800)}>
-            ‹
-          </button>
-          <div
-            ref={railRef}
-            onScroll={handleScroll}
-            style={{
-              display: "flex",
-              overflowX: "auto",
-              gap: ss(8),
-              paddingLeft: ss(48),
-              paddingRight: ss(48),
-              scrollbarWidth: "none",
-              msOverflowStyle: "none",
-              cursor: "grab",
-            }}
-          >
-            {items.map((item) => (
-              <PosterCard
-                key={String(item.stream_id)}
-                item={item}
-                onPress={onPlay}
-              />
-            ))}
-            {loadingMore && (
-              <YStack
-                width={ss(200)}
-                aspectRatio={2 / 3}
-                borderRadius={ss(8)}
-                backgroundColor="#16213e"
-                borderWidth={1}
-                borderColor="#2a2a4e"
-                justifyContent="center"
-                alignItems="center"
-              >
-                <Spinner size="small" color="#e94560" />
-              </YStack>
-            )}
-          </div>
-          <button
-            className="lumen-shelf-nav right"
-            onClick={() => scrollBy(800)}
-          >
-            ›
-          </button>
-        </div>
-      )}
-    </YStack>
-  );
-}
-
-/* ─── Category Page ─── */
-function CategoryPage({
-  name,
-  items,
-  onBack,
-  onPlay,
-  onLoadMore,
-  hasRemote,
-  loadingMore,
-}) {
+/* ─── Category Page (drill-in grid + web D-pad) ─── */
+function CategoryPage({ name, items, onBack, onPlay, onLoadMore, hasRemote, loadingMore }) {
   const { searchQuery: search, setSearchQuery: setSearch } = useApp();
   const [displayCount, setDisplayCount] = useState(GRID_PAGE);
   const [focusedIdx, setFocusedIdx] = useState(0);
@@ -258,40 +24,23 @@ function CategoryPage({
   const displayedRef = useRef(null);
   const onPlayRef = useRef(onPlay);
   const onBackRef = useRef(onBack);
-  useEffect(() => {
-    onPlayRef.current = onPlay;
-  }, [onPlay]);
-  useEffect(() => {
-    onBackRef.current = onBack;
-  }, [onBack]);
+  useEffect(() => { onPlayRef.current = onPlay; }, [onPlay]);
+  useEffect(() => { onBackRef.current = onBack; }, [onBack]);
 
   const filtered = items
-    ? search.trim()
-      ? items.filter((i) =>
-          i.name?.toLowerCase().includes(search.toLowerCase()),
-        )
-      : items
+    ? (search.trim() ? items.filter((i) => i.name?.toLowerCase().includes(search.toLowerCase())) : items)
     : null;
   const displayed = filtered ? filtered.slice(0, displayCount) : null;
   displayedRef.current = displayed;
   const hasLocalMore = filtered && displayCount < filtered.length;
   const hasMore = hasLocalMore || hasRemote;
 
-  useEffect(() => {
-    setDisplayCount(GRID_PAGE);
-    setFocusedIdx(0);
-    focusedIdxRef.current = 0;
-  }, [search]);
+  useEffect(() => { setDisplayCount(GRID_PAGE); setFocusedIdx(0); focusedIdxRef.current = 0; }, [search]);
 
   useEffect(() => {
     const el = gridContainerRef.current;
     if (!el || typeof ResizeObserver === "undefined") return;
-    const update = () => {
-      numColsRef.current = Math.max(
-        1,
-        Math.floor(el.offsetWidth / (ss(200) + ss(12))),
-      );
-    };
+    const update = () => { numColsRef.current = Math.max(1, Math.floor(el.offsetWidth / (ss(200) + ss(16)))); };
     update();
     const ro = new ResizeObserver(update);
     ro.observe(el);
@@ -299,12 +48,8 @@ function CategoryPage({
   }, []);
 
   useEffect(() => {
-    const onNavFocus = () => {
-      navHasFocusRef.current = true;
-    };
-    const onNavBlur = () => {
-      navHasFocusRef.current = false;
-    };
+    const onNavFocus = () => { navHasFocusRef.current = true; };
+    const onNavBlur = () => { navHasFocusRef.current = false; };
     globalThis.addEventListener("tv-nav-focus", onNavFocus);
     globalThis.addEventListener("tv-nav-blur", onNavBlur);
     return () => {
@@ -321,32 +66,17 @@ function CategoryPage({
       const idx = focusedIdxRef.current;
       const numCols = numColsRef.current;
       if (e.key === "ArrowRight" || e.keyCode === 39) {
-        e.preventDefault();
-        const next = Math.min(idx + 1, list.length - 1);
-        focusedIdxRef.current = next;
-        setFocusedIdx(next);
+        e.preventDefault(); const next = Math.min(idx + 1, list.length - 1); focusedIdxRef.current = next; setFocusedIdx(next);
       } else if (e.key === "ArrowLeft" || e.keyCode === 37) {
-        e.preventDefault();
-        const prev = Math.max(idx - 1, 0);
-        focusedIdxRef.current = prev;
-        setFocusedIdx(prev);
+        e.preventDefault(); const prev = Math.max(idx - 1, 0); focusedIdxRef.current = prev; setFocusedIdx(prev);
       } else if (e.key === "ArrowDown" || e.keyCode === 40) {
-        e.preventDefault();
-        const next = Math.min(idx + numCols, list.length - 1);
-        focusedIdxRef.current = next;
-        setFocusedIdx(next);
+        e.preventDefault(); const next = Math.min(idx + numCols, list.length - 1); focusedIdxRef.current = next; setFocusedIdx(next);
       } else if (e.key === "ArrowUp" || e.keyCode === 38) {
         e.preventDefault();
-        if (idx >= numCols) {
-          const prev = idx - numCols;
-          focusedIdxRef.current = prev;
-          setFocusedIdx(prev);
-        } else {
-          globalThis.dispatchEvent(new CustomEvent("tv-nav-focus"));
-        }
+        if (idx >= numCols) { const prev = idx - numCols; focusedIdxRef.current = prev; setFocusedIdx(prev); }
+        else globalThis.dispatchEvent(new CustomEvent("tv-nav-focus"));
       } else if (e.key === "Enter" || e.keyCode === 13) {
-        const item = list[idx];
-        if (item) onPlayRef.current(item);
+        const item = list[idx]; if (item) onPlayRef.current(item);
       } else if (e.key === "Escape" || e.keyCode === 27) {
         onBackRef.current();
       }
@@ -357,112 +87,45 @@ function CategoryPage({
 
   useEffect(() => {
     if (typeof document === "undefined") return;
-    document
-      .querySelector('[data-tv-focused="true"]')
-      ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    document.querySelector('[data-tv-focused="true"]')?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [focusedIdx]);
 
-  const handleScroll = ({
-    nativeEvent: { layoutMeasurement, contentOffset, contentSize },
-  }) => {
-    if (contentSize.height - contentOffset.y - layoutMeasurement.height >= 800)
-      return;
-    if (hasLocalMore)
-      setDisplayCount((c) => Math.min(c + GRID_PAGE, filtered.length));
+  const handleScroll = ({ nativeEvent: { layoutMeasurement, contentOffset, contentSize } }) => {
+    if (contentSize.height - contentOffset.y - layoutMeasurement.height >= 800) return;
+    if (hasLocalMore) setDisplayCount((c) => Math.min(c + GRID_PAGE, filtered.length));
     else if (hasRemote && !loadingMore && onLoadMore) onLoadMore();
   };
 
   return (
-    <YStack flex={1} backgroundColor="#0f0f23">
-      <XStack
-        alignItems="center"
-        gap={ss(14)}
-        paddingHorizontal={ss(48)}
-        paddingVertical={ss(18)}
-        borderBottomWidth={1}
-        borderBottomColor="#2a2a4e"
-      >
-        <YStack
-          paddingVertical={ss(8)}
-          paddingHorizontal={ss(14)}
-          backgroundColor="#1a1a2e"
-          borderRadius={ss(8)}
-          cursor="pointer"
-          onPress={onBack}
-          pressStyle={{ opacity: 0.8 }}
-        >
-          <Text color="#e94560" fontSize={ss(14)} fontWeight="600">
-            ← Back
-          </Text>
+    <YStack flex={1} backgroundColor="#0A0E1A">
+      <XStack alignItems="center" gap={ss(14)} paddingHorizontal={ss(48)} paddingVertical={ss(18)} borderBottomWidth={1} borderBottomColor="#28324E">
+        <YStack paddingVertical={ss(8)} paddingHorizontal={ss(14)} backgroundColor="#1B2236" borderRadius={ss(8)} onPress={onBack}>
+          <Text color="#6C5CE7" fontSize={ss(14)} fontWeight="600">← Back</Text>
         </YStack>
-        <Text color="#fff" fontSize={ss(22)} fontWeight="700">
-          {name}
-        </Text>
+        <Text color="#fff" fontSize={ss(22)} fontWeight="700">{name}</Text>
         {filtered != null && (
-          <YStack
-            backgroundColor="rgba(255,255,255,0.07)"
-            borderRadius={ss(20)}
-            paddingHorizontal={ss(10)}
-            paddingVertical={ss(4)}
-          >
-            <Text color="#888" fontSize={ss(12)} fontWeight="600">
-              {filtered.length.toLocaleString()}
-            </Text>
+          <YStack backgroundColor="rgba(255,255,255,0.07)" borderRadius={ss(20)} paddingHorizontal={ss(10)} paddingVertical={ss(4)}>
+            <Text color="#7A86A8" fontSize={ss(12)} fontWeight="600">{filtered.length.toLocaleString()}</Text>
           </YStack>
         )}
         <Input
-          flex={1}
-          placeholder="Search titles..."
-          placeholderTextColor="#555"
-          value={search}
-          onChangeText={setSearch}
-          backgroundColor="#1a1a2e"
-          color="#fff"
-          borderRadius={ss(10)}
-          paddingHorizontal={ss(14)}
-          paddingVertical={ss(10)}
-          fontSize={ss(14)}
-          borderWidth={1}
-          borderColor="#2a2a4e"
+          flex={1} placeholder="Search titles..." placeholderTextColor="#555"
+          value={search} onChangeText={setSearch}
+          backgroundColor="#1B2236" color="#fff" borderRadius={ss(10)}
+          paddingHorizontal={ss(14)} paddingVertical={ss(10)} fontSize={ss(14)} borderWidth={1} borderColor="#28324E"
         />
       </XStack>
       {!displayed ? (
-        <YStack flex={1} justifyContent="center" alignItems="center">
-          <Spinner size="large" color="#e94560" />
-        </YStack>
+        <YStack flex={1} justifyContent="center" alignItems="center"><Spinner size="large" color="#6C5CE7" /></YStack>
       ) : (
-        <ScrollView
-          flex={1}
-          minHeight={0}
-          contentContainerStyle={{
-            paddingHorizontal: ss(48),
-            paddingVertical: ss(32),
-          }}
-          onScroll={handleScroll}
-          scrollEventThrottle={200}
-        >
-          <div
-            ref={gridContainerRef}
-            style={{
-              display: "grid",
-              gridTemplateColumns: `repeat(auto-fill, ${ss(200)}px)`,
-              gap: ss(12),
-              justifyContent: "center",
-            }}
-          >
+        <ScrollView flex={1} minHeight={0} contentContainerStyle={{ paddingHorizontal: ss(48), paddingVertical: ss(32) }} onScroll={handleScroll} scrollEventThrottle={200}>
+          <div ref={gridContainerRef} style={{ display: "grid", gridTemplateColumns: `repeat(auto-fill, ${ss(200)}px)`, gap: ss(16), justifyContent: "center", alignItems: "start" }}>
             {displayed.map((item, idx) => (
-              <PosterCard
-                key={String(item.stream_id)}
-                item={item}
-                onPress={onPlay}
-                isFocused={idx === focusedIdx}
-              />
+              <PosterCard key={String(item.stream_id)} item={item} onPress={onPlay} isFocused={idx === focusedIdx} width={ss(200)} />
             ))}
           </div>
           {(hasMore || loadingMore) && (
-            <YStack alignItems="center" paddingVertical={ss(24)}>
-              <Spinner size="small" color="#e94560" />
-            </YStack>
+            <YStack alignItems="center" paddingVertical={ss(24)}><Spinner size="small" color="#6C5CE7" /></YStack>
           )}
         </ScrollView>
       )}
@@ -472,481 +135,101 @@ function CategoryPage({
 
 /* ─── Screen ─── */
 export default function MoviesScreen({ navigation }) {
-  const { activeUser, activeUserId } = useContentService();
-  const { playVideo } = useApp();
-  const [loading, setLoading] = useState(false);
-  const [shelves, setShelves] = useState([]);
-  const [currentCategory, setCurrentCategory] = useState(null);
-  const [categoryItems, setCategoryItems] = useState(null);
-  const [currentMovieDetail, setCurrentMovieDetail] = useState(null);
-  const loadedRef = useRef(new Set());
-  const allShuffledRef = useRef([]);
-  const topRatedRef = useRef([]);
-  const prefetchRef = useRef({ topRated: null });
-  const topRatedCursorRef = useRef(null);
-  const [topRatedLoadingMore, setTopRatedLoadingMore] = useState(false);
-  const [topRatedHasMore, setTopRatedHasMore] = useState(false);
+  const {
+    loading, activeUserId, shelves, discoverItems,
+    handleShelfVisible, handleLoadMore, openCategory, closeCategory,
+    categoryPage, isTopRatedCategory, topRatedHasMore, topRatedLoadingMore, handleTopRatedMore,
+    selectedMovie, selectMovie, clearSelectedMovie, playVideoObject,
+  } = useMovies({ navigation });
 
-  useEffect(() => {
-    if (activeUserId) load();
-  }, [activeUserId]);
-
-  const load = async () => {
-    if (!activeUser) return;
-    setLoading(true);
-    loadedRef.current.clear();
-    allShuffledRef.current = [];
-    topRatedRef.current = [];
-    prefetchRef.current = { topRated: null };
-    setShelves([]);
-    try {
-      const cats = await iptvApi.getVODCategories();
-      if (!cats?.length) {
-        setLoading(false);
-        return;
-      }
-      setShelves(
-        cats.map((c) => ({
-          id: c.category_id,
-          name: c.category_name,
-          items: null,
-          totalCount: null,
-          hasMore: false,
-          loadingMore: false,
-        })),
-      );
-      prefetchRef.current = { topRated: prefetchTopRated() };
-    } catch (err) {
-      console.error("Error loading movies:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleShelfVisible = useCallback(async (catId) => {
-    if (loadedRef.current.has(catId)) return;
-    loadedRef.current.add(catId);
-    try {
-      let all;
-      if (catId === "all") {
-        const prefetched = prefetchRef.current.topRated
-          ? await prefetchRef.current.topRated
-          : null;
-        const streams =
-          prefetched?.streams || (await iptvApi.getAllVODStreamsRobust());
-        all = [...(streams || [])].sort(() => Math.random() - 0.5);
-        allShuffledRef.current = all;
-      } else if (catId === "top_rated") {
-        const streams = await iptvApi.getAllVODStreamsRobust();
-        if (tmdbApi.hasKey) all = await tmdbApi.matchMovies(streams || []);
-        if (!all?.length)
-          all = [...(streams || [])]
-            .filter((s) => parseFloat(s.rating) > 0)
-            .sort((a, b) => parseFloat(b.rating) - parseFloat(a.rating));
-        topRatedRef.current = all;
-      } else {
-        const streams = await iptvApi.getVODStreams(catId);
-        all = streams || [];
-      }
-      const firstPage = all.slice(0, SHELF_PAGE);
-      setShelves((prev) =>
-        prev.map((s) =>
-          s.id === catId
-            ? {
-                ...s,
-                items: firstPage,
-                totalCount: all.length,
-                hasMore: all.length > SHELF_PAGE,
-              }
-            : s,
-        ),
-      );
-    } catch {
-      setShelves((prev) =>
-        prev.map((s) =>
-          s.id === catId
-            ? { ...s, items: [], totalCount: 0, hasMore: false }
-            : s,
-        ),
-      );
-    }
-  }, []);
-
-  const handleLoadMore = useCallback(async (catId) => {
-    setShelves((prev) =>
-      prev.map((s) => (s.id === catId ? { ...s, loadingMore: true } : s)),
-    );
-    try {
-      const all =
-        catId === "all"
-          ? allShuffledRef.current
-          : catId === "top_rated"
-            ? topRatedRef.current
-            : await iptvApi.getVODStreams(catId);
-      setShelves((prev) =>
-        prev.map((s) => {
-          if (s.id !== catId) return s;
-          const nextItems = (all || []).slice(
-            0,
-            (s.items?.length || 0) + SHELF_PAGE,
-          );
-          return {
-            ...s,
-            items: nextItems,
-            hasMore: nextItems.length < (all?.length || 0),
-            loadingMore: false,
-          };
-        }),
-      );
-    } catch {
-      setShelves((prev) =>
-        prev.map((s) => (s.id === catId ? { ...s, loadingMore: false } : s)),
-      );
-    }
-  }, []);
-
-  const handleMoviePress = (item) => setCurrentMovieDetail(item);
-
-  const handleTitlePress = async (catId, name) => {
-    setCurrentCategory({ catId, name });
-    setCategoryItems(null);
-    try {
-      let all;
-      if (catId === "all") {
-        if (!allShuffledRef.current.length) {
-          const prefetched = prefetchRef.current.topRated
-            ? await prefetchRef.current.topRated
-            : null;
-          const streams =
-            prefetched?.streams || (await iptvApi.getAllVODStreamsRobust());
-          allShuffledRef.current = [...(streams || [])].sort(
-            () => Math.random() - 0.5,
-          );
-        }
-        all = allShuffledRef.current;
-      } else if (catId === "top_rated") {
-        const prefetched = prefetchRef.current.topRated
-          ? await prefetchRef.current.topRated
-          : null;
-        if (prefetched?.hasTmdb) {
-          const { streams, matched, seenIds, totalPages, hasMore } = prefetched;
-          topRatedCursorRef.current = {
-            streams,
-            type: "movie",
-            idField: "stream_id",
-            page: 5,
-            totalPages,
-            seenIds,
-            prefetch: null,
-            prefetchTo: 0,
-          };
-          setTopRatedHasMore(hasMore);
-          all = matched.length
-            ? matched
-            : [...streams]
-                .filter((s) => parseFloat(s.rating) > 0)
-                .sort((a, b) => parseFloat(b.rating) - parseFloat(a.rating));
-          if (!matched.length) setTopRatedHasMore(false);
-          else if (hasMore) kickoffPrefetch(topRatedCursorRef.current);
-        } else if (prefetched) {
-          all = prefetched.matched;
-          setTopRatedHasMore(false);
-        } else {
-          const streams = await iptvApi.getAllVODStreamsRobust();
-          if (tmdbApi.hasKey) {
-            const seenIds = new Set();
-            const { matched, totalPages, hasMore } =
-              await tmdbApi.matchTopRatedRange({
-                type: "movie",
-                iptvItems: streams || [],
-                idField: "stream_id",
-                fromPage: 1,
-                toPage: 5,
-                seenIds,
-              });
-            topRatedCursorRef.current = {
-              streams: streams || [],
-              type: "movie",
-              idField: "stream_id",
-              page: 5,
-              totalPages,
-              seenIds,
-              prefetch: null,
-              prefetchTo: 0,
-            };
-            setTopRatedHasMore(hasMore);
-            all = matched;
-            if (!all.length) {
-              all = [...(streams || [])]
-                .filter((s) => parseFloat(s.rating) > 0)
-                .sort((a, b) => parseFloat(b.rating) - parseFloat(a.rating));
-              setTopRatedHasMore(false);
-            } else if (hasMore) kickoffPrefetch(topRatedCursorRef.current);
-          } else {
-            all = [...(streams || [])]
-              .filter((s) => parseFloat(s.rating) > 0)
-              .sort((a, b) => parseFloat(b.rating) - parseFloat(a.rating));
-            setTopRatedHasMore(false);
-          }
-        }
-      } else {
-        all = await iptvApi.getVODStreams(catId);
-        if (!loadedRef.current.has(catId)) handleShelfVisible(catId);
-      }
-      setCategoryItems(all || []);
-    } catch {
-      setCategoryItems([]);
-    }
-  };
-
-  const kickoffPrefetch = (cursor) => {
-    if (!cursor || cursor.prefetch) return;
-    const fromPage = cursor.page + 1;
-    const toPage = Math.min(cursor.page + 5, cursor.totalPages || Infinity);
-    if (fromPage > toPage) return;
-    cursor.prefetchTo = toPage;
-    cursor.prefetch = tmdbApi
-      .matchTopRatedRange({
-        type: cursor.type,
-        iptvItems: cursor.streams,
-        idField: cursor.idField,
-        fromPage,
-        toPage,
-        seenIds: cursor.seenIds,
-      })
-      .catch(() => null);
-  };
-
-  const handleTopRatedMore = useCallback(async () => {
-    const cursor = topRatedCursorRef.current;
-    if (!cursor || topRatedLoadingMore) return;
-    if (cursor.page >= cursor.totalPages && !cursor.prefetch) {
-      setTopRatedHasMore(false);
-      return;
-    }
-    setTopRatedLoadingMore(true);
-    try {
-      let result;
-      if (cursor.prefetch) {
-        result = await cursor.prefetch;
-        cursor.page = cursor.prefetchTo;
-        cursor.prefetch = null;
-      } else {
-        const fromPage = cursor.page + 1;
-        const toPage = Math.min(cursor.page + 5, cursor.totalPages);
-        result = await tmdbApi.matchTopRatedRange({
-          type: cursor.type,
-          iptvItems: cursor.streams,
-          idField: cursor.idField,
-          fromPage,
-          toPage,
-          seenIds: cursor.seenIds,
-        });
-        cursor.page = toPage;
-      }
-      if (!result) return;
-      cursor.totalPages = result.totalPages;
-      setTopRatedHasMore(result.hasMore);
-      if (result.matched.length)
-        setCategoryItems((prev) => [...(prev || []), ...result.matched]);
-      if (result.hasMore) kickoffPrefetch(cursor);
-    } finally {
-      setTopRatedLoadingMore(false);
-    }
-  }, [topRatedLoadingMore]);
-
-  const discoverItems = [
-    { id: "all", label: "All Movies" },
-    { id: "top_rated", label: "Top Rated" },
-  ];
   const { focusedRow, focusedCol } = useTVNavigation({
-    active: !currentCategory && !currentMovieDetail,
-    rows: [
-      {
-        items: discoverItems,
-        onSelect: (i) =>
-          handleTitlePress(discoverItems[i].id, discoverItems[i].label),
-      },
-    ],
+    active: !categoryPage && !selectedMovie,
+    rows: [{ items: discoverItems, onSelect: (i) => openCategory(discoverItems[i].id, discoverItems[i].label) }],
   });
 
   if (loading) {
     return (
-      <YStack
-        flex={1}
-        justifyContent="center"
-        alignItems="center"
-        backgroundColor="#0f0f23"
-        padding={ss(24)}
-      >
-        <Spinner size="large" color="#e94560" />
-        <Text color="#aaa" marginTop={ss(12)} fontSize={ss(14)}>
-          Loading movies...
-        </Text>
+      <YStack flex={1} justifyContent="center" alignItems="center" backgroundColor="#0A0E1A" padding={ss(24)}>
+        <Spinner size="large" color="#6C5CE7" />
+        <Text color="#7A86A8" marginTop={ss(12)} fontSize={ss(14)}>Loading movies...</Text>
       </YStack>
     );
   }
 
   if (!activeUserId) {
     return (
-      <YStack
-        flex={1}
-        justifyContent="center"
-        alignItems="center"
-        backgroundColor="#0f0f23"
-        padding={ss(24)}
-      >
-        <Text fontSize={ss(48)} marginBottom={ss(12)}>
-          🎬
-        </Text>
-        <Text
-          color="#fff"
-          fontSize={ss(18)}
-          fontWeight="600"
-          marginBottom={ss(8)}
-        >
-          No IPTV Account
-        </Text>
-        <Text
-          color="#888"
-          fontSize={ss(14)}
-          textAlign="center"
-          marginBottom={ss(20)}
-        >
-          Add your IPTV service from Settings
-        </Text>
-        <YStack
-          backgroundColor="#e94560"
-          paddingHorizontal={ss(24)}
-          paddingVertical={ss(12)}
-          borderRadius={ss(10)}
-          cursor="pointer"
-          onPress={() => navigation.navigate("Accounts")}
-          pressStyle={{ opacity: 0.9 }}
-        >
-          <Text color="#fff" fontWeight="600">
-            Add Account
-          </Text>
+      <YStack flex={1} justifyContent="center" alignItems="center" backgroundColor="#0A0E1A" padding={ss(24)}>
+        <Text fontSize={ss(48)} marginBottom={ss(12)}>🎬</Text>
+        <Text color="#fff" fontSize={ss(18)} fontWeight="600" marginBottom={ss(8)}>No IPTV Account</Text>
+        <Text color="#7A86A8" fontSize={ss(14)} textAlign="center" marginBottom={ss(20)}>Add your IPTV service from Settings</Text>
+        <YStack backgroundColor="#6C5CE7" paddingHorizontal={ss(24)} paddingVertical={ss(12)} borderRadius={ss(10)} onPress={() => navigation.navigate("Accounts")}>
+          <Text color="#fff" fontWeight="600">Add Account</Text>
         </YStack>
       </YStack>
     );
   }
 
-  const isTopRated = currentCategory?.catId === "top_rated";
-
   return (
-    <YStack flex={1} backgroundColor="#0f0f23" position="relative">
-      <ScrollView flex={1} contentContainerStyle={{ paddingBottom: ss(80) }}>
-        <YStack
-          paddingHorizontal={ss(48)}
-          paddingTop={ss(24)}
-          paddingBottom={ss(4)}
-        >
-          <Text
-            color="#fff"
-            fontSize={ss(22)}
-            fontWeight="700"
-            letterSpacing={-0.3}
-            marginBottom={ss(12)}
-          >
-            Discover
-          </Text>
+    <YStack flex={1} backgroundColor="#0A0E1A" position="relative">
+      <ScrollView flex={1} minHeight={0} contentContainerStyle={{ paddingBottom: ss(80) }}>
+        <YStack paddingHorizontal={ss(48)} paddingTop={ss(24)} paddingBottom={ss(4)}>
+          <Text color="#fff" fontSize={ss(22)} fontWeight="700" letterSpacing={-0.3} marginBottom={ss(12)}>Discover</Text>
           <XStack gap={ss(10)} flexWrap="wrap">
-            {discoverItems.map((pill, idx) => (
-              <XStack
-                key={pill.id}
-                alignItems="center"
-                gap={ss(10)}
-                paddingHorizontal={ss(18)}
-                paddingVertical={ss(11)}
-                backgroundColor="rgba(233,69,96,0.08)"
-                borderWidth={1}
-                borderColor={
-                  focusedRow === 0 && focusedCol === idx
-                    ? "#e94560"
-                    : "rgba(233,69,96,0.28)"
-                }
-                borderRadius={999}
-                cursor="pointer"
-                onPress={() => handleTitlePress(pill.id, pill.label)}
-                pressStyle={{ opacity: 0.75 }}
-                hoverStyle={{ borderColor: "#e94560" }}
-                animation={_platformConfig.ui.enableAnimations ? "quick" : undefined}
-                scale={focusedRow === 0 && focusedCol === idx ? 1.05 : 1}
-                {...{ className: "lumen-load-cta" }}
-              >
-                <Text fontSize={ss(16)}>{pill.id === "all" ? "🎬" : "⭐"}</Text>
-                <Text
-                  color="#fff"
-                  fontSize={ss(13)}
-                  fontWeight="600"
-                  letterSpacing={0.1}
+            {discoverItems.map((pill, idx) => {
+              const active = focusedRow === 0 && focusedCol === idx;
+              return (
+                <XStack
+                  key={pill.id} alignItems="center" gap={ss(10)} paddingHorizontal={ss(18)} paddingVertical={ss(11)}
+                  backgroundColor={active ? undefined : "rgba(108, 92, 231,0.08)"} borderWidth={1}
+                  borderColor={active ? "#22D3EE" : "rgba(108, 92, 231,0.28)"}
+                  borderRadius={999} onPress={() => openCategory(pill.id, pill.label)}
+                  {...(active ? { className: "aurora-grad-bg" } : {})}
                 >
-                  {pill.label}
-                </Text>
-                <Text color="#e94560" fontSize={ss(16)} fontWeight="700">
-                  →
-                </Text>
-              </XStack>
-            ))}
+                  <Text fontSize={ss(16)}>{pill.id === "all" ? "🎬" : "⭐"}</Text>
+                  <Text color="#fff" fontSize={ss(13)} fontWeight="600" letterSpacing={0.1}>{pill.label}</Text>
+                  <Text color={active ? "#fff" : "#22D3EE"} fontSize={ss(16)} fontWeight="700">→</Text>
+                </XStack>
+              );
+            })}
           </XStack>
         </YStack>
-        <YStack paddingTop={0}>
+        <YStack>
           {shelves.length > 0 ? (
             shelves.map((shelf) => (
-              <Shelf
+              <ContentShelf
                 key={shelf.id}
-                catId={shelf.id}
-                title={shelf.name}
-                items={shelf.items}
-                totalCount={shelf.totalCount}
-                hasMore={shelf.hasMore}
-                loadingMore={shelf.loadingMore}
-                onVisible={handleShelfVisible}
-                onPlay={handleMoviePress}
-                onTitlePress={handleTitlePress}
-                onLoadMore={handleLoadMore}
-                manual={false}
+                title={shelf.name} count={shelf.totalCount} items={shelf.items}
+                hasMore={shelf.hasMore} loadingMore={shelf.loadingMore} manual={false}
+                onVisible={() => handleShelfVisible(shelf.id)}
+                onPress={selectMovie}
+                onTitlePress={() => openCategory(shelf.id, shelf.name)}
+                onLoadMore={() => handleLoadMore(shelf.id)}
               />
             ))
           ) : (
-            <YStack padding={ss(60)} alignItems="center">
-              <Text color="#666" fontSize={ss(15)}>
-                No movies found
-              </Text>
-            </YStack>
+            <YStack padding={ss(60)} alignItems="center"><Text color="#666" fontSize={ss(15)}>No movies found</Text></YStack>
           )}
         </YStack>
       </ScrollView>
-      {currentCategory && (
+      {categoryPage && (
         <YStack position="absolute" top={0} left={0} right={0} bottom={0}>
           <CategoryPage
-            name={currentCategory.name}
-            items={categoryItems}
-            onBack={() => {
-              setCurrentCategory(null);
-              setCategoryItems(null);
-              topRatedCursorRef.current = null;
-              setTopRatedHasMore(false);
-              setTopRatedLoadingMore(false);
-            }}
-            onPlay={handleMoviePress}
-            hasRemote={isTopRated && topRatedHasMore}
-            loadingMore={isTopRated && topRatedLoadingMore}
-            onLoadMore={isTopRated ? handleTopRatedMore : undefined}
+            name={categoryPage.name}
+            items={categoryPage.items}
+            onBack={closeCategory}
+            onPlay={selectMovie}
+            hasRemote={isTopRatedCategory && topRatedHasMore}
+            loadingMore={isTopRatedCategory && topRatedLoadingMore}
+            onLoadMore={isTopRatedCategory ? handleTopRatedMore : undefined}
           />
         </YStack>
       )}
-      {currentMovieDetail && (
+      {selectedMovie && (
         <YStack position="absolute" top={0} left={0} right={0} bottom={0}>
           <MovieDetail
-            item={currentMovieDetail}
-            onBack={() => setCurrentMovieDetail(null)}
-            onPlay={(videoObj) => {
-              playVideo(videoObj);
-              navigation.navigate("VideoPlayer");
-              setCurrentMovieDetail(null);
-            }}
+            item={selectedMovie}
+            onBack={clearSelectedMovie}
+            onPlay={(videoObj) => { playVideoObject(videoObj); clearSelectedMovie(); }}
           />
         </YStack>
       )}

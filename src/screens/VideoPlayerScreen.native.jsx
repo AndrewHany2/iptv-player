@@ -145,7 +145,7 @@ export default function VideoPlayerScreen({ navigation }) {
       {/* Loading overlay */}
       {isLoading && (
         <YStack position="absolute" top={0} left={0} right={0} bottom={0} justifyContent="center" alignItems="center" backgroundColor="rgba(0,0,0,0.5)" pointerEvents="none">
-          <Spinner size="large" color="#e94560" />
+          <Spinner size="large" color="#6C5CE7" />
           <Text color="#fff" marginTop={10} fontSize={14}>Loading stream...</Text>
         </YStack>
       )}
@@ -154,7 +154,7 @@ export default function VideoPlayerScreen({ navigation }) {
       {showControls && (
         <YStack position="absolute" top={0} left={0} right={0} paddingTop={topPadding} pointerEvents="box-none">
           <XStack alignItems="center" paddingHorizontal={12} paddingVertical={8} backgroundColor="rgba(0,0,0,0.7)" flexWrap="wrap" gap={8}>
-            <YStack width={34} height={34} backgroundColor="rgba(233,69,96,0.9)" borderRadius={17} justifyContent="center" alignItems="center" cursor="pointer" onPress={handleClose} pressStyle={{ opacity: 0.8 }}>
+            <YStack width={34} height={34} backgroundColor="rgba(108, 92, 231,0.9)" borderRadius={17} justifyContent="center" alignItems="center" cursor="pointer" onPress={handleClose} pressStyle={{ opacity: 0.8 }}>
               <Text color="#fff" fontSize={14} fontWeight="700">✕</Text>
             </YStack>
 
@@ -177,7 +177,7 @@ export default function VideoPlayerScreen({ navigation }) {
             )}
 
             {nextEpisode && (
-              <YStack backgroundColor="rgba(233,69,96,0.9)" paddingHorizontal={12} paddingVertical={6} borderRadius={8} cursor="pointer" onPress={handleNextEpisode} pressStyle={{ opacity: 0.8 }}>
+              <YStack backgroundColor="rgba(108, 92, 231,0.9)" paddingHorizontal={12} paddingVertical={6} borderRadius={8} cursor="pointer" onPress={handleNextEpisode} pressStyle={{ opacity: 0.8 }}>
                 <Text color="#fff" fontSize={12} fontWeight="600">Next ▶</Text>
               </YStack>
             )}
@@ -188,12 +188,12 @@ export default function VideoPlayerScreen({ navigation }) {
       {/* Speed Menu */}
       <Modal visible={showSpeedMenu} transparent animationType="fade" onRequestClose={() => setShowSpeedMenu(false)}>
         <TouchableOpacity style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "center", alignItems: "center" }} activeOpacity={1} onPress={() => setShowSpeedMenu(false)}>
-          <YStack backgroundColor="#1a1a2e" borderRadius={14} padding={8} width={220} maxHeight={350} borderWidth={1} borderColor="#2a2a4e">
-            <Text color="#aaa" fontSize={12} fontWeight="600" textAlign="center" paddingVertical={8} borderBottomWidth={1} borderBottomColor="#2a2a4e" marginBottom={4}>Playback Speed</Text>
+          <YStack backgroundColor="#1B2236" borderRadius={14} padding={8} width={220} maxHeight={350} borderWidth={1} borderColor="#28324E">
+            <Text color="#7A86A8" fontSize={12} fontWeight="600" textAlign="center" paddingVertical={8} borderBottomWidth={1} borderBottomColor="#28324E" marginBottom={4}>Playback Speed</Text>
             <ScrollView>
               {SPEEDS.map((rate) => (
-                <YStack key={rate} paddingVertical={12} paddingHorizontal={16} borderRadius={8} backgroundColor={speed === rate ? "rgba(233,69,96,0.2)" : "transparent"} cursor="pointer" onPress={() => handleSpeedChange(rate)} pressStyle={{ opacity: 0.7 }}>
-                  <Text color={speed === rate ? "#e94560" : "#ccc"} fontSize={15} fontWeight={speed === rate ? "700" : "400"}>{rate}x{rate === 1 ? " (Normal)" : ""}</Text>
+                <YStack key={rate} paddingVertical={12} paddingHorizontal={16} borderRadius={8} backgroundColor={speed === rate ? "rgba(108, 92, 231,0.2)" : "transparent"} cursor="pointer" onPress={() => handleSpeedChange(rate)} pressStyle={{ opacity: 0.7 }}>
+                  <Text color={speed === rate ? "#6C5CE7" : "#7A86A8"} fontSize={15} fontWeight={speed === rate ? "700" : "400"}>{rate}x{rate === 1 ? " (Normal)" : ""}</Text>
                 </YStack>
               ))}
             </ScrollView>
@@ -204,12 +204,12 @@ export default function VideoPlayerScreen({ navigation }) {
       {/* Audio Menu */}
       <Modal visible={showAudioMenu} transparent animationType="fade" onRequestClose={() => setShowAudioMenu(false)}>
         <TouchableOpacity style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "center", alignItems: "center" }} activeOpacity={1} onPress={() => setShowAudioMenu(false)}>
-          <YStack backgroundColor="#1a1a2e" borderRadius={14} padding={8} width={220} maxHeight={350} borderWidth={1} borderColor="#2a2a4e">
-            <Text color="#aaa" fontSize={12} fontWeight="600" textAlign="center" paddingVertical={8} borderBottomWidth={1} borderBottomColor="#2a2a4e" marginBottom={4}>Audio Track</Text>
+          <YStack backgroundColor="#1B2236" borderRadius={14} padding={8} width={220} maxHeight={350} borderWidth={1} borderColor="#28324E">
+            <Text color="#7A86A8" fontSize={12} fontWeight="600" textAlign="center" paddingVertical={8} borderBottomWidth={1} borderBottomColor="#28324E" marginBottom={4}>Audio Track</Text>
             <ScrollView>
               {audioTracks.map((track, idx) => (
-                <YStack key={idx} paddingVertical={12} paddingHorizontal={16} borderRadius={8} backgroundColor={selectedAudio === track ? "rgba(233,69,96,0.2)" : "transparent"} cursor="pointer" onPress={() => handleAudioChange(track)} pressStyle={{ opacity: 0.7 }}>
-                  <Text color={selectedAudio === track ? "#e94560" : "#ccc"} fontSize={15} fontWeight={selectedAudio === track ? "700" : "400"}>{track.language || track.label || `Track ${idx + 1}`}</Text>
+                <YStack key={idx} paddingVertical={12} paddingHorizontal={16} borderRadius={8} backgroundColor={selectedAudio === track ? "rgba(108, 92, 231,0.2)" : "transparent"} cursor="pointer" onPress={() => handleAudioChange(track)} pressStyle={{ opacity: 0.7 }}>
+                  <Text color={selectedAudio === track ? "#6C5CE7" : "#7A86A8"} fontSize={15} fontWeight={selectedAudio === track ? "700" : "400"}>{track.language || track.label || `Track ${idx + 1}`}</Text>
                 </YStack>
               ))}
             </ScrollView>
@@ -220,15 +220,15 @@ export default function VideoPlayerScreen({ navigation }) {
       {/* Subtitle Menu */}
       <Modal visible={showSubtitleMenu} transparent animationType="fade" onRequestClose={() => setShowSubtitleMenu(false)}>
         <TouchableOpacity style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "center", alignItems: "center" }} activeOpacity={1} onPress={() => setShowSubtitleMenu(false)}>
-          <YStack backgroundColor="#1a1a2e" borderRadius={14} padding={8} width={220} maxHeight={350} borderWidth={1} borderColor="#2a2a4e">
-            <Text color="#aaa" fontSize={12} fontWeight="600" textAlign="center" paddingVertical={8} borderBottomWidth={1} borderBottomColor="#2a2a4e" marginBottom={4}>Subtitles</Text>
+          <YStack backgroundColor="#1B2236" borderRadius={14} padding={8} width={220} maxHeight={350} borderWidth={1} borderColor="#28324E">
+            <Text color="#7A86A8" fontSize={12} fontWeight="600" textAlign="center" paddingVertical={8} borderBottomWidth={1} borderBottomColor="#28324E" marginBottom={4}>Subtitles</Text>
             <ScrollView>
-              <YStack paddingVertical={12} paddingHorizontal={16} borderRadius={8} backgroundColor={selectedSubtitle === null ? "rgba(233,69,96,0.2)" : "transparent"} cursor="pointer" onPress={() => handleSubtitleChange(null)} pressStyle={{ opacity: 0.7 }}>
-                <Text color={selectedSubtitle === null ? "#e94560" : "#ccc"} fontSize={15} fontWeight={selectedSubtitle === null ? "700" : "400"}>Off</Text>
+              <YStack paddingVertical={12} paddingHorizontal={16} borderRadius={8} backgroundColor={selectedSubtitle === null ? "rgba(108, 92, 231,0.2)" : "transparent"} cursor="pointer" onPress={() => handleSubtitleChange(null)} pressStyle={{ opacity: 0.7 }}>
+                <Text color={selectedSubtitle === null ? "#6C5CE7" : "#7A86A8"} fontSize={15} fontWeight={selectedSubtitle === null ? "700" : "400"}>Off</Text>
               </YStack>
               {subtitleTracks.map((track, idx) => (
-                <YStack key={idx} paddingVertical={12} paddingHorizontal={16} borderRadius={8} backgroundColor={selectedSubtitle === track ? "rgba(233,69,96,0.2)" : "transparent"} cursor="pointer" onPress={() => handleSubtitleChange(track)} pressStyle={{ opacity: 0.7 }}>
-                  <Text color={selectedSubtitle === track ? "#e94560" : "#ccc"} fontSize={15} fontWeight={selectedSubtitle === track ? "700" : "400"}>{track.language || track.label || `Track ${idx + 1}`}</Text>
+                <YStack key={idx} paddingVertical={12} paddingHorizontal={16} borderRadius={8} backgroundColor={selectedSubtitle === track ? "rgba(108, 92, 231,0.2)" : "transparent"} cursor="pointer" onPress={() => handleSubtitleChange(track)} pressStyle={{ opacity: 0.7 }}>
+                  <Text color={selectedSubtitle === track ? "#6C5CE7" : "#7A86A8"} fontSize={15} fontWeight={selectedSubtitle === track ? "700" : "400"}>{track.language || track.label || `Track ${idx + 1}`}</Text>
                 </YStack>
               ))}
             </ScrollView>
