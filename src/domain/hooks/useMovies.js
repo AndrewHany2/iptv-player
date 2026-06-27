@@ -1,0 +1,270 @@
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useApp } from "../../context/AppContext";
+import { useContentService } from "./useContentService";
+import { getPlatformConfig, detectPlatform } from "../../platform/configs/detectPlatform";
+import tmdbApi from "../../services/tmdbApi";
+
+/**
+ * Single source of truth for the Movies feature.
+ *
+ * Holds ALL the data + business logic that the three MoviesScreen variants used
+ * to copy-paste: category shelves with lazy loading + pagination, the
+ * "All Movies" / "Top Rated" discover engine (with TMDB top-rated cursor
+ * prefetch), drill-into-category, detail selection and playback. Built on
+ * ContentService (categories/streams/info/url) + tmdbApi (top-rated matching).
+ *
+ * View concerns (layout, D-pad focus state) stay in the screen files; they read
+ * everything they need from here.
+ */
+const cfg = getPlatformConfig(detectPlatform());
+const SHELF_PAGE = cfg.performance.shelfPageSize;
+
+const byRatingDesc = (list) =>
+  [...(list || [])]
+    .filter((s) => Number.parseFloat(s.rating) > 0)
+    .sort((a, b) => Number.parseFloat(b.rating) - Number.parseFloat(a.rating));
+
+export function useMovies({ navigation } = {}) {
+  const { contentService, activeUser, activeUserId } = useContentService();
+  const { playVideo } = useApp();
+
+  const [loading, setLoading] = useState(false);
+  const [shelves, setShelves] = useState([]);
+  const [categoryPage, setCategoryPage] = useState(null); // { catId, name, items }
+  const [selectedMovie, setSelectedMovie] = useState(null); // raw item for detail
+  const [topRatedHasMore, setTopRatedHasMore] = useState(false);
+  const [topRatedLoadingMore, setTopRatedLoadingMore] = useState(false);
+
+  const loadedRef = useRef(new Set());
+  const allShuffledRef = useRef([]);
+  const topRatedRef = useRef([]);
+  const prefetchRef = useRef({ topRated: null });
+  const topRatedCursorRef = useRef(null);
+  const itemsCacheRef = useRef(new Map()); // catId -> items (TV drill-in cache)
+
+  const discoverItems = [
+    { id: "all", label: "All Movies" },
+    { id: "top_rated", label: "Top Rated" },
+  ];
+
+  // ── Top-rated prefetch (TMDB) ───────────────────────────────────────────────
+  const prefetchTopRated = useCallback(async () => {
+    // TV has no discover/top-rated UI; skip the expensive all-streams fetch.
+    if (typeof globalThis !== "undefined" && globalThis.__TV__) return null;
+    try {
+      const streams = await contentService.getAllMovies();
+      if (!streams?.length) return null;
+      if (!tmdbApi.hasKey) {
+        return { streams, matched: byRatingDesc(streams), hasTmdb: false, seenIds: new Set(), totalPages: 0, hasMore: false };
+      }
+      const seenIds = new Set();
+      const { matched, totalPages, hasMore } = await tmdbApi.matchTopRatedRange({
+        type: "movie", iptvItems: streams, idField: "stream_id", fromPage: 1, toPage: 5, seenIds,
+      });
+      return { streams, matched, seenIds, totalPages, hasMore, hasTmdb: true };
+    } catch { return null; }
+  }, [contentService]);
+
+  const kickoffPrefetch = useCallback((cursor) => {
+    if (!cursor || cursor.prefetch) return;
+    const fromPage = cursor.page + 1;
+    const toPage = Math.min(cursor.page + 5, cursor.totalPages || Infinity);
+    if (fromPage > toPage) return;
+    cursor.prefetchTo = toPage;
+    cursor.prefetch = tmdbApi.matchTopRatedRange({
+      type: cursor.type, iptvItems: cursor.streams, idField: cursor.idField,
+      fromPage, toPage, seenIds: cursor.seenIds,
+    }).catch(() => null);
+  }, []);
+
+  // ── Initial load: categories → shelves ──────────────────────────────────────
+  const load = useCallback(async () => {
+    if (!activeUser) return;
+    setLoading(true);
+    loadedRef.current.clear();
+    allShuffledRef.current = [];
+    topRatedRef.current = [];
+    prefetchRef.current = { topRated: null };
+    itemsCacheRef.current.clear();
+    setShelves([]);
+    try {
+      const cats = await contentService.getMovieCategories(); // [{ id, name }]
+      if (!cats?.length) return;
+      setShelves(cats.map((c) => ({
+        id: c.id, name: c.name, items: null, totalCount: null,
+        hasMore: false, loadingMore: false, manual: false,
+      })));
+      prefetchRef.current = { topRated: prefetchTopRated() };
+    } catch (err) {
+      console.error("useMovies.load:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [activeUser, contentService, prefetchTopRated]);
+
+  useEffect(() => { if (activeUserId) load(); }, [activeUserId, load]);
+
+  // ── Lazy shelf load ─────────────────────────────────────────────────────────
+  const handleShelfVisible = useCallback(async (catId) => {
+    if (loadedRef.current.has(catId)) return;
+    loadedRef.current.add(catId);
+    try {
+      let all;
+      if (catId === "all") {
+        const prefetched = prefetchRef.current.topRated ? await prefetchRef.current.topRated : null;
+        const streams = prefetched?.streams || (await contentService.getAllMovies());
+        all = [...(streams || [])].sort(() => Math.random() - 0.5);
+        allShuffledRef.current = all;
+      } else if (catId === "top_rated") {
+        // Real categories never use this id; fall back to rating sort.
+        all = byRatingDesc(await contentService.getAllMovies());
+        topRatedRef.current = all;
+      } else {
+        all = await contentService.getMoviesByCategory(catId);
+      }
+      const firstPage = (all || []).slice(0, SHELF_PAGE);
+      setShelves((prev) => prev.map((s) =>
+        s.id === catId ? { ...s, items: firstPage, totalCount: all.length, hasMore: all.length > SHELF_PAGE } : s));
+    } catch {
+      setShelves((prev) => prev.map((s) =>
+        s.id === catId ? { ...s, items: [], totalCount: 0, hasMore: false } : s));
+    }
+  }, [contentService]);
+
+  const handleLoadMore = useCallback(async (catId) => {
+    setShelves((prev) => prev.map((s) => s.id === catId ? { ...s, loadingMore: true } : s));
+    try {
+      const all = catId === "all" ? allShuffledRef.current
+        : catId === "top_rated" ? topRatedRef.current
+        : await contentService.getMoviesByCategory(catId);
+      setShelves((prev) => prev.map((s) => {
+        if (s.id !== catId) return s;
+        const nextItems = (all || []).slice(0, (s.items?.length || 0) + SHELF_PAGE);
+        return { ...s, items: nextItems, hasMore: nextItems.length < (all?.length || 0), loadingMore: false };
+      }));
+    } catch {
+      setShelves((prev) => prev.map((s) => s.id === catId ? { ...s, loadingMore: false } : s));
+    }
+  }, [contentService]);
+
+  // ── Drill into a category / discover pill ───────────────────────────────────
+  const openCategory = useCallback(async (catId, name) => {
+    setCategoryPage({ catId, name, items: null });
+    try {
+      let all;
+      if (catId === "all") {
+        if (!allShuffledRef.current.length) {
+          const prefetched = prefetchRef.current.topRated ? await prefetchRef.current.topRated : null;
+          const streams = prefetched?.streams || (await contentService.getAllMovies());
+          allShuffledRef.current = [...(streams || [])].sort(() => Math.random() - 0.5);
+        }
+        all = allShuffledRef.current;
+      } else if (catId === "top_rated") {
+        const prefetched = prefetchRef.current.topRated ? await prefetchRef.current.topRated : null;
+        if (prefetched?.hasTmdb) {
+          const { streams, matched, seenIds, totalPages, hasMore } = prefetched;
+          topRatedCursorRef.current = { streams, type: "movie", idField: "stream_id", page: 5, totalPages, seenIds, prefetch: null, prefetchTo: 0 };
+          setTopRatedHasMore(hasMore);
+          all = matched.length ? matched : byRatingDesc(streams);
+          if (!matched.length) setTopRatedHasMore(false);
+          else if (hasMore) kickoffPrefetch(topRatedCursorRef.current);
+        } else if (prefetched) {
+          all = prefetched.matched; setTopRatedHasMore(false);
+        } else {
+          const streams = await contentService.getAllMovies();
+          if (tmdbApi.hasKey) {
+            const seenIds = new Set();
+            const { matched, totalPages, hasMore } = await tmdbApi.matchTopRatedRange({ type: "movie", iptvItems: streams || [], idField: "stream_id", fromPage: 1, toPage: 5, seenIds });
+            topRatedCursorRef.current = { streams: streams || [], type: "movie", idField: "stream_id", page: 5, totalPages, seenIds, prefetch: null, prefetchTo: 0 };
+            setTopRatedHasMore(hasMore);
+            all = matched;
+            if (!all.length) { all = byRatingDesc(streams); setTopRatedHasMore(false); }
+            else if (hasMore) kickoffPrefetch(topRatedCursorRef.current);
+          } else { all = byRatingDesc(streams); setTopRatedHasMore(false); }
+        }
+      } else {
+        all = await contentService.getMoviesByCategory(catId);
+        if (!loadedRef.current.has(catId)) handleShelfVisible(catId);
+      }
+      setCategoryPage((prev) => prev ? { ...prev, items: all || [] } : prev);
+    } catch {
+      setCategoryPage((prev) => prev ? { ...prev, items: [] } : prev);
+    }
+  }, [contentService, handleShelfVisible, kickoffPrefetch]);
+
+  const closeCategory = useCallback(() => {
+    setCategoryPage(null);
+    topRatedCursorRef.current = null;
+    setTopRatedHasMore(false);
+    setTopRatedLoadingMore(false);
+  }, []);
+
+  const handleTopRatedMore = useCallback(async () => {
+    const cursor = topRatedCursorRef.current;
+    if (!cursor || topRatedLoadingMore) return;
+    if (cursor.page >= cursor.totalPages && !cursor.prefetch) { setTopRatedHasMore(false); return; }
+    setTopRatedLoadingMore(true);
+    try {
+      let result;
+      if (cursor.prefetch) { result = await cursor.prefetch; cursor.page = cursor.prefetchTo; cursor.prefetch = null; }
+      else {
+        const fromPage = cursor.page + 1;
+        const toPage = Math.min(cursor.page + 5, cursor.totalPages);
+        result = await tmdbApi.matchTopRatedRange({ type: cursor.type, iptvItems: cursor.streams, idField: cursor.idField, fromPage, toPage, seenIds: cursor.seenIds });
+        cursor.page = toPage;
+      }
+      if (!result) return;
+      cursor.totalPages = result.totalPages;
+      setTopRatedHasMore(result.hasMore);
+      if (result.matched.length) setCategoryPage((prev) => prev ? { ...prev, items: [...(prev.items || []), ...result.matched] } : prev);
+      if (result.hasMore) kickoffPrefetch(cursor);
+    } finally { setTopRatedLoadingMore(false); }
+  }, [topRatedLoadingMore, kickoffPrefetch]);
+
+  const isTopRatedCategory = categoryPage?.catId === "top_rated";
+
+  // ── Detail + playback ───────────────────────────────────────────────────────
+  const selectMovie = useCallback((item) => setSelectedMovie(item), []);
+  const clearSelectedMovie = useCallback(() => setSelectedMovie(null), []);
+
+  /** TV drill-in: get a category's items (cached). */
+  const getCategoryItems = useCallback(async (catId) => {
+    const cached = itemsCacheRef.current.get(catId);
+    if (cached) return cached;
+    const items = await contentService.getMoviesByCategory(catId);
+    itemsCacheRef.current.set(catId, items);
+    return items;
+  }, [contentService]);
+
+  /** Raw provider VOD info for the TV detail view. */
+  const fetchMovieInfo = useCallback((streamId) => contentService.getMovieInfoRaw(streamId), [contentService]);
+
+  /** Build url + start playback + navigate to the player. */
+  const playMovie = useCallback(({ streamId, name, cover = null, containerExtension = "mp4", startTime = 0 }) => {
+    const url = contentService.buildMovieUrl(streamId, containerExtension || "mp4");
+    playVideo({ type: "movies", streamId, name, url, cover, startTime });
+    navigation?.navigate?.("VideoPlayer");
+  }, [contentService, playVideo, navigation]);
+
+  /** Play an already-built video object (used by the MovieDetail component path). */
+  const playVideoObject = useCallback((videoObj) => {
+    playVideo(videoObj);
+    navigation?.navigate?.("VideoPlayer");
+  }, [playVideo, navigation]);
+
+  return {
+    // status
+    loading, activeUserId,
+    // discover + shelves (native/web)
+    discoverItems, shelves, handleShelfVisible, handleLoadMore,
+    // category drill-in
+    categoryPage, openCategory, closeCategory,
+    isTopRatedCategory, topRatedHasMore, topRatedLoadingMore, handleTopRatedMore,
+    // detail + play
+    selectedMovie, selectMovie, clearSelectedMovie,
+    playMovie, playVideoObject,
+    // TV helpers
+    categories: shelves, // shelves carry {id,name}; TV grid only needs those
+    getCategoryItems, fetchMovieInfo,
+  };
+}

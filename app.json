@@ -38,7 +38,8 @@
       "package": "com.andrew1h1.iptvplayer"
     },
     "plugins": [
-      "expo-video"
+      "expo-video",
+      "expo-font"
     ],
     "extra": {
       "eas": {

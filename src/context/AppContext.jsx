@@ -3,6 +3,7 @@ import storage from '../utils/storage';
 import iptvApi from '../services/iptvApi';
 import {
   fetchRemoteHistory, upsertHistoryEntry, deleteHistoryEntry,
+  fetchFavorites, upsertFavorite, deleteFavorite,
   isSupabaseConfigured, getSession,
   signIn as supabaseSignIn, signUp as supabaseSignUp, signOut as supabaseSignOut,
   onAuthStateChange, fetchProfile, upsertProfile,
@@ -53,6 +54,11 @@ export const AppProvider = ({ children }) => {
   const [isSyncing, setIsSyncing] = useState(false);
   const progressSyncTimer = useRef(null);
 
+  // ─── My List (watch later) ───────────────────────────────────────────────────
+  const [myList, setMyList] = useState([]);
+  const myListRef = useRef([]);
+  myListRef.current = myList;
+
   // ─── UI ────────────────────────────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading]     = useState(false);
@@ -75,8 +81,8 @@ export const AppProvider = ({ children }) => {
   const usersKey = activeProfileId ? `iptv_users_${activeProfileId}` : 'iptv_users';
 
   // ─── Auth functions ────────────────────────────────────────────────────────
-  const signIn  = useCallback((u, p) => supabaseSignIn(u, p), []);
-  const signUp  = useCallback((u, p, e) => supabaseSignUp(u, p, e), []);
+  const signIn  = supabaseSignIn;
+  const signUp  = supabaseSignUp;
   const signOut = useCallback(async () => {
     await supabaseSignOut();
     setAuthUser(null); setProfile(null); setAppProfiles([]);
@@ -213,6 +219,35 @@ export const AppProvider = ({ children }) => {
     }
   }, [userKey]);
 
+  // ─── My List (watch later) ───────────────────────────────────────────────────
+  const myListId = (type, streamId) => `mylist_${type}_${streamId}`;
+
+  const addToMyList = useCallback((item) => {
+    const streamId = item.streamId ?? item.stream_id ?? item.seriesId ?? item.id;
+    const id = myListId(item.type, streamId);
+    const prev = myListRef.current;
+    if (prev.some((m) => m.id === id)) return;
+    const entry = { ...item, streamId, id, addedAt: new Date().toISOString() };
+    const updated = [entry, ...prev];
+    setMyList(updated);
+    if (userKey) {
+      storage.setItem(`iptv_mylist_${userKey}`, JSON.stringify(updated));
+      upsertFavorite(userKey, entry);
+    }
+  }, [userKey]);
+
+  const removeFromMyList = useCallback((id) => {
+    const updated = myListRef.current.filter((m) => m.id !== id);
+    setMyList(updated);
+    if (userKey) {
+      storage.setItem(`iptv_mylist_${userKey}`, JSON.stringify(updated));
+      deleteFavorite(userKey, id);
+    }
+  }, [userKey]);
+
+  const isInMyList = useCallback((type, streamId) =>
+    myListRef.current.some((m) => m.id === myListId(type, streamId)), []);
+
   // ─── Video ─────────────────────────────────────────────────────────────────
   const playVideo  = (video) => setCurrentVideo(video);
   const closeVideo = () => setCurrentVideo(null);
@@ -251,9 +286,13 @@ export const AppProvider = ({ children }) => {
       })();
       return;
     }
-    getSession().then((session) => { setAuthUser(session?.user ?? null); setAuthLoading(false); });
+    const authTimeout = setTimeout(() => setAuthLoading(false), 8000);
+    getSession()
+      .then((session) => { setAuthUser(session?.user ?? null); })
+      .catch(() => {})
+      .finally(() => { clearTimeout(authTimeout); setAuthLoading(false); });
     const unsub = onAuthStateChange((user) => { setAuthUser(user); setAuthLoading(false); });
-    return unsub;
+    return () => { clearTimeout(authTimeout); unsub(); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -262,11 +301,12 @@ export const AppProvider = ({ children }) => {
     const meta = authUser.user_metadata;
     if (meta?.username) {
       upsertProfile(authUser.id, meta.username, authUser.email)
-        .then(() => fetchProfile(authUser.id).then((p) => setProfile(p)));
+        .then(() => fetchProfile(authUser.id).then((p) => setProfile(p)).catch(() => {}))
+        .catch(() => fetchProfile(authUser.id).then((p) => setProfile(p)).catch(() => {}));
     } else {
-      fetchProfile(authUser.id).then((p) => setProfile(p));
+      fetchProfile(authUser.id).then((p) => setProfile(p)).catch(() => {});
     }
-    fetchAppProfiles(authUser.id).then(setAppProfiles);
+    fetchAppProfiles(authUser.id).then(setAppProfiles).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authUser?.id]);
 
@@ -315,6 +355,8 @@ export const AppProvider = ({ children }) => {
       fetchRemoteHistory(activeProfileId)
         .then((remote) => setWatchHistory(remote))
         .finally(() => setIsSyncing(false));
+      fetchFavorites(activeProfileId)
+        .then((remote) => { if (remote.length > 0) setMyList(remote); });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeProfileId]);
@@ -331,6 +373,14 @@ export const AppProvider = ({ children }) => {
   }, [activeUserId]);
 
   useEffect(() => { if (channels.length > 0) saveChannels(); }, [channels]);
+
+  // Load favorites from local storage (Supabase fetch in activeProfileId effect overrides when configured)
+  useEffect(() => {
+    if (!userKey) { setMyList([]); return; }
+    if (isSupabaseConfigured()) return; // Supabase fetch handled in activeProfileId effect
+    storage.getItem(`iptv_mylist_${userKey}`)
+      .then((raw) => { try { setMyList(raw ? JSON.parse(raw) : []); } catch { setMyList([]); } });
+  }, [userKey]);
 
   useEffect(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -350,17 +400,19 @@ export const AppProvider = ({ children }) => {
     currentSeriesCategory, setCurrentSeriesCategory,
     currentSeries, setCurrentSeries, seriesSeasons, setSeriesSeasons,
     watchHistory, addToWatchHistory, updateWatchProgress, removeFromWatchHistory, isSyncing,
+    myList, addToMyList, removeFromMyList, isInMyList,
     currentVideo, playVideo, closeVideo,
     searchQuery, setSearchQuery, isLoading, setIsLoading, error, setError,
     saveChannels, loadSavedUsers, loadSavedChannels,
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [authUser, authLoading, profile, appProfiles, activeProfileId, activeProfile,
     contentType, channels, filteredChannels, currentChannelIndex,
-    users, activeUserId, watchHistory, isSyncing, currentVideo,
+    users, activeUserId, watchHistory, isSyncing, myList, currentVideo,
     searchQuery, isLoading, error,
     signIn, signUp, signOut, switchProfile, addProfile, updateProfile, removeProfile,
     addUser, updateUser, removeUser, saveUsers,
-    addToWatchHistory, updateWatchProgress, removeFromWatchHistory]);
+    addToWatchHistory, updateWatchProgress, removeFromWatchHistory,
+    addToMyList, removeFromMyList, isInMyList]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };

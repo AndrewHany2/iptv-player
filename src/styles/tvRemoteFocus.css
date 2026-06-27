@@ -1,0 +1,61 @@
+/**
+ * TV Remote Focus Styles (Aurora)
+ *
+ * Flat cyan focus ring — no transforms, shadows, or animations, which jank on
+ * old webOS Chromium. Depth/affordance come from the ring + a subtle surface
+ * tint, applied instantly. The FocusManager toggles `.tv-focus`; legacy
+ * `.tv-focused` is kept as an alias.
+ */
+
+.tv-focus,
+.tv-focused {
+  outline: 2px solid #22D3EE !important;
+  outline-offset: 2px;
+  z-index: 10 !important;
+}
+
+button.tv-focus,
+.tv-btn.tv-focus,
+button.tv-focused,
+.tv-btn.tv-focused {
+  border-color: #22D3EE !important;
+}
+
+.tv-history-item.tv-focus,
+.tv-accounts-item.tv-focus,
+.tv-episode.tv-focus,
+.tv-history-item.tv-focused,
+.tv-accounts-item.tv-focused,
+.tv-episode.tv-focused {
+  background: rgba(34, 211, 238, 0.12) !important;
+  border-color: #22D3EE !important;
+}
+
+.tv-pill.tv-focus,
+.tv-season-btn.tv-focus,
+.tv-pill.tv-focused,
+.tv-season-btn.tv-focused {
+  border-color: #22D3EE !important;
+  color: #EAF0FF !important;
+}
+
+input.tv-focus,
+textarea.tv-focus,
+select.tv-focus,
+input.tv-focused,
+textarea.tv-focused,
+select.tv-focused {
+  border-color: #22D3EE !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* Remove default focus outlines (we draw our own ring) */
+*:focus {
+  outline: none;
+}
+
+/* webOS / Tizen: slightly thicker ring for 10-foot legibility */
+body[data-platform="webos"] .tv-focus,
+body[data-platform="tizen"] .tv-focus {
+  outline-width: 3px !important;
+}
