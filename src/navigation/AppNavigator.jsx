@@ -2,6 +2,7 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { useNavigation } from "@react-navigation/native";
+import { useWindowDimensions } from "react-native";
 import { YStack, XStack, Text } from "tamagui";
 import { useApp } from "../context/AppContext";
 import { isSupabaseConfigured } from "../services/supabase";
@@ -21,26 +22,29 @@ const Tab = createBottomTabNavigator();
 function HeaderRight() {
   const { users, activeUserId, profile, authUser, isSyncing } = useApp();
   const navigation = useNavigation();
+  const { width } = useWindowDimensions();
+  const compact = width < 400;
+  const nameMax = compact ? 72 : 140;
   const activeUser = users.find((u) => u.id === activeUserId);
 
   return (
-    <XStack alignItems="center" gap={6} marginRight={12}>
+    <XStack alignItems="center" gap={6} marginRight={12} flexShrink={1}>
       {isSyncing && (
         <YStack backgroundColor="rgba(108, 92, 231,0.2)" borderRadius={8} paddingHorizontal={8} paddingVertical={3} borderWidth={1} borderColor="rgba(108, 92, 231,0.4)">
-          <Text color="#6C5CE7" fontSize={11} fontWeight="600">↻ Syncing</Text>
+          <Text color="#6C5CE7" fontSize={11} fontWeight="600">{compact ? "↻" : "↻ Syncing"}</Text>
         </YStack>
       )}
       {activeUser && (
-        <YStack backgroundColor="#28324E" borderRadius={8} paddingHorizontal={8} paddingVertical={3}>
-          <Text color="#aaa" fontSize={11}>📡 {activeUser.nickname || activeUser.username}</Text>
+        <YStack backgroundColor="#28324E" borderRadius={8} paddingHorizontal={8} paddingVertical={3} flexShrink={1}>
+          <Text color="#aaa" fontSize={11} numberOfLines={1} maxWidth={nameMax}>📡 {activeUser.nickname || activeUser.username}</Text>
         </YStack>
       )}
       {authUser && profile?.username && (
-        <YStack backgroundColor="#1a2a1a" borderRadius={8} paddingHorizontal={8} paddingVertical={3}>
-          <Text color="#6abf69" fontSize={11}>👤 {profile.username}</Text>
+        <YStack backgroundColor="#1a2a1a" borderRadius={8} paddingHorizontal={8} paddingVertical={3} flexShrink={1}>
+          <Text color="#6abf69" fontSize={11} numberOfLines={1} maxWidth={nameMax}>👤 {profile.username}</Text>
         </YStack>
       )}
-      <YStack cursor="pointer" onPress={() => navigation.navigate("Accounts")} pressStyle={{ opacity: 0.7 }}>
+      <YStack cursor="pointer" onPress={() => navigation.navigate("Accounts")} pressStyle={{ opacity: 0.7 }} flexShrink={0}>
         <Text fontSize={20} paddingHorizontal={2}>⚙️</Text>
       </YStack>
     </XStack>
