@@ -125,14 +125,27 @@ html = html.replace("</head>", `<script>
    * Tamagui caches CSS so insertRule may not fire for already-seen rules.   *
    * This polyfill detects whether column-gap works for flex at runtime and, *
    * if not, adds inline margins to children of every _gap-Npx container.   */
+  // Resolve a flex container's gap (px) from, in order: the legacy Tamagui
+  // _gap-Npx class, the inline style (the react-native-web primitives emit
+  // style.gap — recognised but inert for flex on Chromium below 84), or the
+  // computed row/column-gap. Returns null when there's no positive gap.
+  function gapPx(el) {
+    var cn = el.className;
+    if (typeof cn === 'string') { var m = cn.match(/_gap-([0-9]+)px/); if (m) return m[1] + 'px'; }
+    var inl = el.style && (el.style.gap || el.style.columnGap || el.style.rowGap);
+    if (inl) { var fi = parseFloat(inl); if (fi > 0) return fi + 'px'; }
+    var cs0 = getComputedStyle(el);
+    var g = cs0.flexDirection.indexOf('col') !== -1 ? cs0.rowGap : cs0.columnGap;
+    if (g && g !== 'normal') { var fc = parseFloat(g); if (fc > 0) return fc + 'px'; }
+    return null;
+  }
   function applyFlexGap(el) {
     if (!el || el.nodeType !== 1) return;
-    var cn = el.className;
-    if (typeof cn !== 'string') return;
-    var m = cn.match(/_gap-([0-9]+)px/);
-    if (!m) return;
-    var v = m[1] + 'px';
-    var col = getComputedStyle(el).flexDirection.indexOf('col') !== -1;
+    var cs = getComputedStyle(el);
+    if (cs.display.indexOf('flex') === -1) return; // grid gap works natively — leave it
+    var v = gapPx(el);
+    if (!v) return;
+    var col = cs.flexDirection.indexOf('col') !== -1;
     var kids = el.children;
     for (var i = 0; i < kids.length; i++) {
       kids[i].style.marginLeft = (!col && i > 0) ? v : '';
@@ -142,9 +155,11 @@ html = html.replace("</head>", `<script>
 
   function scanTree(root) {
     if (!root || root.nodeType !== 1) return;
-    var all = root.querySelectorAll('[class*="_gap-"]');
+    var all = root.querySelectorAll('[class*="_gap-"],[style*="gap"]');
     for (var i = 0; i < all.length; i++) applyFlexGap(all[i]);
-    if (typeof root.className === 'string' && root.className.indexOf('_gap-') >= 0)
+    var rs = root.getAttribute && root.getAttribute('style');
+    if ((typeof root.className === 'string' && root.className.indexOf('_gap-') >= 0) ||
+        (rs && rs.indexOf('gap') >= 0))
       applyFlexGap(root);
   }
 
