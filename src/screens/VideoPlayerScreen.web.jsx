@@ -265,7 +265,6 @@ const TV = {
     background:
       "linear-gradient(to bottom, rgba(0,0,0,0.75) 0%, transparent 30%, transparent 70%, rgba(0,0,0,0.85) 100%)",
     opacity: visible ? 1 : 0,
-    transition: "opacity 0.3s ease",
     pointerEvents: visible ? "auto" : "none",
   }),
   topBar: {
@@ -348,9 +347,8 @@ const TV = {
   progressFill: (pct) => ({
     height: "100%",
     width: `${pct}%`,
-    background: colors.accent,
+    background: colors.accent2,
     borderRadius: 3,
-    transition: "width 0.5s linear",
   }),
   seekHint: {
     textAlign: "center",
@@ -659,6 +657,13 @@ export default function VideoPlayerScreen() {
   // apply it directly to the <video> once it can seek (seekToPending). startTime
   // is still set so a fresh load (e.g. a recovery RELOAD) resumes correctly too.
   const pendingSeekRef = useRef(0);
+  // Remembers the source URL whose resume question we've already resolved, so we
+  // resolve it at most once per source. Without it, the resume effect re-runs as
+  // watchHistory updates during playback (resume.resumeTime grows every tick) and
+  // the prompt pops back up after the user dismissed it. Storing the URL (rather
+  // than a boolean reset in a separate effect) avoids an effect-ordering hazard
+  // on source change.
+  const resumeResolvedUrlRef = useRef(null);
   const seekToPending = useCallback(() => {
     const video = videoRef.current;
     const t = pendingSeekRef.current;
@@ -679,14 +684,22 @@ export default function VideoPlayerScreen() {
   // holds startTime at 0 until the user chooses.
   useEffect(() => {
     if (!currentVideo) return;
+    // Resolve resume once per source. watchHistory updates every progress tick
+    // (resume.resumeTime grows), so without this latch the prompt re-appears
+    // mid-playback after the user dismissed it. resume.hasResume is a stable
+    // boolean (true until ~95% watched), so a late-loading history still flips
+    // it once and re-runs this effect to show the prompt.
+    if (resumeResolvedUrlRef.current === currentVideo.url) return;
     const explicit = Number(currentVideo.startTime) || 0;
     if (explicit > 0) {
+      resumeResolvedUrlRef.current = currentVideo.url;
       setStartTime(explicit);
       pendingSeekRef.current = explicit;
       setResumePending(false);
       return;
     }
     if (resume.hasResume) {
+      resumeResolvedUrlRef.current = currentVideo.url;
       if (isTV) {
         // Auto-resume on TV; surface a Start-over control instead of a prompt.
         setStartTime(resume.resumeTime);
@@ -699,12 +712,13 @@ export default function VideoPlayerScreen() {
         setResumePending(true);
       }
     } else {
+      // No resume point (yet). Don't latch — history may still be loading.
       setStartTime(0);
       pendingSeekRef.current = 0;
       setResumePending(false);
     }
-    // resume.* is derived from watchHistory + currentVideo; key on the source.
-  }, [currentVideo?.url, resume.hasResume, resume.resumeTime, isTV]); // eslint-disable-line react-hooks/exhaustive-deps
+    // Keyed on hasResume (stable), NOT resumeTime (changes every tick).
+  }, [currentVideo?.url, resume.hasResume, isTV]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Apply a pending resume seek once the media is ready (covers the case where
   // the hook loaded before the resume decision settled).
@@ -1467,25 +1481,45 @@ export default function VideoPlayerScreen() {
   const pct =
     tvDuration > 0 ? Math.min((tvCurrentTime / tvDuration) * 100, 100) : 0;
 
-  // Reconnecting toast — driven by the recovery machine's recovering/buffering
-  // status. Preserves the previous "Stream error — reloading..." idiom.
+  // Reconnecting indicator — driven by the recovery machine's recovering/
+  // buffering status. A frosted-glass pill with a cyan spinner ring; uses the
+  // shared `spin` keyframes defined in each render branch's <style>.
+  const spinnerSize = isTV ? 22 : 14;
   const liveToast = isRecovering && !isFatal && (
     <div
       style={{
         position: "absolute",
         bottom: isTV ? 48 : 16,
         right: isTV ? 48 : 16,
-        backgroundColor: accentAlpha(0.92),
+        display: "flex",
+        alignItems: "center",
+        gap: isTV ? 12 : 8,
+        backgroundColor: isTV ? colors.surface2 : "rgba(12,16,24,0.55)",
+        backdropFilter: isTV ? undefined : "blur(12px)",
+        WebkitBackdropFilter: isTV ? undefined : "blur(12px)",
+        border: `1px solid ${accentAlpha(0.35)}`,
+        boxShadow: isTV ? undefined : GLOW_WEB,
         color: colors.text,
         fontFamily: fonts.body,
         padding: isTV ? "12px 22px" : "8px 14px",
-        borderRadius: isTV ? radii.md : radii.sm,
+        borderRadius: radii.pill,
         fontSize: isTV ? 18 : 13,
         fontWeight: 600,
         zIndex: 30,
       }}
     >
-      Reconnecting…
+      <span
+        style={{
+          width: spinnerSize,
+          height: spinnerSize,
+          border: `2px solid ${accentAlpha(0.25)}`,
+          borderTopColor: colors.accent2,
+          borderRadius: "50%",
+          animation: "spin 0.8s linear infinite",
+          flexShrink: 0,
+        }}
+      />
+      Reconnecting
     </div>
   );
 
