@@ -5,7 +5,7 @@
   grid-template-columns: repeat(6, 1fr);
   gap: 14px;
   /* ~5% title-safe horizontal inset (overscan) */
-  padding: 24px 64px;
+  padding: 24px var(--a-inset);
 }
 
 /* Virtualized movie grid (VirtualGridTV): the window IS the scroller, so it
@@ -13,7 +13,7 @@
 .tvl-mov-grid-window {
   flex: 1;
   min-height: 0;
-  padding: 24px 64px;
+  padding: 24px var(--a-inset);
 }
 
 /* ── Movie detail layout ─────────────────────────────────────────────────── */
@@ -22,8 +22,8 @@
 .tvl-mov-poster-col {
   width: 22%;
   flex-shrink: 0;
-  background: #0A0E1A;
-  border-right: 1px solid #28324E;
+  background: var(--a-bg);
+  border-right: 1px solid var(--a-border);
   overflow: hidden;
 }
 .tvl-mov-poster-col .tvl-det-poster {
@@ -40,7 +40,7 @@
   align-items: center;
   justify-content: center;
   font-size: 48px;
-  color: #28324E;
+  color: var(--a-border);
 }
 
 /* Right panel body */
@@ -68,9 +68,9 @@
 
 .tvl-mov-btn {
   padding: 16px 32px;
-  background: #1B2236;
-  border: 2px solid #28324E;
-  border-radius: 10px;
+  background: var(--a-surface-2);
+  border: 2px solid var(--a-border);
+  border-radius: var(--a-radius-sm);
   color: #fff;
   font-size: 18px;
   font-weight: 700;
@@ -78,13 +78,9 @@
   cursor: pointer;
   min-width: 180px;
 }
-.tvl-mov-btn--on {
-  border-color: #22D3EE;
-  background: #25253a;
-}
 .tvl-mov-btn--ghost {
   font-weight: 500;
-  color: #7A86A8;
+  color: var(--a-muted);
   font-size: 16px;
 }
 
@@ -96,13 +92,13 @@
   margin: 0;
   padding: 24px;
   background: rgba(26, 26, 46, 0.6);
-  border-radius: 12px;
-  border-left: 4px solid #6C5CE7;
+  border-radius: var(--a-radius-sm);
+  border-left: 4px solid var(--a-indigo);
   font-weight: 500;
 }
 .tvl-mov-crew {
   font-size: 17px;
-  color: #7A86A8;
+  color: var(--a-muted);
   line-height: 1.6;
   margin: 0;
   padding: 16px 24px;
@@ -121,11 +117,11 @@
   flex-wrap: nowrap;
   gap: 4px;
   /* ~5% title-safe horizontal inset (overscan) */
-  padding: 8px 64px;
+  padding: 8px var(--a-inset);
   overflow-x: auto;
   scrollbar-width: none;
   flex-shrink: 0;
-  border-bottom: 1px solid #28324E;
+  border-bottom: 1px solid var(--a-border);
 }
 .tvl-letter-bar::-webkit-scrollbar { display: none; }
 
@@ -136,23 +132,17 @@
   background: transparent;
   border: 1.5px solid transparent;
   border-radius: 6px;
-  color: #EAF0FF;
+  color: var(--a-text);
   font-size: 15px;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
   transition: none;
 }
-/* Focus: cyan ring — unified with Series + cards/nav */
-.tvl-letter-btn--focused {
-  border-color: #22D3EE;
-  color: #fff;
-  background: #28324E;
-}
 .tvl-letter-btn--active {
-  border-color: #6C5CE7;
-  color: #6C5CE7;
-  background: #1B2236;
+  border-color: var(--a-indigo);
+  color: var(--a-indigo);
+  background: var(--a-surface-2);
 }
 
 /* Trailer */
