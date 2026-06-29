@@ -387,6 +387,24 @@ Expected: no matches **except** `transition: none;` (allowed no-ops) and the spi
 Run: `grep -nE "#(0A0E1A|141A2E|1B2236|28324E|6C5CE7|22D3EE|E5484D|EAF0FF|B8C0DA|7A86A8)" src/styles/tvl.css src/screens/*.tv.css`
 Expected: no matches (all extracted to `--a-*`). `#fff`, `#000`, `#ffd700`-as-`--a-rating`, and `rgba(...)` literals are fine and not flagged here.
 
+- [ ] **Step 3a: Confirm rendering performance is unchanged — virtualization still holds (CSS-only guarantee).** The redesign must not alter how many DOM nodes mount; the heavy lists must still render only a windowed subset, not the full dataset (the "electron renders everything" failure mode).
+
+Run: `grep -n "VirtualGridTV" src/screens/LiveTVScreen.tv.jsx src/screens/MoviesScreen.tv.jsx src/screens/SeriesScreen.tv.jsx`
+Expected: each of the three heavy screens still imports and renders through `VirtualGridTV` (channels, movies, series posters). If any is missing, a prior task wrongly altered render logic — revert that.
+
+Run: `grep -n "slice(" src/screens/HistoryScreen.tv.jsx`
+Expected: the home/continue shelves still window with `items.slice(start, end)` (~line 834).
+
+Confirm by inspection that no task in this plan edited a `.tv.jsx` file's render/`.map()` logic — only `*.tv.css` and the player's `TV` style object + `liveToast` were touched (`git diff --stat 63ed561 HEAD` should list only `.css` files plus `VideoPlayerScreen.web.jsx`). The remaining full `.map()` renders (category cards, a season's episodes, alpha bar, account rows, action buttons) are small bounded lists and are unchanged — acceptable per the agreed CSS-only scope.
+
+- [ ] **Step 3b: Runtime DOM-budget check (manual, on a large dataset).** Add to the manual checklist below: in the TV build's devtools console (`npm run debug:lg`, or load `tv/dist` in a desktop browser with the UA forced to a TV string), open a large Live category and run:
+
+```js
+document.querySelectorAll('.tvl-ch-card').length
+```
+
+Expected: a small bounded number (tens, roughly the visible window + buffer), NOT the full channel count. Repeat with `.tvl-card` inside a large Movies/Series category. This is the evidence that virtualization survived the refresh.
+
 - [ ] **Step 4: Full test + build gate.**
 
 Run: `npm test`
