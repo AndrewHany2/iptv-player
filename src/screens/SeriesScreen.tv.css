@@ -5,7 +5,7 @@
   grid-template-columns: repeat(6, 1fr);
   gap: 14px;
   /* ~5% title-safe horizontal inset (overscan) */
-  padding: 24px 64px;
+  padding: 24px var(--a-inset);
 }
 
 /* Virtualized series grid (VirtualGridTV): the window IS the scroller, so it
@@ -13,7 +13,7 @@
 .tvl-ser-grid-window {
   flex: 1;
   min-height: 0;
-  padding: 24px 64px;
+  padding: 24px var(--a-inset);
 }
 
 /* Detail panel styles are in tvl.css (shared with movies) */
@@ -25,11 +25,11 @@
   flex-wrap: nowrap;
   gap: 4px;
   /* ~5% title-safe horizontal inset (overscan) */
-  padding: 8px 64px;
+  padding: 8px var(--a-inset);
   overflow-x: auto;
   scrollbar-width: none;
   flex-shrink: 0;
-  border-bottom: 1px solid #28324E;
+  border-bottom: 1px solid var(--a-border);
 }
 .tvl-letter-bar::-webkit-scrollbar { display: none; }
 
@@ -40,23 +40,17 @@
   background: transparent;
   border: 1.5px solid transparent;
   border-radius: 6px;
-  color: #EAF0FF;
+  color: var(--a-text);
   font-size: 15px;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
   transition: none;
 }
-/* Focus: cyan ring — unified with Movies + cards/nav */
-.tvl-letter-btn--focused {
-  border-color: #22D3EE;
-  color: #fff;
-  background: #28324E;
-}
 .tvl-letter-btn--active {
-  border-color: #6C5CE7;
-  color: #6C5CE7;
-  background: #1B2236;
+  border-color: var(--a-indigo);
+  color: var(--a-indigo);
+  background: var(--a-surface-2);
 }
 
 /* ── Action buttons (Continue / Favorites) ───────────────────────────────── */
@@ -69,28 +63,22 @@
 
 .tvl-det-act-btn {
   padding: 10px 20px;
-  border: 2px solid #28324E;
+  border: 2px solid var(--a-border);
   border-radius: 8px;
-  background: #1B2236;
-  color: #7A86A8;
+  background: var(--a-surface-2);
+  color: var(--a-muted);
   font-size: 14px;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
   white-space: nowrap;
-  transition: border-color 0.15s;
-}
-.tvl-det-act-btn--on {
-  border-color: #22D3EE;
-  background: #6C5CE7;
-  color: #fff;
 }
 
 .tvl-ser-trailer {
   height: 220px;
   flex-shrink: 0;
   background: #000;
-  border-bottom: 1px solid #28324E;
+  border-bottom: 1px solid var(--a-border);
 }
 
 /* ── Seasons row ─────────────────────────────────────────────────────────── */
@@ -98,7 +86,7 @@
   display: flex;
   gap: 10px;
   padding: 18px 60px;
-  border-bottom: 1px solid #28324E;
+  border-bottom: 1px solid var(--a-border);
   flex-shrink: 0;
   overflow-x: auto;
   scrollbar-width: none;
@@ -109,21 +97,16 @@
 
 .tvl-season-btn {
   padding: 10px 22px;
-  background: #141A2E;
-  border: 2px solid #28324E;
+  background: var(--a-surface);
+  border: 2px solid var(--a-border);
   border-radius: 6px;
-  color: #7A86A8;
+  color: var(--a-muted);
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
   font-family: inherit;
   white-space: nowrap;
   flex-shrink: 0;
-}
-.tvl-season-btn--on {
-  border-color: #22D3EE;
-  color: #fff;
-  background: #1B2236;
 }
 
 /* ── Episodes list ───────────────────────────────────────────────────────── */
@@ -147,16 +130,12 @@
   cursor: pointer;
   margin-bottom: 6px;
 }
-.tvl-episode--on {
-  border-color: #22D3EE;
-  background: #141A2E;
-}
 
 .tvl-ep-badge {
   font-size: 12px;
   font-weight: 700;
   color: #fff;
-  background: #6C5CE7;
+  background: var(--a-indigo);
   border-radius: 5px;
   padding: 4px 9px;
   flex-shrink: 0;
@@ -172,7 +151,7 @@
 }
 .tvl-ep-plot {
   font-size: 16px;
-  color: #7A86A8;
+  color: var(--a-muted);
   margin-top: 8px;
   line-height: 1.6;
   overflow: hidden;
@@ -183,11 +162,11 @@
 }
 .tvl-ep-dur {
   font-size: 14px;
-  color: #7A86A8;
+  color: var(--a-muted);
   margin-top: 6px;
 }
 .tvl-ep-play {
   font-size: 20px;
-  color: #6C5CE7;
+  color: var(--a-indigo);
   flex-shrink: 0;
 }
