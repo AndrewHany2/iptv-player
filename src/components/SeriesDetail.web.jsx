@@ -2,11 +2,15 @@ import { useState, useEffect } from "react";
 import { View, SectionList } from "react-native";
 import { YStack, XStack, Text, ScrollView, Spinner } from "tamagui";
 import { useApp } from "../context/AppContext";
+import { ss, useScale } from "../utils/scaleSize";
 import iptvApi from "../services/iptvApi";
 import ProxiedImage from "./ProxiedImage";
 import { usePlatform } from "../platform";
 
 const FILL = { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 };
+
+// Caps the detail content width on ultrawide monitors (centered via margin auto).
+const MAX_W = 1700;
 
 const getTrailerUrl = (t) => {
   if (!t) return null;
@@ -28,6 +32,7 @@ const getEpisodeNumber = (ep) => {
 
 export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
   const { isTV } = usePlatform();
+  useScale(); // re-render + recompute ss() on window resize
   const { watchHistory, isInMyList, addToMyList, removeFromMyList } = useApp();
   const [info, setInfo] = useState(null);
   const [episodes, setEpisodes] = useState({});
@@ -144,31 +149,31 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
         data: episodes[num] || [],
       }));
 
-    // TV-specific sizing for episode list
-    const epBackSize = isTV ? 20 : 14;
-    const epTitleSize = isTV ? 28 : 20;
-    const epHeaderSize = isTV ? 22 : 15;
-    const epNumSize = isTV ? 18 : 12;
-    const epNameSize = isTV ? 20 : 14;
-    const epDurationSize = isTV ? 16 : 12;
-    const epDescSize = isTV ? 18 : 13;
-    const epPadH = isTV ? 80 : 48;
+    // TV-specific sizing for episode list — passed through ss() (reflows on resize).
+    const epBackSize = ss(isTV ? 20 : 14);
+    const epTitleSize = ss(isTV ? 28 : 20);
+    const epHeaderSize = ss(isTV ? 22 : 15);
+    const epNumSize = ss(isTV ? 18 : 12);
+    const epNameSize = ss(isTV ? 20 : 14);
+    const epDurationSize = ss(isTV ? 16 : 12);
+    const epDescSize = ss(isTV ? 18 : 13);
+    const epPadH = ss(isTV ? 80 : 48);
 
     return (
       <YStack flex={1} backgroundColor="#0A0E1A">
         <XStack
           alignItems="center"
-          gap={isTV ? 20 : 14}
+          gap={ss(isTV ? 20 : 14)}
           paddingHorizontal={epPadH}
-          paddingVertical={isTV ? 28 : 18}
+          paddingVertical={ss(isTV ? 28 : 18)}
           borderBottomWidth={isTV ? 2 : 1}
           borderBottomColor="#28324E"
         >
           <YStack
-            paddingVertical={isTV ? 12 : 8}
-            paddingHorizontal={isTV ? 20 : 14}
+            paddingVertical={ss(isTV ? 12 : 8)}
+            paddingHorizontal={ss(isTV ? 20 : 14)}
             backgroundColor="#1B2236"
-            borderRadius={isTV ? 12 : 8}
+            borderRadius={ss(isTV ? 12 : 8)}
             cursor="pointer"
             onPress={() => setShowEpisodes(false)}
             pressStyle={{ opacity: 0.8 }}
@@ -196,17 +201,17 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
           keyExtractor={(ep) => String(ep.id)}
           contentContainerStyle={{
             paddingHorizontal: epPadH,
-            paddingVertical: isTV ? 24 : 12,
-            paddingBottom: 80,
+            paddingVertical: ss(isTV ? 24 : 12),
+            paddingBottom: ss(80),
           }}
           renderSectionHeader={({ section: { title } }) => (
             <YStack
               backgroundColor="#141A2E"
-              paddingHorizontal={isTV ? 20 : 14}
-              paddingVertical={isTV ? 16 : 10}
-              marginBottom={isTV ? 12 : 6}
-              marginTop={isTV ? 20 : 12}
-              borderRadius={isTV ? 12 : 8}
+              paddingHorizontal={ss(isTV ? 20 : 14)}
+              paddingVertical={ss(isTV ? 16 : 10)}
+              marginBottom={ss(isTV ? 12 : 6)}
+              marginTop={ss(isTV ? 20 : 12)}
+              borderRadius={ss(isTV ? 12 : 8)}
             >
               <Text color="#6C5CE7" fontSize={epHeaderSize} fontWeight="700">
                 {title}
@@ -216,9 +221,9 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
           renderItem={({ item: ep, section }) => (
             <YStack
               backgroundColor="#1B2236"
-              borderRadius={isTV ? 14 : 10}
-              padding={isTV ? 20 : 12}
-              marginBottom={isTV ? 12 : 6}
+              borderRadius={ss(isTV ? 14 : 10)}
+              padding={ss(isTV ? 20 : 12)}
+              marginBottom={ss(isTV ? 12 : 6)}
               borderWidth={isTV ? 2 : 1}
               borderColor="#28324E"
               cursor="pointer"
@@ -233,10 +238,10 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
               >
                 <YStack
                   backgroundColor="#6C5CE7"
-                  borderRadius={isTV ? 10 : 6}
-                  paddingHorizontal={isTV ? 14 : 8}
-                  paddingVertical={isTV ? 8 : 4}
-                  marginRight={isTV ? 16 : 12}
+                  borderRadius={ss(isTV ? 10 : 6)}
+                  paddingHorizontal={ss(isTV ? 14 : 8)}
+                  paddingVertical={ss(isTV ? 8 : 4)}
+                  marginRight={ss(isTV ? 16 : 12)}
                 >
                   <Text color="#fff" fontSize={epNumSize} fontWeight="700">
                     E{getEpisodeNumber(ep)}
@@ -255,7 +260,7 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
                     <Text
                       color="#7A86A8"
                       fontSize={epDurationSize}
-                      marginTop={isTV ? 6 : 2}
+                      marginTop={ss(isTV ? 6 : 2)}
                     >
                       {ep.info.duration}
                     </Text>
@@ -263,8 +268,8 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
                 </YStack>
                 <Text
                   color="#6C5CE7"
-                  fontSize={isTV ? 24 : 16}
-                  marginLeft={isTV ? 16 : 8}
+                  fontSize={ss(isTV ? 24 : 16)}
+                  marginLeft={ss(isTV ? 16 : 8)}
                 >
                   ▶
                 </Text>
@@ -273,9 +278,9 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
                 <Text
                   color="#7A86A8"
                   fontSize={epDescSize}
-                  lineHeight={isTV ? 28 : 20}
+                  lineHeight={ss(isTV ? 28 : 20)}
                   numberOfLines={2}
-                  marginTop={8}
+                  marginTop={ss(8)}
                 >
                   {ep.info.plot}
                 </Text>
@@ -287,27 +292,28 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
     );
   }
 
-  // TV-specific sizing
-  const heroHeight = isTV ? 700 : 520;
-  const titleSize = isTV ? 56 : 40;
-  const backSize = isTV ? 22 : 14;
-  const metaSize = isTV ? 18 : 12;
-  const ratingSize = isTV ? 20 : 13;
-  const buttonTextSize = isTV ? 22 : 15;
-  const buttonPadH = isTV ? 40 : 28;
-  const buttonPadV = isTV ? 20 : 13;
-  const descSize = isTV ? 24 : 15;
-  const descLineHeight = isTV ? 38 : 24;
-  const castSize = isTV ? 20 : 14;
-  const castLineHeight = isTV ? 32 : 20;
-  const sectionPadH = isTV ? 80 : 48;
+  // TV-specific sizing — authored at the 1920×1080 reference and passed through
+  // ss() so it scales (and reflows on web resize via useScale above).
+  const heroHeight = ss(isTV ? 700 : 520);
+  const titleSize = ss(isTV ? 56 : 40);
+  const backSize = ss(isTV ? 22 : 14);
+  const metaSize = ss(isTV ? 18 : 12);
+  const ratingSize = ss(isTV ? 20 : 13);
+  const buttonTextSize = ss(isTV ? 22 : 15);
+  const buttonPadH = ss(isTV ? 40 : 28);
+  const buttonPadV = ss(isTV ? 20 : 13);
+  const descSize = ss(isTV ? 24 : 15);
+  const descLineHeight = ss(isTV ? 38 : 24);
+  const castSize = ss(isTV ? 20 : 14);
+  const castLineHeight = ss(isTV ? 32 : 20);
+  const sectionPadH = ss(isTV ? 80 : 48);
 
   // ── Hero / detail view ────────────────────────────────────────────────────
   return (
     <ScrollView
       flex={1}
       backgroundColor="#0A0E1A"
-      contentContainerStyle={{ paddingBottom: 80 }}
+      contentContainerStyle={{ paddingBottom: ss(80) }}
     >
       <YStack
         width="100%"
@@ -334,13 +340,13 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
 
         <YStack
           position="absolute"
-          top={isTV ? 40 : 20}
+          top={ss(isTV ? 40 : 20)}
           left={sectionPadH}
           zIndex={10}
-          paddingVertical={isTV ? 14 : 8}
-          paddingHorizontal={isTV ? 24 : 14}
+          paddingVertical={ss(isTV ? 14 : 8)}
+          paddingHorizontal={ss(isTV ? 24 : 14)}
           backgroundColor="rgba(0,0,0,0.55)"
-          borderRadius={isTV ? 12 : 8}
+          borderRadius={ss(isTV ? 12 : 8)}
           cursor="pointer"
           onPress={onBack}
           pressStyle={{ opacity: 0.8 }}
@@ -360,34 +366,34 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
           left={sectionPadH}
           right={sectionPadH}
           zIndex={5}
-          paddingBottom={isTV ? 60 : 40}
+          paddingBottom={ss(isTV ? 60 : 40)}
         >
           <Text
             color="#fff"
             fontSize={titleSize}
             fontWeight="900"
             letterSpacing={isTV ? -1.5 : -1}
-            marginBottom={isTV ? 20 : 12}
+            marginBottom={ss(isTV ? 20 : 12)}
           >
             {seriesName}
           </Text>
 
           {isLoading ? (
-            <Spinner color="#6C5CE7" marginVertical={12} />
+            <Spinner color="#6C5CE7" marginVertical={ss(12)} />
           ) : (
             <XStack
               alignItems="center"
-              gap={8}
-              marginBottom={14}
+              gap={ss(8)}
+              marginBottom={ss(14)}
               flexWrap="wrap"
             >
               {year ? (
                 <YStack
                   borderWidth={isTV ? 2 : 1}
                   borderColor="#28324E"
-                  borderRadius={isTV ? 8 : 4}
-                  paddingHorizontal={isTV ? 14 : 8}
-                  paddingVertical={isTV ? 8 : 3}
+                  borderRadius={ss(isTV ? 8 : 4)}
+                  paddingHorizontal={ss(isTV ? 14 : 8)}
+                  paddingVertical={ss(isTV ? 8 : 3)}
                 >
                   <Text
                     color="#7A86A8"
@@ -402,9 +408,9 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
                 <YStack
                   borderWidth={isTV ? 2 : 1}
                   borderColor="#28324E"
-                  borderRadius={isTV ? 8 : 4}
-                  paddingHorizontal={isTV ? 14 : 8}
-                  paddingVertical={isTV ? 8 : 3}
+                  borderRadius={ss(isTV ? 8 : 4)}
+                  paddingHorizontal={ss(isTV ? 14 : 8)}
+                  paddingVertical={ss(isTV ? 8 : 3)}
                 >
                   <Text
                     color="#7A86A8"
@@ -427,13 +433,13 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
             </XStack>
           )}
 
-          <XStack alignItems="center" gap={12} flexWrap="wrap">
+          <XStack alignItems="center" gap={ss(12)} flexWrap="wrap">
             {historyEntry && (
               <YStack
                 backgroundColor="#fff"
                 paddingHorizontal={buttonPadH}
                 paddingVertical={buttonPadV}
-                borderRadius={isTV ? 12 : 8}
+                borderRadius={ss(isTV ? 12 : 8)}
                 cursor="pointer"
                 onPress={handleContinue}
                 pressStyle={{ opacity: 0.85 }}
@@ -450,9 +456,9 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
             )}
             <YStack
               backgroundColor={historyEntry ? "rgba(40,40,60,0.85)" : "#fff"}
-              paddingHorizontal={historyEntry ? (isTV ? 36 : 22) : buttonPadH}
+              paddingHorizontal={historyEntry ? ss(isTV ? 36 : 22) : buttonPadH}
               paddingVertical={buttonPadV}
-              borderRadius={isTV ? 12 : 8}
+              borderRadius={ss(isTV ? 12 : 8)}
               borderWidth={historyEntry ? (isTV ? 2 : 1) : 0}
               borderColor="#28324E"
               cursor="pointer"
@@ -472,9 +478,9 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
             {!isLoading && !!trailer && (
               <YStack
                 backgroundColor="rgba(40,40,60,0.85)"
-                paddingHorizontal={isTV ? 36 : 22}
+                paddingHorizontal={ss(isTV ? 36 : 22)}
                 paddingVertical={buttonPadV}
-                borderRadius={isTV ? 12 : 8}
+                borderRadius={ss(isTV ? 12 : 8)}
                 borderWidth={isTV ? 2 : 1}
                 borderColor="#28324E"
                 cursor="pointer"
@@ -492,9 +498,9 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
               backgroundColor={
                 inFav ? "rgba(108, 92, 231,0.15)" : "rgba(40,40,60,0.85)"
               }
-              paddingHorizontal={isTV ? 36 : 22}
+              paddingHorizontal={ss(isTV ? 36 : 22)}
               paddingVertical={buttonPadV}
-              borderRadius={isTV ? 12 : 8}
+              borderRadius={ss(isTV ? 12 : 8)}
               borderWidth={isTV ? 2 : 1}
               borderColor={inFav ? "#6C5CE7" : "#28324E"}
               cursor="pointer"
@@ -514,8 +520,8 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
       {showTrailer && !!trailer && (
         <YStack
           paddingHorizontal={sectionPadH}
-          paddingTop={isTV ? 32 : 8}
-          paddingBottom={isTV ? 40 : 24}
+          paddingTop={ss(isTV ? 32 : 8)}
+          paddingBottom={ss(isTV ? 40 : 24)}
         >
           <iframe
             title={`${seriesName} trailer`}
@@ -524,9 +530,9 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
             allowFullScreen
             style={{
               width: "100%",
-              height: isTV ? 600 : 420,
+              height: ss(isTV ? 600 : 420),
               border: "none",
-              borderRadius: isTV ? 16 : 8,
+              borderRadius: ss(isTV ? 16 : 8),
               backgroundColor: "#000",
             }}
           />
@@ -540,30 +546,34 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
         data.director) && (
         <YStack
           paddingHorizontal={sectionPadH}
-          paddingTop={isTV ? 40 : 24}
-          gap={isTV ? 20 : 10}
+          paddingTop={ss(isTV ? 40 : 24)}
+          gap={ss(isTV ? 20 : 10)}
+          maxWidth={MAX_W}
+          width="100%"
+          alignSelf="center"
         >
           {(data.plot || data.description || data.overview) && (
             <Text
               color="#7A86A8"
               fontSize={descSize}
               lineHeight={descLineHeight}
-              marginBottom={isTV ? 20 : 12}
+              marginBottom={ss(isTV ? 20 : 12)}
+              maxWidth="70ch"
             >
               {data.plot || data.description || data.overview}
             </Text>
           )}
           {data.cast && (
-            <Text color="#7A86A8" fontSize={castSize} lineHeight={castLineHeight}>
-              <Text color="#fff" fontWeight="700" fontSize={isTV ? 22 : 14}>
+            <Text color="#7A86A8" fontSize={castSize} lineHeight={castLineHeight} maxWidth="70ch">
+              <Text color="#fff" fontWeight="700" fontSize={ss(isTV ? 22 : 14)}>
                 Cast:{" "}
               </Text>
               {data.cast}
             </Text>
           )}
           {data.director && (
-            <Text color="#7A86A8" fontSize={castSize} lineHeight={castLineHeight}>
-              <Text color="#fff" fontWeight="700" fontSize={isTV ? 22 : 14}>
+            <Text color="#7A86A8" fontSize={castSize} lineHeight={castLineHeight} maxWidth="70ch">
+              <Text color="#fff" fontWeight="700" fontSize={ss(isTV ? 22 : 14)}>
                 Director:{" "}
               </Text>
               {data.director}

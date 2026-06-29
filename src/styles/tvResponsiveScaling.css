@@ -1,313 +1,58 @@
 /**
- * TV Responsive Scaling
- * Scales all UI elements based on screen width for different TV sizes
+ * TV Responsive Scaling (Aurora)
+ *
+ * Single scaling strategy for the TV body. The webOS/Tizen build pins the
+ * layout viewport to width=1280 (see tv/patch-index.js), so the panel itself
+ * scales 1280 → physical resolution (1.5× at 1080p, 2× at 4K). That means the
+ * `.tvl-*` body — authored in px against the 1280 design width — already holds
+ * its proportions at 720p / 1080p / 1440p / 4K with no per-element work.
+ *
+ * This sheet makes that explicit and adds one reactive lever: a root scale
+ * derived from the *actual* CSS viewport width, clamped so it is a no-op at the
+ * 1280 design width and only grows modestly if a panel reports a wider logical
+ * viewport. Existing px values are left untouched (no double-scaling); new
+ * spacing that wants to track the screen can read `--tvl-rem` / the scale var.
+ *
+ * Selectors target the real `.tvl-*` namespace used by every *.tv.jsx screen.
+ * (The old `.tv-*` selectors here were dead — nothing in the app emits them.)
+ *
+ * var() is intentionally used: this is a TV-only sheet, and modern webOS/Tizen
+ * Chromium supports custom properties. Shared legacy CSS still avoids var().
  */
 
-/* Base font size calculation for scaling */
 :root {
-  /* Calculate scale factor based on viewport width */
-  /* Base: 1920px (Full HD) = 1.0 scale */
-  --tv-scale: calc(100vw / 1920);
+  /* Design width matches the pinned TV viewport (tv/patch-index.js). */
+  --tvl-design-width: 1280;
 
-  /* Clamp scale between 0.8 and 1.5 for safety */
-  --tv-scale-clamped: clamp(0.8, var(--tv-scale), 1.5);
+  /* Live scale from the CSS viewport. At the pinned 1280 viewport this is 1.0,
+     so the body renders exactly as authored; clamp keeps it from ever shrinking
+     the UI and caps growth on unusually wide logical viewports. */
+  --tv-scale: calc(100vw / 1280);
+  --tv-scale-clamped: clamp(1, var(--tv-scale), 1.35);
 
-  /* Base sizes that will be scaled */
-  --base-font-size: 16px;
-  --base-spacing: 8px;
-  --base-border-radius: 8px;
-  --base-poster-width: 200px;
-  --base-poster-height: 300px;
+  /* Base rem unit screens can scale against. 16px at the design width. */
+  --tvl-rem: calc(16px * var(--tv-scale-clamped));
+
+  /* Title-safe horizontal inset (~5% overscan margin), scaled. */
+  --tvl-safe-x: calc(64px * var(--tv-scale-clamped));
 }
 
-/* Apply scaling to body */
+/* Drive the root font-size so any rem-based sizing tracks the scale. This is a
+   no-op for the existing px layout (which does not use rem) and a safe hook for
+   future rem sizing. */
 body[data-tv="true"] {
-  font-size: calc(var(--base-font-size) * var(--tv-scale-clamped));
+  font-size: var(--tvl-rem);
 }
 
-/* Scale all TV components */
-.tv-screen {
-  /* Use rem units which scale with root font-size */
-  font-size: 1rem;
+/* The screen shell fills the (already-scaled) viewport. */
+.tvl-screen {
+  width: 100%;
+  min-height: 100vh;
 }
 
-/* Poster cards - scale based on screen width */
-.tv-poster {
-  width: calc(var(--base-poster-width) * var(--tv-scale-clamped));
-  height: auto;
+/* Focus ring width tracks the scale so the 10-foot ring stays legible as the
+   panel scales up. Color/offset live in tvRemoteFocus.css. */
+.tvl-card--on,
+.tvl-ch-card--on {
+  outline-width: calc(2px * var(--tv-scale-clamped));
 }
-
-.tv-poster-image {
-  height: calc(var(--base-poster-height) * var(--tv-scale-clamped));
-}
-
-/* Channel cards */
-.tv-channel-logo {
-  width: calc(200px * var(--tv-scale-clamped));
-  height: calc(120px * var(--tv-scale-clamped));
-}
-
-/* Buttons */
-.tv-btn {
-  padding: calc(12px * var(--tv-scale-clamped))
-    calc(24px * var(--tv-scale-clamped));
-  font-size: calc(15px * var(--tv-scale-clamped));
-  border-radius: calc(8px * var(--tv-scale-clamped));
-}
-
-/* Text sizes */
-.tv-screen h1 {
-  font-size: calc(32px * var(--tv-scale-clamped));
-}
-
-.tv-screen h2 {
-  font-size: calc(28px * var(--tv-scale-clamped));
-}
-
-.tv-screen h3 {
-  font-size: calc(24px * var(--tv-scale-clamped));
-}
-
-.tv-screen p {
-  font-size: calc(16px * var(--tv-scale-clamped));
-}
-
-/* Spacing */
-.tv-content {
-  padding: calc(40px * var(--tv-scale-clamped));
-}
-
-.tv-shelf {
-  margin-bottom: calc(32px * var(--tv-scale-clamped));
-}
-
-.tv-shelf-header {
-  margin-bottom: calc(16px * var(--tv-scale-clamped));
-}
-
-/* Focus outline scales too */
-.tv-focused {
-  outline-width: calc(3px * var(--tv-scale-clamped));
-  outline-offset: calc(4px * var(--tv-scale-clamped));
-}
-
-/* Grid gaps */
-.tv-grid {
-  gap: calc(24px * var(--tv-scale-clamped));
-  padding: calc(20px * var(--tv-scale-clamped));
-}
-
-/* Input fields */
-.tv-search,
-input,
-textarea,
-select {
-  padding: calc(10px * var(--tv-scale-clamped))
-    calc(16px * var(--tv-scale-clamped));
-  font-size: calc(14px * var(--tv-scale-clamped));
-  border-radius: calc(8px * var(--tv-scale-clamped));
-}
-
-/* Icons and emojis */
-.tv-empty-icon {
-  font-size: calc(64px * var(--tv-scale-clamped));
-}
-
-/* Specific breakpoints for common TV sizes */
-
-/* 720p HD (1280x720) - Scale down */
-@media (max-width: 1280px) {
-  :root {
-    --tv-scale: 0.67; /* 1280/1920 */
-  }
-}
-
-/* 1080p Full HD (1920x1080) - Base scale */
-@media (min-width: 1281px) and (max-width: 1920px) {
-  :root {
-    --tv-scale: 1;
-  }
-}
-
-/* 1440p QHD (2560x1440) - Scale up */
-@media (min-width: 1921px) and (max-width: 2560px) {
-  :root {
-    --tv-scale: 1.33; /* 2560/1920 */
-  }
-}
-
-/* 4K UHD (3840x2160) - Scale up more */
-@media (min-width: 2561px) and (max-width: 3840px) {
-  :root {
-    --tv-scale: 2; /* 3840/1920 */
-  }
-
-  /* For 4K, also increase base sizes */
-  .tv-poster {
-    width: calc(var(--base-poster-width) * 1.5 * var(--tv-scale-clamped));
-  }
-
-  .tv-poster-image {
-    height: calc(var(--base-poster-height) * 1.5 * var(--tv-scale-clamped));
-  }
-}
-
-/* 8K (7680x4320) - Maximum scale */
-@media (min-width: 3841px) {
-  :root {
-    --tv-scale: 3;
-  }
-
-  .tv-poster {
-    width: calc(var(--base-poster-width) * 2 * var(--tv-scale-clamped));
-  }
-
-  .tv-poster-image {
-    height: calc(var(--base-poster-height) * 2 * var(--tv-scale-clamped));
-  }
-}
-
-/* Adjust grid columns based on screen width */
-@media (max-width: 1280px) {
-  .tv-grid {
-    grid-template-columns: repeat(
-      auto-fill,
-      minmax(calc(150px * var(--tv-scale-clamped)), 1fr)
-    );
-  }
-}
-
-@media (min-width: 1281px) and (max-width: 1920px) {
-  .tv-grid {
-    grid-template-columns: repeat(
-      auto-fill,
-      minmax(calc(200px * var(--tv-scale-clamped)), 1fr)
-    );
-  }
-}
-
-@media (min-width: 1921px) and (max-width: 2560px) {
-  .tv-grid {
-    grid-template-columns: repeat(
-      auto-fill,
-      minmax(calc(250px * var(--tv-scale-clamped)), 1fr)
-    );
-  }
-}
-
-@media (min-width: 2561px) {
-  .tv-grid {
-    grid-template-columns: repeat(
-      auto-fill,
-      minmax(calc(300px * var(--tv-scale-clamped)), 1fr)
-    );
-  }
-}
-
-/* Adjust number of items per shelf based on width */
-@media (max-width: 1280px) {
-  .tv-shelf-rail {
-    /* Smaller screens show fewer items */
-    max-width: calc(180px * 3 + 48px); /* 3 items */
-  }
-}
-
-@media (min-width: 1281px) and (max-width: 1920px) {
-  .tv-shelf-rail {
-    max-width: calc(200px * 4 + 72px); /* 4 items */
-  }
-}
-
-@media (min-width: 1921px) and (max-width: 2560px) {
-  .tv-shelf-rail {
-    max-width: calc(250px * 5 + 96px); /* 5 items */
-  }
-}
-
-@media (min-width: 2561px) {
-  .tv-shelf-rail {
-    max-width: calc(300px * 6 + 120px); /* 6 items */
-  }
-}
-
-/* Scale history items */
-.tv-history-poster {
-  width: calc(120px * var(--tv-scale-clamped));
-  height: calc(180px * var(--tv-scale-clamped));
-}
-
-/* Scale account items */
-.tv-accounts-item {
-  padding: calc(20px * var(--tv-scale-clamped));
-}
-
-/* Scale episode items */
-.tv-episode {
-  padding: calc(20px * var(--tv-scale-clamped));
-  gap: calc(20px * var(--tv-scale-clamped));
-}
-
-.tv-episode-number {
-  width: calc(60px * var(--tv-scale-clamped));
-  height: calc(60px * var(--tv-scale-clamped));
-  font-size: calc(18px * var(--tv-scale-clamped));
-}
-
-/* Scale loading spinners */
-.tv-spinner {
-  width: calc(48px * var(--tv-scale-clamped));
-  height: calc(48px * var(--tv-scale-clamped));
-  border-width: calc(4px * var(--tv-scale-clamped));
-}
-
-.tv-spinner-small {
-  width: calc(24px * var(--tv-scale-clamped));
-  height: calc(24px * var(--tv-scale-clamped));
-  border-width: calc(3px * var(--tv-scale-clamped));
-}
-
-/* Scale badges and pills */
-.tv-poster-badge {
-  padding: calc(4px * var(--tv-scale-clamped))
-    calc(8px * var(--tv-scale-clamped));
-  font-size: calc(11px * var(--tv-scale-clamped));
-  border-radius: calc(4px * var(--tv-scale-clamped));
-}
-
-.tv-pill {
-  padding: calc(12px * var(--tv-scale-clamped))
-    calc(20px * var(--tv-scale-clamped));
-  font-size: calc(15px * var(--tv-scale-clamped));
-  border-radius: calc(12px * var(--tv-scale-clamped));
-}
-
-/* Scale modal/dialog */
-.tv-accounts-modal {
-  padding: calc(40px * var(--tv-scale-clamped));
-  border-radius: calc(16px * var(--tv-scale-clamped));
-  max-width: calc(500px * var(--tv-scale-clamped));
-}
-
-/* Debug info - show current scale */
-body[data-tv="true"]::before {
-  content: "TV Scale: " var(--tv-scale-clamped) " | Width: " attr(data-width);
-  position: fixed;
-  top: 10px;
-  right: 10px;
-  background: rgba(0, 0, 0, 0.8);
-  color: #0f0;
-  padding: 8px 12px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-family: monospace;
-  z-index: 9999;
-  pointer-events: none;
-  display: none; /* Enable for debugging */
-}
-
-/* Enable debug info */
-body[data-tv="true"][data-debug="true"]::before {
-  display: block;
-}
-
-/* Made with Bob */

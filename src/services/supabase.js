@@ -258,6 +258,9 @@ export async function deleteIptvAccount(accountId) {
 
 // ─── Watch History ────────────────────────────────────────────────────────────
 
+// Max number of history entries kept locally, remotely-fetched, and after merge.
+export const MAX_HISTORY = 20;
+
 export async function fetchRemoteHistory(userKey) {
   if (!supabase) return [];
   const { data, error } = await supabase
@@ -265,7 +268,7 @@ export async function fetchRemoteHistory(userKey) {
     .select("entry")
     .eq("user_key", userKey)
     .order("watched_at", { ascending: false })
-    .limit(50);
+    .limit(MAX_HISTORY);
   if (error) {
     console.error("[Supabase] fetchRemoteHistory:", error.message);
     return [];
@@ -274,7 +277,7 @@ export async function fetchRemoteHistory(userKey) {
 }
 
 export async function upsertHistoryEntry(userKey, entry) {
-  if (!supabase) return;
+  if (!supabase) return { ok: false, error: new Error("Supabase not configured") };
   const { error } = await supabase
     .from("watch_history")
     .upsert(
@@ -286,17 +289,25 @@ export async function upsertHistoryEntry(userKey, entry) {
       },
       { onConflict: "user_key,entry_id" },
     );
-  if (error) console.error("[Supabase] upsertHistoryEntry:", error.message);
+  if (error) {
+    console.error("[Supabase] upsertHistoryEntry:", error.message);
+    return { ok: false, error };
+  }
+  return { ok: true };
 }
 
 export async function deleteHistoryEntry(userKey, entryId) {
-  if (!supabase) return;
+  if (!supabase) return { ok: false, error: new Error("Supabase not configured") };
   const { error } = await supabase
     .from("watch_history")
     .delete()
     .eq("user_key", userKey)
     .eq("entry_id", entryId);
-  if (error) console.error("[Supabase] deleteHistoryEntry:", error.message);
+  if (error) {
+    console.error("[Supabase] deleteHistoryEntry:", error.message);
+    return { ok: false, error };
+  }
+  return { ok: true };
 }
 
 // ─── Favorites ────────────────────────────────────────────────────────────────
@@ -316,24 +327,32 @@ export async function fetchFavorites(userKey) {
 }
 
 export async function upsertFavorite(userKey, entry) {
-  if (!supabase) return;
+  if (!supabase) return { ok: false, error: new Error("Supabase not configured") };
   const { error } = await supabase
     .from("favorites")
     .upsert(
       { user_key: userKey, entry_id: entry.id, entry, added_at: entry.addedAt },
       { onConflict: "user_key,entry_id" },
     );
-  if (error) console.error("[Supabase] upsertFavorite:", error.message);
+  if (error) {
+    console.error("[Supabase] upsertFavorite:", error.message);
+    return { ok: false, error };
+  }
+  return { ok: true };
 }
 
 export async function deleteFavorite(userKey, entryId) {
-  if (!supabase) return;
+  if (!supabase) return { ok: false, error: new Error("Supabase not configured") };
   const { error } = await supabase
     .from("favorites")
     .delete()
     .eq("user_key", userKey)
     .eq("entry_id", entryId);
-  if (error) console.error("[Supabase] deleteFavorite:", error.message);
+  if (error) {
+    console.error("[Supabase] deleteFavorite:", error.message);
+    return { ok: false, error };
+  }
+  return { ok: true };
 }
 
 export function mergeHistories(local, remote) {
@@ -346,5 +365,5 @@ export function mergeHistories(local, remote) {
   }
   return Array.from(map.values())
     .sort((a, b) => new Date(b.watchedAt) - new Date(a.watchedAt))
-    .slice(0, 20);
+    .slice(0, MAX_HISTORY);
 }

@@ -2,11 +2,15 @@ import { useState, useEffect } from "react";
 import { View } from "react-native";
 import { YStack, XStack, Text, ScrollView, Spinner } from "tamagui";
 import { useApp } from "../context/AppContext";
+import { ss, useScale } from "../utils/scaleSize";
 import iptvApi from "../services/iptvApi";
 import ProxiedImage from "./ProxiedImage";
 import { usePlatform } from "../platform";
 
 const FILL = { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 };
+
+// Caps the detail content width on ultrawide monitors (centered via margin auto).
+const MAX_W = 1700;
 
 const getTrailerUrl = (t) => {
   if (!t) return null;
@@ -19,6 +23,7 @@ const getTrailerUrl = (t) => {
 
 export default function MovieDetail({ item, onBack, onPlay }) {
   const { isTV } = usePlatform();
+  useScale(); // re-render + recompute ss() on window resize
   const { watchHistory, isInMyList, addToMyList, removeFromMyList } = useApp();
   const [info, setInfo] = useState(null);
   const [showTrailer, setShowTrailer] = useState(false);
@@ -78,26 +83,27 @@ export default function MovieDetail({ item, onBack, onPlay }) {
     onPlay({ type: "movies", streamId, name, url, cover, startTime });
   };
 
-  // TV-specific sizing
-  const heroHeight = isTV ? 700 : 520;
-  const titleSize = isTV ? 56 : 40;
-  const backSize = isTV ? 22 : 14;
-  const metaSize = isTV ? 18 : 12;
-  const ratingSize = isTV ? 20 : 13;
-  const buttonTextSize = isTV ? 22 : 15;
-  const buttonPadH = isTV ? 40 : 28;
-  const buttonPadV = isTV ? 20 : 13;
-  const descSize = isTV ? 24 : 15;
-  const descLineHeight = isTV ? 38 : 24;
-  const castSize = isTV ? 20 : 14;
-  const castLineHeight = isTV ? 32 : 20;
-  const sectionPadH = isTV ? 80 : 48;
+  // TV-specific sizing — authored at the 1920×1080 reference and passed through
+  // ss() so it scales (and reflows on web resize via useScale above).
+  const heroHeight = ss(isTV ? 700 : 520);
+  const titleSize = ss(isTV ? 56 : 40);
+  const backSize = ss(isTV ? 22 : 14);
+  const metaSize = ss(isTV ? 18 : 12);
+  const ratingSize = ss(isTV ? 20 : 13);
+  const buttonTextSize = ss(isTV ? 22 : 15);
+  const buttonPadH = ss(isTV ? 40 : 28);
+  const buttonPadV = ss(isTV ? 20 : 13);
+  const descSize = ss(isTV ? 24 : 15);
+  const descLineHeight = ss(isTV ? 38 : 24);
+  const castSize = ss(isTV ? 20 : 14);
+  const castLineHeight = ss(isTV ? 32 : 20);
+  const sectionPadH = ss(isTV ? 80 : 48);
 
   return (
     <ScrollView
       flex={1}
       backgroundColor="#0A0E1A"
-      contentContainerStyle={{ paddingBottom: 80 }}
+      contentContainerStyle={{ paddingBottom: ss(80) }}
     >
       {/* Hero */}
       <YStack
@@ -125,13 +131,13 @@ export default function MovieDetail({ item, onBack, onPlay }) {
 
         <YStack
           position="absolute"
-          top={isTV ? 40 : 20}
+          top={ss(isTV ? 40 : 20)}
           left={sectionPadH}
           zIndex={10}
-          paddingVertical={isTV ? 14 : 8}
-          paddingHorizontal={isTV ? 24 : 14}
+          paddingVertical={ss(isTV ? 14 : 8)}
+          paddingHorizontal={ss(isTV ? 24 : 14)}
           backgroundColor="rgba(0,0,0,0.55)"
-          borderRadius={isTV ? 12 : 8}
+          borderRadius={ss(isTV ? 12 : 8)}
           cursor="pointer"
           onPress={onBack}
           pressStyle={{ opacity: 0.8 }}
@@ -151,34 +157,34 @@ export default function MovieDetail({ item, onBack, onPlay }) {
           left={sectionPadH}
           right={sectionPadH}
           zIndex={5}
-          paddingBottom={isTV ? 60 : 40}
+          paddingBottom={ss(isTV ? 60 : 40)}
         >
           <Text
             color="#fff"
             fontSize={titleSize}
             fontWeight="900"
             letterSpacing={isTV ? -1.5 : -1}
-            marginBottom={isTV ? 20 : 12}
+            marginBottom={ss(isTV ? 20 : 12)}
           >
             {name}
           </Text>
 
           {isLoading ? (
-            <Spinner color="#6C5CE7" marginVertical={12} />
+            <Spinner color="#6C5CE7" marginVertical={ss(12)} />
           ) : (
             <XStack
               alignItems="center"
-              gap={8}
-              marginBottom={14}
+              gap={ss(8)}
+              marginBottom={ss(14)}
               flexWrap="wrap"
             >
               {year ? (
                 <YStack
                   borderWidth={isTV ? 2 : 1}
                   borderColor="#28324E"
-                  borderRadius={isTV ? 8 : 4}
-                  paddingHorizontal={isTV ? 14 : 8}
-                  paddingVertical={isTV ? 8 : 3}
+                  borderRadius={ss(isTV ? 8 : 4)}
+                  paddingHorizontal={ss(isTV ? 14 : 8)}
+                  paddingVertical={ss(isTV ? 8 : 3)}
                 >
                   <Text
                     color="#7A86A8"
@@ -193,9 +199,9 @@ export default function MovieDetail({ item, onBack, onPlay }) {
                 <YStack
                   borderWidth={isTV ? 2 : 1}
                   borderColor="#28324E"
-                  borderRadius={isTV ? 8 : 4}
-                  paddingHorizontal={isTV ? 14 : 8}
-                  paddingVertical={isTV ? 8 : 3}
+                  borderRadius={ss(isTV ? 8 : 4)}
+                  paddingHorizontal={ss(isTV ? 14 : 8)}
+                  paddingVertical={ss(isTV ? 8 : 3)}
                 >
                   <Text
                     color="#7A86A8"
@@ -219,9 +225,9 @@ export default function MovieDetail({ item, onBack, onPlay }) {
                 <YStack
                   borderWidth={isTV ? 2 : 1}
                   borderColor="#6C5CE7"
-                  borderRadius={isTV ? 8 : 4}
-                  paddingHorizontal={isTV ? 14 : 8}
-                  paddingVertical={isTV ? 8 : 3}
+                  borderRadius={ss(isTV ? 8 : 4)}
+                  paddingHorizontal={ss(isTV ? 14 : 8)}
+                  paddingVertical={ss(isTV ? 8 : 3)}
                 >
                   <Text
                     color="#6C5CE7"
@@ -235,14 +241,14 @@ export default function MovieDetail({ item, onBack, onPlay }) {
             </XStack>
           )}
 
-          <XStack alignItems="center" gap={12} flexWrap="wrap">
+          <XStack alignItems="center" gap={ss(12)} flexWrap="wrap">
             {resumeTime > 0 ? (
               <>
                 <YStack
                   backgroundColor="#fff"
                   paddingHorizontal={buttonPadH}
                   paddingVertical={buttonPadV}
-                  borderRadius={isTV ? 12 : 8}
+                  borderRadius={ss(isTV ? 12 : 8)}
                   cursor="pointer"
                   onPress={() => handlePlay(resumeTime)}
                   pressStyle={{ opacity: 0.85 }}
@@ -255,9 +261,9 @@ export default function MovieDetail({ item, onBack, onPlay }) {
                 </YStack>
                 <YStack
                   backgroundColor="rgba(40,40,60,0.85)"
-                  paddingHorizontal={isTV ? 36 : 22}
+                  paddingHorizontal={ss(isTV ? 36 : 22)}
                   paddingVertical={buttonPadV}
-                  borderRadius={isTV ? 12 : 8}
+                  borderRadius={ss(isTV ? 12 : 8)}
                   borderWidth={isTV ? 2 : 1}
                   borderColor="#28324E"
                   cursor="pointer"
@@ -276,7 +282,7 @@ export default function MovieDetail({ item, onBack, onPlay }) {
                 backgroundColor="#fff"
                 paddingHorizontal={buttonPadH}
                 paddingVertical={buttonPadV}
-                borderRadius={isTV ? 12 : 8}
+                borderRadius={ss(isTV ? 12 : 8)}
                 cursor="pointer"
                 onPress={() => handlePlay(0)}
                 pressStyle={{ opacity: 0.85 }}
@@ -291,9 +297,9 @@ export default function MovieDetail({ item, onBack, onPlay }) {
             {!isLoading && !!trailer && (
               <YStack
                 backgroundColor="rgba(40,40,60,0.85)"
-                paddingHorizontal={isTV ? 36 : 22}
+                paddingHorizontal={ss(isTV ? 36 : 22)}
                 paddingVertical={buttonPadV}
-                borderRadius={isTV ? 12 : 8}
+                borderRadius={ss(isTV ? 12 : 8)}
                 borderWidth={isTV ? 2 : 1}
                 borderColor="#28324E"
                 cursor="pointer"
@@ -311,9 +317,9 @@ export default function MovieDetail({ item, onBack, onPlay }) {
               backgroundColor={
                 inFav ? "rgba(108, 92, 231,0.15)" : "rgba(40,40,60,0.85)"
               }
-              paddingHorizontal={isTV ? 36 : 22}
+              paddingHorizontal={ss(isTV ? 36 : 22)}
               paddingVertical={buttonPadV}
-              borderRadius={isTV ? 12 : 8}
+              borderRadius={ss(isTV ? 12 : 8)}
               borderWidth={isTV ? 2 : 1}
               borderColor={inFav ? "#6C5CE7" : "#28324E"}
               cursor="pointer"
@@ -334,8 +340,8 @@ export default function MovieDetail({ item, onBack, onPlay }) {
       {showTrailer && !!trailer && (
         <YStack
           paddingHorizontal={sectionPadH}
-          paddingTop={isTV ? 32 : 8}
-          paddingBottom={isTV ? 40 : 24}
+          paddingTop={ss(isTV ? 32 : 8)}
+          paddingBottom={ss(isTV ? 40 : 24)}
         >
           <iframe
             title={`${name} trailer`}
@@ -344,9 +350,9 @@ export default function MovieDetail({ item, onBack, onPlay }) {
             allowFullScreen
             style={{
               width: "100%",
-              height: isTV ? 600 : 420,
+              height: ss(isTV ? 600 : 420),
               border: "none",
-              borderRadius: isTV ? 16 : 8,
+              borderRadius: ss(isTV ? 16 : 8),
               backgroundColor: "#000",
             }}
           />
@@ -361,14 +367,17 @@ export default function MovieDetail({ item, onBack, onPlay }) {
         data.director) && (
         <YStack
           paddingHorizontal={sectionPadH}
-          paddingTop={isTV ? 40 : 24}
-          gap={isTV ? 20 : 10}
+          paddingTop={ss(isTV ? 40 : 24)}
+          gap={ss(isTV ? 20 : 10)}
+          maxWidth={MAX_W}
+          width="100%"
+          alignSelf="center"
         >
           {(data.description || data.plot || data.overview) && (
             <YStack
               backgroundColor={isTV ? "rgba(26,26,46,0.6)" : "transparent"}
-              padding={isTV ? 24 : 0}
-              borderRadius={isTV ? 12 : 0}
+              padding={ss(isTV ? 24 : 0)}
+              borderRadius={ss(isTV ? 12 : 0)}
               borderLeftWidth={isTV ? 4 : 0}
               borderLeftColor={isTV ? "#6C5CE7" : "transparent"}
             >
@@ -376,24 +385,25 @@ export default function MovieDetail({ item, onBack, onPlay }) {
                 color={isTV ? "#e0e0e0" : "#7A86A8"}
                 fontSize={descSize}
                 lineHeight={descLineHeight}
-                marginBottom={isTV ? 20 : 12}
+                marginBottom={ss(isTV ? 20 : 12)}
                 fontWeight={isTV ? "500" : "400"}
+                maxWidth="70ch"
               >
                 {data.description || data.plot || data.overview}
               </Text>
             </YStack>
           )}
           {data.cast && (
-            <Text color="#7A86A8" fontSize={castSize} lineHeight={castLineHeight}>
-              <Text color="#fff" fontWeight="700" fontSize={isTV ? 22 : 14}>
+            <Text color="#7A86A8" fontSize={castSize} lineHeight={castLineHeight} maxWidth="70ch">
+              <Text color="#fff" fontWeight="700" fontSize={ss(isTV ? 22 : 14)}>
                 Cast:{" "}
               </Text>
               {data.cast}
             </Text>
           )}
           {data.director && (
-            <Text color="#7A86A8" fontSize={castSize} lineHeight={castLineHeight}>
-              <Text color="#fff" fontWeight="700" fontSize={isTV ? 22 : 14}>
+            <Text color="#7A86A8" fontSize={castSize} lineHeight={castLineHeight} maxWidth="70ch">
+              <Text color="#fff" fontWeight="700" fontSize={ss(isTV ? 22 : 14)}>
                 Director:{" "}
               </Text>
               {data.director}

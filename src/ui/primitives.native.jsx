@@ -12,6 +12,7 @@ import {
   ActivityIndicator, ScrollView as RNScrollView,
 } from "react-native";
 import { splitStyleProps } from "./styleProps";
+import { colors } from "./tokens";
 
 // Behavioural props that are web-only no-ops on native (cursor/hover/animation).
 const DROP = new Set(["cursor", "hoverStyle", "animation", "space"]);
@@ -63,14 +64,14 @@ export const Input = forwardRef(function Input(props, ref) {
   return (
     <TextInput
       ref={ref}
-      placeholderTextColor={placeholderTextColor ?? "#666"}
+      placeholderTextColor={placeholderTextColor ?? colors.muted}
       style={[styleProps, style]}
       {...other}
     />
   );
 });
 
-export const Spinner = forwardRef(function Spinner({ size = "small", color = "#6C5CE7", ...rest }, ref) {
+export const Spinner = forwardRef(function Spinner({ size = "small", color = colors.accent, ...rest }, ref) {
   const mapped = size === "large" ? "large" : "small";
   return <ActivityIndicator ref={ref} size={mapped} color={color} {...rest} />;
 });

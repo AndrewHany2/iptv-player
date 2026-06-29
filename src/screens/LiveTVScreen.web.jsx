@@ -1,11 +1,15 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo, memo } from "react";
 import { Modal, Alert, TouchableOpacity } from "react-native";
 import { YStack, XStack, Text, Input, ScrollView, Spinner } from "tamagui";
 import { useApp } from "../context/AppContext";
 import { useContentService } from "../domain/hooks/useContentService";
-import { ss } from "../utils/scaleSize";
+import { ss, useScale } from "../utils/scaleSize";
 import iptvApi from "../services/iptvApi";
 import ProxiedImage from "../components/ProxiedImage";
+
+// Caps the browse content width so rows don't stretch edge-to-edge on ultrawide
+// monitors. Centered via margin auto on the inner wrapper.
+const MAX_W = 1700;
 
 const decodeEpgTitle = (title) => {
   try {
@@ -22,7 +26,7 @@ const getAbbrev = (name) => {
 };
 
 /* ─── Live Card ─── */
-function LiveCard({ item, epg, onPress, fetchEpg }) {
+const LiveCard = memo(function LiveCard({ item, epg, onPress, fetchEpg }) {
   const { addToMyList, removeFromMyList, isInMyList } = useApp();
   const abbrev = getAbbrev(item.name);
   const sid = item.stream_id || item.id;
@@ -153,7 +157,7 @@ function LiveCard({ item, epg, onPress, fetchEpg }) {
       </Text>
     </YStack>
   );
-}
+});
 
 const SHELF_PAGE =
   typeof window !== "undefined"
@@ -332,6 +336,7 @@ export default function LiveTVScreen({ navigation }) {
     setSearchQuery,
   } = useApp();
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
   const [categories, setCategories] = useState([]);
   const [channelsByCategory, setChannelsByCategory] = useState({});
   const [epgCache, setEpgCache] = useState({});
@@ -339,6 +344,15 @@ export default function LiveTVScreen({ navigation }) {
   const [newChannelName, setNewChannelName] = useState("");
   const [newStreamUrl, setNewStreamUrl] = useState("");
   const loadedRef = useRef(new Set());
+  // Re-render this screen (and recompute ss()) when the window resizes.
+  useScale();
+  // Debounced lowercase search term — keeps the filter off the keystroke path.
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  useEffect(() => {
+    const q = searchQuery.trim().toLowerCase();
+    const t = setTimeout(() => setDebouncedQuery(q), 200);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
 
   const fetchEpg = useCallback(async (streamId) => {
     setEpgCache((prev) => {
@@ -365,6 +379,7 @@ export default function LiveTVScreen({ navigation }) {
     }
     const ch = {
       name: newChannelName.trim(),
+      _lc: newChannelName.trim().toLowerCase(),
       url: newStreamUrl.trim(),
       id: Date.now().toString(),
       stream_id: Date.now().toString(),
@@ -399,6 +414,8 @@ export default function LiveTVScreen({ navigation }) {
       const data = await iptvApi.getLiveStreamsByCategory(catId);
       const formatted = (data || []).map((ch) => ({
         name: ch.name,
+        // Lowercased once at load so the search filter never re-lowercases per keystroke.
+        _lc: (ch.name || "").toLowerCase(),
         url: iptvApi.buildStreamUrl("live", ch.stream_id, "m3u8"),
         id: ch.stream_id,
         stream_id: ch.stream_id,
@@ -409,11 +426,12 @@ export default function LiveTVScreen({ navigation }) {
     } catch {
       setChannelsByCategory((prev) => ({ ...prev, [catId]: [] }));
     }
-  }, []);
+  }, [setChannels]);
 
   const loadChannels = async () => {
     if (!activeUser) return;
     setLoading(true);
+    setError(false);
     loadedRef.current.clear();
     setCategories([]);
     setChannelsByCategory({});
@@ -428,34 +446,45 @@ export default function LiveTVScreen({ navigation }) {
       );
     } catch (err) {
       console.error("Error loading channels:", err);
+      setError(true);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleChannelPress = (item) => {
-    playVideo({
-      type: "live",
-      streamId: item.stream_id || item.id,
-      name: item.name,
-      url: item.url,
-    });
-    navigation.navigate("VideoPlayer");
-  };
+  const handleChannelPress = useCallback(
+    (item) => {
+      playVideo({
+        type: "live",
+        streamId: item.stream_id || item.id,
+        name: item.name,
+        url: item.url,
+      });
+      navigation.navigate("VideoPlayer");
+    },
+    [playVideo, navigation],
+  );
 
-  const displayCategories = searchQuery
-    ? categories
-        .map((cat) => ({
-          ...cat,
-          channels: (channelsByCategory[cat.id] || []).filter((ch) =>
-            ch.name.toLowerCase().includes(searchQuery.toLowerCase()),
-          ),
-        }))
-        .filter((cat) => cat.channels.length > 0)
-    : categories.map((cat) => ({
-        ...cat,
-        channels: channelsByCategory[cat.id] ?? null,
-      }));
+  // Derived shelves. Memoized on [categories, channelsByCategory, debouncedQuery]
+  // so a keystroke that doesn't change the (debounced) query is a no-op, and the
+  // filter reuses the names lowercased once at load (item._lc).
+  const displayCategories = useMemo(
+    () =>
+      debouncedQuery
+        ? categories
+            .map((cat) => ({
+              ...cat,
+              channels: (channelsByCategory[cat.id] || []).filter((ch) =>
+                (ch._lc ?? ch.name.toLowerCase()).includes(debouncedQuery),
+              ),
+            }))
+            .filter((cat) => cat.channels.length > 0)
+        : categories.map((cat) => ({
+            ...cat,
+            channels: channelsByCategory[cat.id] ?? null,
+          })),
+    [categories, channelsByCategory, debouncedQuery],
+  );
 
   if (loading) {
     return (
@@ -470,6 +499,51 @@ export default function LiveTVScreen({ navigation }) {
         <Text color="#7A86A8" marginTop={ss(12)} fontSize={ss(14)}>
           Loading channels...
         </Text>
+      </YStack>
+    );
+  }
+
+  if (error) {
+    return (
+      <YStack
+        flex={1}
+        justifyContent="center"
+        alignItems="center"
+        backgroundColor="#0A0E1A"
+        padding={ss(24)}
+      >
+        <Text fontSize={ss(48)} marginBottom={ss(12)}>
+          ⚠️
+        </Text>
+        <Text
+          color="#fff"
+          fontSize={ss(18)}
+          fontWeight="600"
+          marginBottom={ss(8)}
+        >
+          Couldn't load channels
+        </Text>
+        <Text
+          color="#7A86A8"
+          fontSize={ss(14)}
+          textAlign="center"
+          marginBottom={ss(20)}
+        >
+          Check your connection or IPTV account and try again
+        </Text>
+        <YStack
+          backgroundColor="#6C5CE7"
+          paddingHorizontal={ss(24)}
+          paddingVertical={ss(12)}
+          borderRadius={ss(10)}
+          cursor="pointer"
+          onPress={loadChannels}
+          pressStyle={{ opacity: 0.9 }}
+        >
+          <Text color="#fff" fontWeight="600">
+            Retry
+          </Text>
+        </YStack>
       </YStack>
     );
   }
@@ -525,6 +599,7 @@ export default function LiveTVScreen({ navigation }) {
       backgroundColor="#0A0E1A"
       contentContainerStyle={{ paddingBottom: ss(60) }}
     >
+      <YStack maxWidth={MAX_W} width="100%" alignSelf="center">
       <XStack
         alignItems="center"
         paddingHorizontal={ss(48)}
@@ -579,6 +654,7 @@ export default function LiveTVScreen({ navigation }) {
           </Text>
         </YStack>
       )}
+      </YStack>
 
       <Modal
         visible={showAddChannel}

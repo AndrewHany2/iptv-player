@@ -174,7 +174,7 @@ function NavLink({ item, isActive, isFocused, onPress, fontSize }) {
           borderRadius={2}
           marginTop={ss(6)}
           {...(isFocused
-            ? { backgroundColor: "#EAF0FF" }
+            ? { backgroundColor: "#22D3EE" } // cyan keyboard-focus ring
             : { className: "aurora-grad-bg" })}
         />
       )}
@@ -283,7 +283,7 @@ function TopNav({
           onPress={onAccounts}
           pressStyle={{ opacity: 0.7 }}
           borderWidth={accountsFocused ? 2 : 0}
-          borderColor={accountsFocused ? "#6C5CE7" : "transparent"}
+          borderColor={accountsFocused ? "#22D3EE" : "transparent"}
           {...{ className: "lumen-icon-btn" }}
         >
           <Text fontSize={S.iconFont}>📡</Text>
@@ -298,7 +298,7 @@ function TopNav({
           onPress={onSettings}
           pressStyle={{ opacity: 0.7 }}
           borderWidth={settingsFocused ? 2 : 0}
-          borderColor={settingsFocused ? "#6C5CE7" : "transparent"}
+          borderColor={settingsFocused ? "#22D3EE" : "transparent"}
           {...{ className: "lumen-icon-btn" }}
         >
           <Text fontSize={S.iconFont}>⚙</Text>
@@ -309,7 +309,7 @@ function TopNav({
           borderRadius={S.avatarR}
           backgroundColor="#1B2236"
           borderWidth={2}
-          borderColor={profileFocused ? "#6C5CE7" : "#28324E"}
+          borderColor={profileFocused ? "#22D3EE" : "#28324E"}
           justifyContent="center"
           alignItems="center"
           cursor="pointer"

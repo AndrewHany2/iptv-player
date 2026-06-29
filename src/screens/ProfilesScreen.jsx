@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Platform } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTVNavigation } from "../hooks/useTVNavigation";
 
 const isNative = Platform.OS !== "web";
@@ -11,6 +12,7 @@ import {
   ScrollView,
   Spinner,
 } from "tamagui";
+import { colors } from "../ui/tokens";
 import { useApp } from "../context/AppContext";
 
 const AVATARS = [
@@ -30,6 +32,7 @@ export default function ProfilesScreen() {
     authUser,
   } = useApp();
 
+  const insets = useSafeAreaInsets();
   const [view, setView] = useState("select"); // 'select' | 'manage' | 'form'
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({ name: "", avatar: "👤" });
@@ -126,7 +129,7 @@ export default function ProfilesScreen() {
   // ── Form view (add / edit) ────────────────────────────────────────────────
   if (view === "form") {
     return (
-      <YStack flex={1} backgroundColor="#0A0E1A">
+      <YStack flex={1} backgroundColor="#0A0E1A" paddingTop={insets.top} paddingBottom={insets.bottom}>
         <ScrollView flex={1}>
           <YStack padding={24}>
             <Text fontSize={22} fontWeight="700" color="#fff" marginBottom={24}>
@@ -134,7 +137,7 @@ export default function ProfilesScreen() {
             </Text>
 
             {!!error && (
-              <Text color="#6C5CE7" fontSize={13} marginTop={8} textAlign="center">
+              <Text color={colors.danger} fontSize={13} marginTop={8} textAlign="center">
                 {error}
               </Text>
             )}
@@ -227,12 +230,12 @@ export default function ProfilesScreen() {
   // ── Manage view (list with edit/delete) ──────────────────────────────────
   if (view === "manage") {
     return (
-      <YStack flex={1} backgroundColor="#0A0E1A">
+      <YStack flex={1} backgroundColor="#0A0E1A" paddingBottom={insets.bottom}>
         <XStack
           alignItems="center"
           justifyContent="space-between"
           paddingHorizontal={16}
-          paddingTop={20}
+          paddingTop={insets.top + 20}
           paddingBottom={12}
         >
           <XStack
@@ -264,7 +267,7 @@ export default function ProfilesScreen() {
         </XStack>
 
         {!!error && (
-          <Text color="#6C5CE7" fontSize={13} marginHorizontal={20} textAlign="center">
+          <Text color={colors.danger} fontSize={13} marginHorizontal={20} textAlign="center">
             {error}
           </Text>
         )}
@@ -315,7 +318,7 @@ export default function ProfilesScreen() {
                         </Text>
                       )}
                       {confirmDeleteId === p.id && (
-                        <Text color="#6C5CE7" fontSize={11} marginTop={2}>
+                        <Text color={colors.danger} fontSize={11} marginTop={2}>
                           Tap Delete again to confirm
                         </Text>
                       )}
@@ -348,14 +351,15 @@ export default function ProfilesScreen() {
                       cursor="pointer"
                       onPress={loading ? undefined : () => openEdit(p)}
                       pressStyle={{ opacity: 0.7 }}
+                      hitSlop={8}
                     >
                       <Text fontSize={16}>✏️</Text>
                     </YStack>
                     <YStack
-                      backgroundColor={confirmDeleteId === p.id ? "rgba(108, 92, 231,0.25)" : "#141A2E"}
+                      backgroundColor={confirmDeleteId === p.id ? "rgba(229,72,77,0.18)" : "#141A2E"}
                       borderRadius={8}
                       borderWidth={confirmDeleteId === p.id ? 1 : 0}
-                      borderColor={confirmDeleteId === p.id ? "#6C5CE7" : "transparent"}
+                      borderColor={confirmDeleteId === p.id ? colors.danger : "transparent"}
                       paddingHorizontal={confirmDeleteId === p.id ? 10 : 0}
                       width={confirmDeleteId === p.id ? undefined : 36}
                       height={36}
@@ -364,8 +368,9 @@ export default function ProfilesScreen() {
                       cursor="pointer"
                       onPress={loading ? undefined : () => handleDelete(p.id)}
                       pressStyle={{ opacity: 0.7 }}
+                      hitSlop={8}
                     >
-                      <Text fontSize={13} color="#6C5CE7" fontWeight="600">
+                      <Text fontSize={13} color={colors.danger} fontWeight="600">
                         {confirmDeleteId === p.id ? "Confirm" : "🗑️"}
                       </Text>
                     </YStack>
@@ -381,7 +386,7 @@ export default function ProfilesScreen() {
 
   // ── Select view ("Who's watching?") ──────────────────────────────────────
   return (
-    <YStack flex={1} backgroundColor="#0A0E1A">
+    <YStack flex={1} backgroundColor="#0A0E1A" paddingTop={insets.top}>
       {/* Vertically centered main area */}
       <YStack flex={1} justifyContent="center" alignItems="center" gap={48}>
         <Text color="#fff" fontSize={32} fontWeight="700" textAlign="center">
@@ -458,7 +463,7 @@ export default function ProfilesScreen() {
         </XStack>
       </YStack>
 
-      <XStack justifyContent="center" alignItems="center" gap={32} paddingBottom={40}>
+      <XStack justifyContent="center" alignItems="center" gap={32} paddingBottom={insets.bottom + 40}>
         {appProfiles.length > 0 && (() => {
           const focused = focusedRow === 1 && focusedCol === 0;
           return (

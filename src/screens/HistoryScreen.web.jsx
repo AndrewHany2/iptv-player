@@ -2,11 +2,14 @@ import { useRef, useEffect, useCallback, useState } from "react";
 import { Image, View } from "react-native";
 import { YStack, Text, ScrollView } from "tamagui";
 import { useApp } from "../context/AppContext";
-import { ss } from "../utils/scaleSize";
+import { ss, useScale } from "../utils/scaleSize";
 import MovieDetail from "../components/MovieDetail.web";
 import SeriesDetail from "../components/SeriesDetail.web";
 
 const FILL = { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 };
+
+// Caps the browse content width on ultrawide monitors (centered via margin auto).
+const MAX_W = 1700;
 
 function useDragScroll() {
   const railRef = useRef(null);
@@ -306,6 +309,7 @@ export default function HistoryScreen({ navigation }) {
     myList,
     removeFromMyList,
   } = useApp();
+  useScale(); // re-render + recompute ss() on window resize
   const fav$ = useDragScroll();
   const cw$ = useDragScroll();
   const [currentDetail, setCurrentDetail] = useState(null);
@@ -385,6 +389,7 @@ export default function HistoryScreen({ navigation }) {
       backgroundColor="#0A0E1A"
       contentContainerStyle={{ paddingTop: ss(40), paddingBottom: ss(80) }}
     >
+      <YStack maxWidth={MAX_W} width="100%" alignSelf="center">
       {myList.length > 0 && (
         <YStack paddingBottom={ss(48)}>
           <Text
@@ -486,6 +491,7 @@ export default function HistoryScreen({ navigation }) {
           </div>
         </YStack>
       )}
+      </YStack>
     </ScrollView>
   );
 }

@@ -3,6 +3,11 @@ import { useApp } from "../../context/AppContext";
 import { useContentService } from "./useContentService";
 import { getPlatformConfig, detectPlatform } from "../../platform/configs/detectPlatform";
 import tmdbApi from "../../services/tmdbApi";
+import { MemoryManager } from "../../platform/optimization/MemoryManager";
+
+// Cap the TV drill-in item cache so a long browsing session can't pin the
+// item lists for every category in memory at once (WebOS budget is tight).
+const ITEMS_CACHE_MAX = 8;
 
 /**
  * Single source of truth for the Movies feature.
@@ -29,6 +34,7 @@ export function useMovies({ navigation } = {}) {
   const { playVideo } = useApp();
 
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
   const [shelves, setShelves] = useState([]);
   const [categoryPage, setCategoryPage] = useState(null); // { catId, name, items }
   const [selectedMovie, setSelectedMovie] = useState(null); // raw item for detail
@@ -40,7 +46,14 @@ export function useMovies({ navigation } = {}) {
   const topRatedRef = useRef([]);
   const prefetchRef = useRef({ topRated: null });
   const topRatedCursorRef = useRef(null);
-  const itemsCacheRef = useRef(new Map()); // catId -> items (TV drill-in cache)
+  // LRU-capped catId -> items (TV drill-in cache) so it can't grow unbounded.
+  const itemsCacheRef = useRef(new MemoryManager(ITEMS_CACHE_MAX));
+  // Monotonic id for the active category drill-in; a response whose id no longer
+  // matches is stale (user switched categories) and must be discarded so it can't
+  // overwrite the current list. Paired with an AbortController to cancel in-flight
+  // TMDB work when the selection changes or the hook unmounts.
+  const openSeqRef = useRef(0);
+  const openAbortRef = useRef(null);
 
   const discoverItems = [
     { id: "all", label: "All Movies" },
@@ -81,11 +94,14 @@ export function useMovies({ navigation } = {}) {
   const load = useCallback(async () => {
     if (!activeUser) return;
     setLoading(true);
+    setError(false);
     loadedRef.current.clear();
     allShuffledRef.current = [];
     topRatedRef.current = [];
     prefetchRef.current = { topRated: null };
     itemsCacheRef.current.clear();
+    openAbortRef.current?.abort();
+    openAbortRef.current = null;
     setShelves([]);
     try {
       const cats = await contentService.getMovieCategories(); // [{ id, name }]
@@ -97,6 +113,7 @@ export function useMovies({ navigation } = {}) {
       prefetchRef.current = { topRated: prefetchTopRated() };
     } catch (err) {
       console.error("useMovies.load:", err);
+      setError(true);
     } finally {
       setLoading(false);
     }
@@ -149,6 +166,14 @@ export function useMovies({ navigation } = {}) {
 
   // ── Drill into a category / discover pill ───────────────────────────────────
   const openCategory = useCallback(async (catId, name) => {
+    // Per-request latest-id guard: a response whose seq no longer matches means
+    // the user switched categories while it was in flight, so we drop it instead
+    // of letting it overwrite the current list (fixes flicker / wrong-list races).
+    const seq = ++openSeqRef.current;
+    openAbortRef.current?.abort();
+    const controller = new AbortController();
+    openAbortRef.current = controller;
+    const isCurrent = () => seq === openSeqRef.current;
     setCategoryPage({ catId, name, items: null });
     try {
       let all;
@@ -163,6 +188,7 @@ export function useMovies({ navigation } = {}) {
         const prefetched = prefetchRef.current.topRated ? await prefetchRef.current.topRated : null;
         if (prefetched?.hasTmdb) {
           const { streams, matched, seenIds, totalPages, hasMore } = prefetched;
+          if (!isCurrent()) return;
           topRatedCursorRef.current = { streams, type: "movie", idField: "stream_id", page: 5, totalPages, seenIds, prefetch: null, prefetchTo: 0 };
           setTopRatedHasMore(hasMore);
           all = matched.length ? matched : byRatingDesc(streams);
@@ -174,7 +200,8 @@ export function useMovies({ navigation } = {}) {
           const streams = await contentService.getAllMovies();
           if (tmdbApi.hasKey) {
             const seenIds = new Set();
-            const { matched, totalPages, hasMore } = await tmdbApi.matchTopRatedRange({ type: "movie", iptvItems: streams || [], idField: "stream_id", fromPage: 1, toPage: 5, seenIds });
+            const { matched, totalPages, hasMore } = await tmdbApi.matchTopRatedRange({ type: "movie", iptvItems: streams || [], idField: "stream_id", fromPage: 1, toPage: 5, seenIds, signal: controller.signal });
+            if (!isCurrent()) return;
             topRatedCursorRef.current = { streams: streams || [], type: "movie", idField: "stream_id", page: 5, totalPages, seenIds, prefetch: null, prefetchTo: 0 };
             setTopRatedHasMore(hasMore);
             all = matched;
@@ -186,17 +213,30 @@ export function useMovies({ navigation } = {}) {
         all = await contentService.getMoviesByCategory(catId);
         if (!loadedRef.current.has(catId)) handleShelfVisible(catId);
       }
+      if (!isCurrent()) return; // stale response — discard
       setCategoryPage((prev) => prev ? { ...prev, items: all || [] } : prev);
-    } catch {
+    } catch (err) {
+      if (err?.name === "AbortError" || !isCurrent()) return; // cancelled / superseded
       setCategoryPage((prev) => prev ? { ...prev, items: [] } : prev);
     }
   }, [contentService, handleShelfVisible, kickoffPrefetch]);
 
   const closeCategory = useCallback(() => {
+    // Invalidate any in-flight drill-in so a late response can't repopulate a
+    // closed page, and cancel its network work.
+    openSeqRef.current++;
+    openAbortRef.current?.abort();
+    openAbortRef.current = null;
     setCategoryPage(null);
     topRatedCursorRef.current = null;
     setTopRatedHasMore(false);
     setTopRatedLoadingMore(false);
+  }, []);
+
+  // Abort any in-flight drill-in fetch when the hook unmounts.
+  useEffect(() => () => {
+    openSeqRef.current++;
+    openAbortRef.current?.abort();
   }, []);
 
   const handleTopRatedMore = useCallback(async () => {
@@ -254,7 +294,7 @@ export function useMovies({ navigation } = {}) {
 
   return {
     // status
-    loading, activeUserId,
+    loading, error, reload: load, activeUserId,
     // discover + shelves (native/web)
     discoverItems, shelves, handleShelfVisible, handleLoadMore,
     // category drill-in

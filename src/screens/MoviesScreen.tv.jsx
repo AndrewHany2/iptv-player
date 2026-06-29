@@ -3,12 +3,18 @@ import { useApp } from "../context/AppContext";
 import { useMovies } from "../domain/hooks/useMovies";
 import { useTVInput } from "../hooks/useTVInput";
 import { yieldFocusToNav } from "../platform/adapters/input/keys";
+import { VirtualGridTV } from "../presentation/components/VirtualGrid.tv";
 import "../styles/tvl.css";
+import "../styles/tvResponsiveScaling.css";
+import "../styles/tvRemoteFocus.css";
 import "./MoviesScreen.tv.css";
 
 const CAT_COLS = 4;
 const MOV_COLS = 6;
 const MOV_PAGE = 24;
+// Virtual-grid row metrics (design px @ 1280 viewport): 6-col poster + title.
+const MOV_GAP = 14;
+const MOV_ROW_H = 330;
 const ALPHA = ["ALL", ..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"];
 
 const getTrailerUrl = (t) => {
@@ -36,7 +42,6 @@ export default function MoviesScreenTV({ navigation, route }) {
   const pageRef = useRef(null);
   const detailRef = useRef(null);
   const catElRef = useRef(null);
-  const movElRef = useRef(null);
   const btnElRef = useRef(null);
 
   const [filterZone, setFilterZone] = useState("grid");
@@ -132,19 +137,15 @@ export default function MoviesScreenTV({ navigation, route }) {
   const onCatEnter = () => { const cat = catsRef.current[catFocusRef.current]; if (cat) openCat(cat); };
 
   // ── Movie grid keys ───────────────────────────────────────────────────────
+  // The grid is virtualized (VirtualGridTV), so focus may roam the whole
+  // filtered list — bounds use the full length, not a display cap.
   const movMovFocus = (pg, focus) => { const n = { ...pg, focus }; pageRef.current = n; setPage(n); };
-  const growPage = (pg) => {
-    const filtered = getFilteredItems(pg.items);
-    const n = { ...pg, display: Math.min(pg.display + MOV_PAGE, filtered.length) };
-    pageRef.current = n; setPage(n);
-  };
   const onMovLeft = (pg) => { if (pg.focus > 0) movMovFocus(pg, pg.focus - 1); };
   const onMovRight = (pg) => {
     const filtered = getFilteredItems(pg.items);
-    const max = Math.min(pg.display, filtered.length) - 1;
+    const max = filtered.length - 1;
     if (pg.focus >= max) return;
     movMovFocus(pg, pg.focus + 1);
-    if (pg.focus + 1 >= pg.display - MOV_COLS && pg.display < filtered.length) growPage(pg);
   };
   const onMovUp = (pg) => {
     if (pg.focus >= MOV_COLS) movMovFocus(pg, pg.focus - MOV_COLS);
@@ -152,10 +153,9 @@ export default function MoviesScreenTV({ navigation, route }) {
   };
   const onMovDown = (pg) => {
     const filtered = getFilteredItems(pg.items);
-    const max = Math.min(pg.display, filtered.length) - 1;
+    const max = filtered.length - 1;
     const next = Math.min(pg.focus + MOV_COLS, max);
     movMovFocus(pg, next);
-    if (next >= pg.display - MOV_COLS && pg.display < filtered.length) growPage(pg);
   };
   const onMovEnter = (pg) => { const item = getFilteredItems(pg.items)[pg.focus]; if (item) openDetail(item); };
 
@@ -261,7 +261,7 @@ export default function MoviesScreenTV({ navigation, route }) {
   };
 
   useEffect(() => { catElRef.current?.scrollIntoView({ block: "nearest" }); }, [catFocus]);
-  useEffect(() => { movElRef.current?.scrollIntoView({ block: "nearest" }); }, [page?.focus]);
+  // Movie-grid focus scrolling is handled inside VirtualGridTV (focusIndex).
   useEffect(() => { btnElRef.current?.scrollIntoView({ block: "nearest" }); }, [detail?.btnIdx]);
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -371,7 +371,6 @@ export default function MoviesScreenTV({ navigation, route }) {
   // ── Movie grid ────────────────────────────────────────────────────────────
   if (page) {
     const filteredItems = page.items ? getFilteredItems(page.items) : null;
-    const displayed = filteredItems ? filteredItems.slice(0, page.display) : null;
     return (
       <div className="tvl-screen">
         <div className="tvl-topbar">
@@ -393,15 +392,21 @@ export default function MoviesScreenTV({ navigation, route }) {
             );
           })}
         </div>
-        {!displayed && <div className="tvl-center"><div className="tvl-spinner" /><p>Loading movies…</p></div>}
-        {displayed?.length === 0 && <div className="tvl-center"><p className="tvl-empty-msg">No titles starting with "{filterLetter.toUpperCase()}"</p></div>}
-        {displayed && displayed.length > 0 && (
-          <div className="tvl-scroll">
-            <div className="tvl-mov-grid">
-              {displayed.map((item, i) => (
-                <MovieCard key={String(item.stream_id)} item={item} isFocused={i === page.focus} elRef={i === page.focus ? movElRef : null} />
-              ))}
-            </div>
+        {!filteredItems && <div className="tvl-center"><div className="tvl-spinner" /><p>Loading movies…</p></div>}
+        {filteredItems?.length === 0 && <div className="tvl-center"><p className="tvl-empty-msg">No titles starting with "{filterLetter.toUpperCase()}"</p></div>}
+        {filteredItems && filteredItems.length > 0 && (
+          <div className="tvl-mov-grid-window">
+            <VirtualGridTV
+              items={filteredItems}
+              cols={MOV_COLS}
+              rowHeight={MOV_ROW_H}
+              gap={MOV_GAP}
+              focusIndex={page.focus}
+              className="tvl-mov-vgrid"
+              renderItem={(item, i) => (
+                <MovieCard key={String(item.stream_id)} item={item} isFocused={i === page.focus} />
+              )}
+            />
           </div>
         )}
       </div>
@@ -430,13 +435,13 @@ export default function MoviesScreenTV({ navigation, route }) {
   );
 }
 
-function MovieCard({ item, isFocused, elRef }) {
+function MovieCard({ item, isFocused }) {
   const [err, setErr] = useState(false);
   const src = item.stream_icon || item.cover || item.movie_image || null;
   const rating = item.tmdb_rating ?? item.rating;
   const rLabel = rating != null && rating !== "" ? (typeof rating === "number" ? Math.round(rating) : rating) : null;
   return (
-    <div ref={elRef} className={isFocused ? "tvl-card tvl-card--on" : "tvl-card"}>
+    <div className={isFocused ? "tvl-card tvl-card--on" : "tvl-card"}>
       <div className="tvl-card-img">
         {src && !err ? <img src={src} alt="" onError={() => setErr(true)} loading="lazy" /> : <div className="tvl-card-ph">▶</div>}
         {rLabel && <span className="tvl-card-rating">{rLabel}</span>}

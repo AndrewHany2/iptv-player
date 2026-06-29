@@ -1,10 +1,13 @@
 import { useState, useEffect } from "react";
 import { KeyboardAvoidingView, Platform } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { YStack, XStack, Text, Input, ScrollView, Spinner } from "tamagui";
+import { colors } from "../ui/tokens";
 import { useApp } from "../context/AppContext";
 
 export default function AuthScreen() {
   const { signIn, signUp } = useApp();
+  const insets = useSafeAreaInsets();
   const [mode, setMode] = useState("login");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -82,7 +85,7 @@ export default function AuthScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: "#0A0E1A" }}
+      style={{ flex: 1, backgroundColor: "#0A0E1A", paddingTop: insets.top, paddingBottom: insets.bottom }}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: "center", padding: 20 }} keyboardShouldPersistTaps="handled">
@@ -190,7 +193,7 @@ export default function AuthScreen() {
           )}
 
           {!!error && (
-            <Text color="#6C5CE7" fontSize={13} marginTop={12} textAlign="center">{error}</Text>
+            <Text color={colors.danger} fontSize={13} marginTop={12} textAlign="center">{error}</Text>
           )}
 
           <YStack

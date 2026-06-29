@@ -1,5 +1,6 @@
 import { useState, useEffect, memo } from "react";
 import { Image, Linking, View, SectionList, Platform } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { YStack, XStack, Text, ScrollView, Spinner } from "tamagui";
 import { useApp } from "../context/AppContext";
 import iptvApi from "../services/iptvApi";
@@ -31,6 +32,7 @@ const getEpisodeNumber = (ep) => {
 
 export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
   const { watchHistory, isInMyList, addToMyList, removeFromMyList } = useApp();
+  const insets = useSafeAreaInsets();
   const [info, setInfo] = useState(null);
   const [episodes, setEpisodes] = useState({});
   const [showEpisodes, setShowEpisodes] = useState(false);
@@ -103,7 +105,7 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
 
     return (
       <YStack flex={1} backgroundColor="#0A0E1A">
-        <XStack alignItems="center" gap={14} paddingHorizontal={16} paddingTop={16} paddingBottom={14} borderBottomWidth={1} borderBottomColor="#28324E">
+        <XStack alignItems="center" gap={14} paddingHorizontal={16} paddingTop={insets.top + 16} paddingBottom={14} borderBottomWidth={1} borderBottomColor="#28324E">
           <YStack paddingVertical={8} paddingHorizontal={12} backgroundColor="#1B2236" borderRadius={8} cursor="pointer" onPress={() => setShowEpisodes(false)} pressStyle={{ opacity: 0.8 }}>
             <Text color="#6C5CE7" fontSize={14} fontWeight="600">← Back</Text>
           </YStack>

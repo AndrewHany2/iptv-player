@@ -6,6 +6,7 @@ import { useTVNavigation } from "../hooks/useTVNavigation";
 import ContentShelf from "../presentation/components/ContentShelf.native";
 import PosterCard from "../presentation/components/PosterCard.native";
 import MovieDetail from "../components/MovieDetail";
+import { colors } from "../ui/tokens";
 
 const GRID_PAGE = 40;
 
@@ -70,7 +71,7 @@ function CategoryPage({ name, items, onBack, onPlay, onLoadMore, hasRemote, load
 /* ─── Screen ─── */
 export default function MoviesScreen({ navigation }) {
   const {
-    loading, activeUserId, shelves, discoverItems,
+    loading, error, reload, activeUserId, shelves, discoverItems,
     handleShelfVisible, handleLoadMore, openCategory, closeCategory,
     categoryPage, isTopRatedCategory, topRatedHasMore, topRatedLoadingMore, handleTopRatedMore,
     selectedMovie, selectMovie, clearSelectedMovie, playVideoObject,
@@ -86,6 +87,19 @@ export default function MoviesScreen({ navigation }) {
       <YStack flex={1} justifyContent="center" alignItems="center" backgroundColor="#0A0E1A" padding={24}>
         <Spinner size="large" color="#6C5CE7" />
         <Text color="#7A86A8" marginTop={12} fontSize={14}>Loading movies...</Text>
+      </YStack>
+    );
+  }
+
+  if (error) {
+    return (
+      <YStack flex={1} justifyContent="center" alignItems="center" backgroundColor="#0A0E1A" padding={24}>
+        <Text fontSize={48} marginBottom={12}>⚠️</Text>
+        <Text color={colors.danger} fontSize={18} fontWeight="700" marginBottom={8}>Couldn't load movies</Text>
+        <Text color="#7A86A8" fontSize={14} textAlign="center" marginBottom={20}>Check your connection and try again</Text>
+        <YStack backgroundColor="#6C5CE7" paddingHorizontal={24} paddingVertical={12} borderRadius={10} onPress={reload}>
+          <Text color="#fff" fontWeight="600">Retry</Text>
+        </YStack>
       </YStack>
     );
   }

@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect, useRef, useMemo, useCal
 import storage from '../utils/storage';
 import iptvApi from '../services/iptvApi';
 import {
-  fetchRemoteHistory, upsertHistoryEntry, deleteHistoryEntry,
+  fetchRemoteHistory, upsertHistoryEntry, deleteHistoryEntry, mergeHistories, MAX_HISTORY,
   fetchFavorites, upsertFavorite, deleteFavorite,
   isSupabaseConfigured, getSession,
   signIn as supabaseSignIn, signUp as supabaseSignUp, signOut as supabaseSignOut,
@@ -52,7 +52,11 @@ export const AppProvider = ({ children }) => {
   const watchHistoryRef = useRef([]);
   watchHistoryRef.current = watchHistory;
   const [isSyncing, setIsSyncing] = useState(false);
-  const progressSyncTimer = useRef(null);
+  // Pending progress upserts keyed by `${type}_${streamId}` so switching streams
+  // does not clobber the in-flight debounce of another stream.
+  const progressSyncTimers = useRef(new Map());
+  const pendingProgressEntries = useRef(new Map());
+  const localPersistTimer = useRef(null);
 
   // ─── My List (watch later) ───────────────────────────────────────────────────
   const [myList, setMyList] = useState([]);
@@ -72,6 +76,11 @@ export const AppProvider = ({ children }) => {
     const user = users.find((u) => u.id === activeUserId);
     return user ? `${user.host}_${user.username}` : null;
   }, [activeProfileId, authUser, users, activeUserId]);
+
+  // Mirror userKey into a ref so flushProgress (unmount/background) reads the
+  // current value without being captured stale.
+  const userKeyRef = useRef(userKey);
+  userKeyRef.current = userKey;
 
   const activeProfile = useMemo(
     () => appProfiles.find((p) => p.id === activeProfileId) ?? null,
@@ -183,40 +192,96 @@ export const AppProvider = ({ children }) => {
     return !(h.type === newItem.type && h.streamId === newItem.streamId);
   };
 
-  const addToWatchHistory = (item) => {
+  // Normalize a raw item into a consistent history entry shape so every
+  // platform can resolve resume. Single write chokepoint.
+  const normalizeHistoryItem = (item) => {
+    const type = item.type === 'movie' ? 'movies' : item.type;
+    const streamId = item.streamId ?? item.stream_id ?? item.id;
+    const episodeId = item.episodeId ?? streamId;
+    const cover = item.cover ?? item.poster ?? item.stream_icon ?? item.movie_image ?? null;
+    const normalized = { ...item, type, streamId, episodeId, cover };
+    if (item.container_extension != null) normalized.container_extension = item.container_extension;
+    return normalized;
+  };
+
+  const persistHistory = (key, history) => {
+    if (!key) return;
+    storage.setItem('iptv_history_' + key, JSON.stringify(history));
+  };
+
+  const addToWatchHistory = useCallback((rawItem) => {
+    const item = normalizeHistoryItem(rawItem);
     const now = new Date().toISOString();
     const prev = watchHistoryRef.current;
     const existingIdx = prev.findIndex((h) => !shouldKeep(h, item));
     let entry, newHistory;
     if (existingIdx === -1) {
       entry = { ...item, watchedAt: now, id: `${item.type}_${item.streamId || item.id}_${Date.now()}`, currentTime: item.currentTime || 0, duration: item.duration || 0 };
-      newHistory = [entry, ...prev].slice(0, 20);
+      newHistory = [entry, ...prev].slice(0, MAX_HISTORY);
     } else {
       entry = { ...prev[existingIdx], ...item, id: prev[existingIdx].id, watchedAt: now, currentTime: item.currentTime || 0, duration: item.duration || 0 };
-      newHistory = [entry, ...prev.filter((_, i) => i !== existingIdx)].slice(0, 20);
+      newHistory = [entry, ...prev.filter((_, i) => i !== existingIdx)].slice(0, MAX_HISTORY);
     }
     setWatchHistory(newHistory);
+    persistHistory(userKey, newHistory);
     if (userKey) upsertHistoryEntry(userKey, entry);
-  };
+  }, [userKey]);
 
-  const removeFromWatchHistory = (id) => {
+  const removeFromWatchHistory = useCallback((id) => {
     const newHistory = watchHistoryRef.current.filter((item) => item.id !== id);
     setWatchHistory(newHistory);
+    persistHistory(userKey, newHistory);
     if (userKey) deleteHistoryEntry(userKey, id);
-  };
+  }, [userKey]);
+
+  // Synchronously upsert all pending progress entries and clear their timers.
+  // Called when switching streams (for the previous entry), on unmount, and
+  // exported for the player to call on background/foreground transitions.
+  const flushProgress = useCallback(() => {
+    const key = userKeyRef.current;
+    for (const timer of progressSyncTimers.current.values()) clearTimeout(timer);
+    progressSyncTimers.current.clear();
+    const pending = pendingProgressEntries.current;
+    pendingProgressEntries.current = new Map();
+    clearTimeout(localPersistTimer.current);
+    if (!key) return;
+    persistHistory(key, watchHistoryRef.current);
+    for (const entry of pending.values()) upsertHistoryEntry(key, entry);
+  }, []);
 
   const updateWatchProgress = useCallback((streamId, type, currentTime, duration) => {
+    const normType = type === 'movie' ? 'movies' : type;
     const updated = watchHistoryRef.current.map((item) =>
-      item.streamId === streamId && item.type === type
+      item.streamId === streamId && item.type === normType
         ? { ...item, currentTime, duration, watchedAt: new Date().toISOString() }
         : item
     );
     setWatchHistory(updated);
+    const timerKey = `${normType}_${streamId}`;
     if (userKey) {
-      clearTimeout(progressSyncTimer.current);
-      const entry = updated.find((item) => item.streamId === streamId && item.type === type);
-      progressSyncTimer.current = setTimeout(() => { if (entry) upsertHistoryEntry(userKey, entry); }, 5000);
+      // Flush any pending entry for a *different* stream before scheduling this one.
+      for (const [k, timer] of progressSyncTimers.current.entries()) {
+        if (k === timerKey) continue;
+        clearTimeout(timer);
+        progressSyncTimers.current.delete(k);
+        const pendingEntry = pendingProgressEntries.current.get(k);
+        pendingProgressEntries.current.delete(k);
+        if (pendingEntry) upsertHistoryEntry(userKey, pendingEntry);
+      }
+      const entry = updated.find((item) => item.streamId === streamId && item.type === normType);
+      if (entry) pendingProgressEntries.current.set(timerKey, entry);
+      clearTimeout(progressSyncTimers.current.get(timerKey));
+      progressSyncTimers.current.set(timerKey, setTimeout(() => {
+        const e = pendingProgressEntries.current.get(timerKey);
+        progressSyncTimers.current.delete(timerKey);
+        pendingProgressEntries.current.delete(timerKey);
+        if (e) upsertHistoryEntry(userKey, e);
+      }, 5000));
     }
+    // Debounce local persistence so a hard kill keeps resume without writing
+    // storage on every progress tick.
+    clearTimeout(localPersistTimer.current);
+    localPersistTimer.current = setTimeout(() => persistHistory(userKey, watchHistoryRef.current), 5000);
   }, [userKey]);
 
   // ─── My List (watch later) ───────────────────────────────────────────────────
@@ -247,6 +312,85 @@ export const AppProvider = ({ children }) => {
 
   const isInMyList = useCallback((type, streamId) =>
     myListRef.current.some((m) => m.id === myListId(type, streamId)), []);
+
+  // Merge favorites by id, keeping the most-recent addedAt for shared ids.
+  const mergeFavorites = (local, remote) => {
+    const map = new Map();
+    for (const item of local) map.set(item.id, item);
+    for (const item of remote) {
+      const existing = map.get(item.id);
+      if (!existing || new Date(item.addedAt) > new Date(existing.addedAt))
+        map.set(item.id, item);
+    }
+    return Array.from(map.values())
+      .sort((a, b) => new Date(b.addedAt) - new Date(a.addedAt));
+  };
+
+  // Fetch remote history/favorites for a userKey, merge with local (which is
+  // authoritative for local-only / locally-newer entries), then re-upsert the
+  // entries remote is missing or stale on so the server catches up.
+  const loadLibrary = useCallback(async (key) => {
+    if (!key) return;
+    // Hydrate local first so we never blind-replace with a thinner remote set.
+    let localHistory = [];
+    let localFavorites = [];
+    try {
+      const rawH = await storage.getItem('iptv_history_' + key);
+      if (rawH) localHistory = JSON.parse(rawH);
+    } catch { /**/ }
+    try {
+      const rawF = await storage.getItem(`iptv_mylist_${key}`);
+      if (rawF) localFavorites = JSON.parse(rawF);
+    } catch { /**/ }
+    // Prefer in-memory state if it is already richer than what is on disk.
+    const baseHistory = watchHistoryRef.current.length >= localHistory.length
+      ? watchHistoryRef.current : localHistory;
+    const baseFavorites = myListRef.current.length >= localFavorites.length
+      ? myListRef.current : localFavorites;
+
+    if (!isSupabaseConfigured()) {
+      setWatchHistory(baseHistory);
+      setMyList(baseFavorites);
+      return;
+    }
+
+    setIsSyncing(true);
+    try {
+      const [remoteHistory, remoteFavorites] = await Promise.all([
+        fetchRemoteHistory(key),
+        fetchFavorites(key),
+      ]);
+
+      const mergedHistory = mergeHistories(baseHistory, remoteHistory);
+      setWatchHistory(mergedHistory);
+      persistHistory(key, mergedHistory);
+      // Re-upsert entries that are local-only or locally-newer so remote catches up.
+      const remoteById = new Map(remoteHistory.map((e) => [e.id, e]));
+      for (const entry of mergedHistory) {
+        const r = remoteById.get(entry.id);
+        if (!r || new Date(entry.watchedAt) > new Date(r.watchedAt))
+          upsertHistoryEntry(key, entry);
+      }
+
+      const mergedFavorites = mergeFavorites(baseFavorites, remoteFavorites);
+      setMyList(mergedFavorites);
+      storage.setItem(`iptv_mylist_${key}`, JSON.stringify(mergedFavorites));
+      const remoteFavById = new Map(remoteFavorites.map((e) => [e.id, e]));
+      for (const entry of mergedFavorites) {
+        const r = remoteFavById.get(entry.id);
+        if (!r || new Date(entry.addedAt) > new Date(r.addedAt))
+          upsertFavorite(key, entry);
+      }
+    } finally {
+      setIsSyncing(false);
+    }
+  }, []);
+
+  // Re-run the library fetch/merge for the current userKey (player calls this
+  // on app foreground so remote edits made elsewhere are pulled in).
+  const refetchLibrary = useCallback(() => {
+    loadLibrary(userKeyRef.current);
+  }, [loadLibrary]);
 
   // ─── Video ─────────────────────────────────────────────────────────────────
   const playVideo  = (video) => setCurrentVideo(video);
@@ -349,15 +493,6 @@ export const AppProvider = ({ children }) => {
       iptvApi.getVODCategories().catch(() => {});
       iptvApi.getSeriesCategories().catch(() => {});
     })();
-
-    if (isSupabaseConfigured()) {
-      setIsSyncing(true);
-      fetchRemoteHistory(activeProfileId)
-        .then((remote) => setWatchHistory(remote))
-        .finally(() => setIsSyncing(false));
-      fetchFavorites(activeProfileId)
-        .then((remote) => { if (remote.length > 0) setMyList(remote); });
-    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeProfileId]);
 
@@ -374,13 +509,18 @@ export const AppProvider = ({ children }) => {
 
   useEffect(() => { if (channels.length > 0) saveChannels(); }, [channels]);
 
-  // Load favorites from local storage (Supabase fetch in activeProfileId effect overrides when configured)
+  // Library (watch history + favorites) load, keyed on userKey (NOT
+  // activeProfileId) so the fetch target always matches the write target.
+  // Hydrates local first, merges remote, and re-upserts local-newer entries.
   useEffect(() => {
-    if (!userKey) { setMyList([]); return; }
-    if (isSupabaseConfigured()) return; // Supabase fetch handled in activeProfileId effect
-    storage.getItem(`iptv_mylist_${userKey}`)
-      .then((raw) => { try { setMyList(raw ? JSON.parse(raw) : []); } catch { setMyList([]); } });
+    if (!userKey) { setWatchHistory([]); setMyList([]); return; }
+    loadLibrary(userKey);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userKey]);
+
+  // Flush any pending progress writes when the provider unmounts so we never
+  // lose the last few seconds of watch position on app teardown.
+  useEffect(() => () => { flushProgress(); }, [flushProgress]);
 
   useEffect(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -399,7 +539,8 @@ export const AppProvider = ({ children }) => {
     seriesCategories, setSeriesCategories, series, setSeries,
     currentSeriesCategory, setCurrentSeriesCategory,
     currentSeries, setCurrentSeries, seriesSeasons, setSeriesSeasons,
-    watchHistory, addToWatchHistory, updateWatchProgress, removeFromWatchHistory, isSyncing,
+    watchHistory, addToWatchHistory, updateWatchProgress, removeFromWatchHistory,
+    flushProgress, refetchLibrary, isSyncing,
     myList, addToMyList, removeFromMyList, isInMyList,
     currentVideo, playVideo, closeVideo,
     searchQuery, setSearchQuery, isLoading, setIsLoading, error, setError,
@@ -412,6 +553,7 @@ export const AppProvider = ({ children }) => {
     signIn, signUp, signOut, switchProfile, addProfile, updateProfile, removeProfile,
     addUser, updateUser, removeUser, saveUsers,
     addToWatchHistory, updateWatchProgress, removeFromWatchHistory,
+    flushProgress, refetchLibrary,
     addToMyList, removeFromMyList, isInMyList]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

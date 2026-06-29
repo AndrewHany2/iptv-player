@@ -1,5 +1,6 @@
 import { useState, useEffect, memo } from "react";
 import { Image, Linking, View, Platform } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { YStack, XStack, Text, ScrollView, Spinner } from "tamagui";
 import { useApp } from "../context/AppContext";
 import iptvApi from "../services/iptvApi";
@@ -22,6 +23,7 @@ const getTrailerUrl = (t) => {
 
 export default function MovieDetail({ item, onBack, onPlay }) {
   const { watchHistory, isInMyList, addToMyList, removeFromMyList } = useApp();
+  const insets = useSafeAreaInsets();
   const [info, setInfo] = useState(null);
 
   const streamId = item.stream_id ?? item.streamId;
@@ -77,7 +79,7 @@ export default function MovieDetail({ item, onBack, onPlay }) {
           : <View style={[FILL, { backgroundColor: "#141A2E" }]} />}
         <GradientOverlay />
 
-        <YStack position="absolute" top={50} left={16} zIndex={10} paddingVertical={8} paddingHorizontal={14} backgroundColor="rgba(0,0,0,0.55)" borderRadius={8} cursor="pointer" onPress={onBack} pressStyle={{ opacity: 0.8 }}>
+        <YStack position="absolute" top={insets.top + 8} left={16} zIndex={10} paddingVertical={8} paddingHorizontal={14} backgroundColor="rgba(0,0,0,0.55)" borderRadius={8} cursor="pointer" onPress={onBack} pressStyle={{ opacity: 0.8 }}>
           <Text color="#6C5CE7" fontSize={14} fontWeight="600">← Back</Text>
         </YStack>
 

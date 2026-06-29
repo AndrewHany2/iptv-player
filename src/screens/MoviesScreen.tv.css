@@ -4,7 +4,16 @@
   display: grid;
   grid-template-columns: repeat(6, 1fr);
   gap: 14px;
-  padding: 24px 48px;
+  /* ~5% title-safe horizontal inset (overscan) */
+  padding: 24px 64px;
+}
+
+/* Virtualized movie grid (VirtualGridTV): the window IS the scroller, so it
+   takes the remaining height and carries the title-safe horizontal inset. */
+.tvl-mov-grid-window {
+  flex: 1;
+  min-height: 0;
+  padding: 24px 64px;
 }
 
 /* ── Movie detail layout ─────────────────────────────────────────────────── */
@@ -111,7 +120,8 @@
   display: flex;
   flex-wrap: nowrap;
   gap: 4px;
-  padding: 8px 48px;
+  /* ~5% title-safe horizontal inset (overscan) */
+  padding: 8px 64px;
   overflow-x: auto;
   scrollbar-width: none;
   flex-shrink: 0;
@@ -126,15 +136,16 @@
   background: transparent;
   border: 1.5px solid transparent;
   border-radius: 6px;
-  color: #7A86A8;
+  color: #EAF0FF;
   font-size: 15px;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
   transition: none;
 }
+/* Focus: cyan ring — unified with Series + cards/nav */
 .tvl-letter-btn--focused {
-  border-color: #fff;
+  border-color: #22D3EE;
   color: #fff;
   background: #28324E;
 }

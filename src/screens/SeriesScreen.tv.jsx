@@ -2,7 +2,10 @@ import { useState, useEffect, useRef } from "react";
 import { useApp } from "../context/AppContext";
 import iptvApi from "../services/iptvApi";
 import { useContentService } from "../domain/hooks/useContentService";
+import { VirtualGridTV } from "../presentation/components/VirtualGrid.tv";
 import "../styles/tvl.css";
+import "../styles/tvResponsiveScaling.css";
+import "../styles/tvRemoteFocus.css";
 import "./SeriesScreen.tv.css";
 
 const getTrailerUrl = (t) => {
@@ -17,6 +20,9 @@ const getTrailerUrl = (t) => {
 const CAT_COLS = 4;
 const SER_COLS = 6;
 const SER_PAGE = 24;
+// Virtual-grid row metrics (design px @ 1280 viewport): 6-col poster + title.
+const SER_GAP = 14;
+const SER_ROW_H = 330;
 const ALPHA = ["ALL", ..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"];
 
 const KEY_LEFT = 37;
@@ -50,7 +56,6 @@ export default function SeriesScreenTV({ navigation, route }) {
   const detailRef = useRef(null);
   const allItemsRef = useRef(new Map());
   const catElRef = useRef(null);
-  const serElRef = useRef(null);
   const epElRef = useRef(null);
   const snElRef = useRef(null);
   const actionElRef = useRef(null);
@@ -356,14 +361,10 @@ export default function SeriesScreenTV({ navigation, route }) {
   };
 
   // ── Series grid ───────────────────────────────────────────────────────────
+  // The grid is virtualized (VirtualGridTV), so focus may roam the whole
+  // filtered list — bounds use the full length, not a display cap.
   const movGrid = (g, focus) => {
     const n = { ...g, focus };
-    gridRef.current = n;
-    setGrid(n);
-  };
-  const growGrid = (g) => {
-    const filtered = getFilteredItems(g.items);
-    const n = { ...g, display: Math.min(g.display + SER_PAGE, filtered.length) };
     gridRef.current = n;
     setGrid(n);
   };
@@ -373,11 +374,9 @@ export default function SeriesScreenTV({ navigation, route }) {
   };
   const onGridRight = (g) => {
     const filtered = getFilteredItems(g.items);
-    const max = Math.min(g.display, filtered.length) - 1;
+    const max = filtered.length - 1;
     if (g.focus >= max) return;
     movGrid(g, g.focus + 1);
-    if (g.focus + 1 >= g.display - SER_COLS && g.display < filtered.length)
-      growGrid(g);
   };
   const onGridUp = (g) => {
     if (g.focus >= SER_COLS) movGrid(g, g.focus - SER_COLS);
@@ -388,10 +387,9 @@ export default function SeriesScreenTV({ navigation, route }) {
   };
   const onGridDown = (g) => {
     const filtered = getFilteredItems(g.items);
-    const max = Math.min(g.display, filtered.length) - 1;
+    const max = filtered.length - 1;
     const next = Math.min(g.focus + SER_COLS, max);
     movGrid(g, next);
-    if (next >= g.display - SER_COLS && g.display < filtered.length) growGrid(g);
   };
   const onGridEnter = (g) => {
     const filtered = getFilteredItems(g.items);
@@ -595,9 +593,7 @@ export default function SeriesScreenTV({ navigation, route }) {
   useEffect(() => {
     catElRef.current?.scrollIntoView({ block: "nearest" });
   }, [catFocus]);
-  useEffect(() => {
-    serElRef.current?.scrollIntoView({ block: "nearest" });
-  }, [grid?.focus]);
+  // Series-grid focus scrolling is handled inside VirtualGridTV (focusIndex).
   useEffect(() => {
     epElRef.current?.scrollIntoView({ block: "nearest" });
   }, [detail?.epIdx]);
@@ -809,7 +805,6 @@ export default function SeriesScreenTV({ navigation, route }) {
   // ── Grid view ─────────────────────────────────────────────────────────────
   if (grid) {
     const filteredItems = grid.items ? getFilteredItems(grid.items) : null;
-    const displayed = filteredItems ? filteredItems.slice(0, grid.display) : null;
     return (
       <div className="tvl-screen">
         <div className="tvl-topbar">
@@ -845,28 +840,33 @@ export default function SeriesScreenTV({ navigation, route }) {
             );
           })}
         </div>
-        {!displayed && (
+        {!filteredItems && (
           <div className="tvl-center">
             <div className="tvl-spinner" />
           </div>
         )}
-        {displayed?.length === 0 && (
+        {filteredItems?.length === 0 && (
           <div className="tvl-center">
             <p className="tvl-empty-msg">No titles starting with "{filterLetter.toUpperCase()}"</p>
           </div>
         )}
-        {displayed && displayed.length > 0 && (
-          <div className="tvl-scroll">
-            <div className="tvl-ser-grid">
-              {displayed.map((item, i) => (
+        {filteredItems && filteredItems.length > 0 && (
+          <div className="tvl-ser-grid-window">
+            <VirtualGridTV
+              items={filteredItems}
+              cols={SER_COLS}
+              rowHeight={SER_ROW_H}
+              gap={SER_GAP}
+              focusIndex={grid.focus}
+              className="tvl-ser-vgrid"
+              renderItem={(item, i) => (
                 <PosterCard
                   key={String(item.series_id)}
                   item={item}
                   isFocused={i === grid.focus}
-                  elRef={i === grid.focus ? serElRef : null}
                 />
-              ))}
-            </div>
+              )}
+            />
           </div>
         )}
       </div>
@@ -901,7 +901,7 @@ export default function SeriesScreenTV({ navigation, route }) {
   );
 }
 
-function PosterCard({ item, isFocused, elRef }) {
+function PosterCard({ item, isFocused }) {
   const [err, setErr] = useState(false);
   const src = item.cover || item.stream_icon || null;
   const rating = item.rating;
@@ -911,7 +911,6 @@ function PosterCard({ item, isFocused, elRef }) {
   }
   return (
     <div
-      ref={elRef}
       className={isFocused ? "tvl-card tvl-card--on" : "tvl-card"}
     >
       <div className="tvl-card-img">

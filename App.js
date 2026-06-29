@@ -1,4 +1,6 @@
 import { TamaguiProvider } from 'tamagui';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { tamaguiConfig } from './src/tamagui.config';
 import { AppProvider } from './src/context/AppContext';
@@ -16,12 +18,15 @@ export default function App() {
   });
 
   return (
-    <PlatformProvider>
-      <TamaguiProvider config={tamaguiConfig}>
-        <AppProvider>
-          <AppNavigator />
-        </AppProvider>
-      </TamaguiProvider>
-    </PlatformProvider>
+    <SafeAreaProvider>
+      <StatusBar style="light" backgroundColor="#0A0E1A" />
+      <PlatformProvider>
+        <TamaguiProvider config={tamaguiConfig}>
+          <AppProvider>
+            <AppNavigator />
+          </AppProvider>
+        </TamaguiProvider>
+      </PlatformProvider>
+    </SafeAreaProvider>
   );
 }

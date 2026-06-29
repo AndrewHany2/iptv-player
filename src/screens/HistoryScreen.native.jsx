@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Image, Alert, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { YStack, XStack, Text, ScrollView } from "tamagui";
 import { useApp } from "../context/AppContext";
@@ -38,7 +39,7 @@ function MyListCard({ item, onPress, onRemove, focused }) {
         <YStack position="absolute" top={8} right={8} zIndex={4} backgroundColor="rgba(0,0,0,0.65)" borderRadius={4} paddingHorizontal={5} paddingVertical={2}>
           <Text color="#7A86A8" fontSize={9} fontWeight="700" letterSpacing={0.5}>HD</Text>
         </YStack>
-        <YStack position="absolute" top={8} left={8} zIndex={5} backgroundColor="rgba(0,0,0,0.6)" borderRadius={12} width={22} height={22} justifyContent="center" alignItems="center" cursor="pointer" onPress={(e) => { e?.stopPropagation?.(); onRemove(); }} pressStyle={{ opacity: 0.7 }}>
+        <YStack position="absolute" top={8} left={8} zIndex={5} backgroundColor="rgba(0,0,0,0.6)" borderRadius={12} width={22} height={22} justifyContent="center" alignItems="center" cursor="pointer" onPress={(e) => { e?.stopPropagation?.(); onRemove(); }} pressStyle={{ opacity: 0.7 }} hitSlop={11}>
           <Text color="#fff" fontSize={9} fontWeight="700">✕</Text>
         </YStack>
       </YStack>
@@ -70,7 +71,7 @@ function CWCard({ item, onPress, onRemove, focused }) {
             <Text color="#fff" fontSize={13} fontWeight="700">{seasonBadge}</Text>
           </YStack>
         )}
-        <YStack position="absolute" top={8} left={8} zIndex={5} backgroundColor="rgba(0,0,0,0.6)" borderRadius={12} width={22} height={22} justifyContent="center" alignItems="center" cursor="pointer" onPress={(e) => { e?.stopPropagation?.(); onRemove(); }} pressStyle={{ opacity: 0.7 }}>
+        <YStack position="absolute" top={8} left={8} zIndex={5} backgroundColor="rgba(0,0,0,0.6)" borderRadius={12} width={22} height={22} justifyContent="center" alignItems="center" cursor="pointer" onPress={(e) => { e?.stopPropagation?.(); onRemove(); }} pressStyle={{ opacity: 0.7 }} hitSlop={11}>
           <Text color="#fff" fontSize={9} fontWeight="700">✕</Text>
         </YStack>
         <YStack position="absolute" top={0} left={0} right={0} bottom={0} zIndex={3} justifyContent="center" alignItems="center">
@@ -99,6 +100,7 @@ function CWCard({ item, onPress, onRemove, focused }) {
 /* ── Screen ── */
 export default function HistoryScreen({ navigation }) {
   const { watchHistory, removeFromWatchHistory, playVideo, myList, removeFromMyList } = useApp();
+  const insets = useSafeAreaInsets();
   const [currentDetail, setCurrentDetail] = useState(null);
 
   const openDetail = (item) => {
@@ -131,7 +133,7 @@ export default function HistoryScreen({ navigation }) {
 
   if (myList.length === 0 && watchedHistory.length === 0) {
     return (
-      <YStack flex={1} justifyContent="center" alignItems="center" backgroundColor="#0A0E1A" padding={24}>
+      <YStack flex={1} justifyContent="center" alignItems="center" backgroundColor="#0A0E1A" padding={24} paddingTop={insets.top + 24} paddingBottom={insets.bottom + 24}>
         <Text fontSize={48} marginBottom={12}>🎬</Text>
         <Text color="#fff" fontSize={20} fontWeight="700" marginBottom={8}>Your list is empty</Text>
         <Text color="#7A86A8" fontSize={14} textAlign="center">Open a movie and tap ♡ Favorites to save it here</Text>
@@ -140,7 +142,7 @@ export default function HistoryScreen({ navigation }) {
   }
 
   return (
-    <ScrollView flex={1} backgroundColor="#0A0E1A" contentContainerStyle={{ paddingTop: 24, paddingBottom: 80 }} showsVerticalScrollIndicator={false}>
+    <ScrollView flex={1} backgroundColor="#0A0E1A" contentContainerStyle={{ paddingTop: 24, paddingBottom: insets.bottom + 80 }} showsVerticalScrollIndicator={false}>
       {myList.length > 0 && (
         <YStack paddingBottom={40}>
           <Text color="#fff" fontSize={22} fontWeight="700" letterSpacing={-0.3} paddingHorizontal={16} marginBottom={16}>Favorites</Text>

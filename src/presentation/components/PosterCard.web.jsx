@@ -1,4 +1,5 @@
 import { memo, useState } from "react";
+import { colors } from "../../ui/tokens";
 
 /**
  * Poster card — web/TV (raw DOM, no Tamagui). Shared across Movies/Series/LiveTV.
@@ -42,7 +43,7 @@ function PosterCardWeb({ item, onPress, isFocused, width = 200 }) {
         </div>
         {ratingLabel && (
           <div style={{ position: "absolute", top: 8, left: 8, zIndex: 4, backgroundColor: "rgba(0,0,0,0.7)", borderRadius: 4, padding: "2px 5px" }}>
-            <span style={{ color: "#ffd700", fontSize: 9, fontWeight: 700 }}>⭐ {ratingLabel}</span>
+            <span style={{ color: colors.rating, fontSize: 9, fontWeight: 700 }}>⭐ {ratingLabel}</span>
           </div>
         )}
       </div>

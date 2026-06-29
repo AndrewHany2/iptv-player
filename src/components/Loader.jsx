@@ -1,4 +1,5 @@
-import { Spinner, YStack, Text } from 'tamagui';
+import { Spinner, YStack, Text } from '../ui/primitives';
+import { colors } from '../ui/tokens';
 
 export const Loader = ({ message = 'Loading...' }) => (
   <YStack
@@ -9,8 +10,8 @@ export const Loader = ({ message = 'Loading...' }) => (
     backgroundColor="rgba(0,0,0,0.85)"
     zIndex={1000}
   >
-    <Spinner size="large" color="$blue10" />
-    <Text color="white" marginTop="$3" fontSize="$4">{message}</Text>
+    <Spinner size="large" color={colors.accent} />
+    <Text color={colors.text} marginTop={12} fontSize={16}>{message}</Text>
   </YStack>
 );
 

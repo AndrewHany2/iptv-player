@@ -199,13 +199,13 @@ export default function AccountsScreen({ navigation }) {
                 )}
               </YStack>
               <XStack gap={8}>
-                <YStack width={36} height={36} backgroundColor="#141A2E" borderRadius={8} justifyContent="center" alignItems="center" cursor="pointer" onPress={() => handleConnect(item.id)} pressStyle={{ opacity: 0.7 }} hoverStyle={{ backgroundColor: "#1B2236" }} animation="quick">
+                <YStack width={36} height={36} backgroundColor="#141A2E" borderRadius={8} justifyContent="center" alignItems="center" cursor="pointer" onPress={() => handleConnect(item.id)} pressStyle={{ opacity: 0.7 }} hoverStyle={{ backgroundColor: "#1B2236" }} animation="quick" hitSlop={8}>
                   <Text fontSize={18}>🔗</Text>
                 </YStack>
-                <YStack width={36} height={36} backgroundColor="#141A2E" borderRadius={8} justifyContent="center" alignItems="center" cursor="pointer" onPress={() => handleEdit(item)} pressStyle={{ opacity: 0.7 }} hoverStyle={{ backgroundColor: "#1B2236" }} animation="quick">
+                <YStack width={36} height={36} backgroundColor="#141A2E" borderRadius={8} justifyContent="center" alignItems="center" cursor="pointer" onPress={() => handleEdit(item)} pressStyle={{ opacity: 0.7 }} hoverStyle={{ backgroundColor: "#1B2236" }} animation="quick" hitSlop={8}>
                   <Text fontSize={18}>✏️</Text>
                 </YStack>
-                <YStack width={36} height={36} backgroundColor="#141A2E" borderRadius={8} justifyContent="center" alignItems="center" cursor="pointer" onPress={() => handleDelete(item.id, item.nickname)} pressStyle={{ opacity: 0.7 }} hoverStyle={{ backgroundColor: "#1B2236" }} animation="quick">
+                <YStack width={36} height={36} backgroundColor="#141A2E" borderRadius={8} justifyContent="center" alignItems="center" cursor="pointer" onPress={() => handleDelete(item.id, item.nickname)} pressStyle={{ opacity: 0.7 }} hoverStyle={{ backgroundColor: "#1B2236" }} animation="quick" hitSlop={8}>
                   <Text fontSize={18}>🗑️</Text>
                 </YStack>
               </XStack>

@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import { useApp } from "../context/AppContext";
 import iptvApi from "../services/iptvApi";
 import "../styles/tvl.css";
+import "../styles/tvResponsiveScaling.css";
+import "../styles/tvRemoteFocus.css";
 import "./AccountsScreen.tv.css";
 
 const KEY_UP    = 38;

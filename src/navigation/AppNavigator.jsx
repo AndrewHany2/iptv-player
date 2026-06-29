@@ -44,7 +44,7 @@ function HeaderRight() {
           <Text color="#6abf69" fontSize={11} numberOfLines={1} maxWidth={nameMax}>👤 {profile.username}</Text>
         </YStack>
       )}
-      <YStack cursor="pointer" onPress={() => navigation.navigate("Accounts")} pressStyle={{ opacity: 0.7 }} flexShrink={0}>
+      <YStack cursor="pointer" onPress={() => navigation.navigate("Accounts")} pressStyle={{ opacity: 0.7 }} flexShrink={0} minWidth={44} minHeight={44} alignItems="center" justifyContent="center" hitSlop={8}>
         <Text fontSize={20} paddingHorizontal={2}>⚙️</Text>
       </YStack>
     </XStack>

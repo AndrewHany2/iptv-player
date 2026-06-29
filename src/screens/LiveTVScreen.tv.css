@@ -4,7 +4,16 @@
   display: grid;
   grid-template-columns: repeat(8, 1fr);
   gap: 12px;
-  padding: 24px 48px;
+  /* ~5% title-safe horizontal inset (overscan) */
+  padding: 24px 64px;
+}
+
+/* Virtualized channel grid (VirtualGridTV): the window IS the scroller, so it
+   takes the remaining height and carries the title-safe horizontal inset. */
+.tvl-ch-grid-window {
+  flex: 1;
+  min-height: 0;
+  padding: 24px 64px;
 }
 
 .tvl-ch-card {
@@ -15,7 +24,13 @@
   background: #141A2E;
   contain: layout style;
 }
-.tvl-ch-card--on { border-color: #22D3EE; }
+/* Cyan focus ring + bg tint (no transform — janks on old TV Chromium) */
+.tvl-ch-card--on {
+  border-color: #22D3EE;
+  outline: 2px solid #22D3EE;
+  outline-offset: 2px;
+  background: rgba(34, 211, 238, 0.12);
+}
 
 .tvl-ch-logo {
   position: relative;
@@ -51,11 +66,14 @@
 
 .tvl-ch-name {
   padding: 6px 6px 4px;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
-  color: #7A86A8;
+  color: #EAF0FF;
   line-height: 1.3;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.tvl-ch-card--on .tvl-ch-name {
+  color: #fff;
 }

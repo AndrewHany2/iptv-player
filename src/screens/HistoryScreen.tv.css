@@ -1,7 +1,8 @@
 /* HistoryScreen TV — history list styles */
 
 .tvl-hist-list {
-  padding: 20px 48px 40px;
+  /* ~5% title-safe horizontal inset (overscan) */
+  padding: 20px 64px 40px;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -75,8 +76,8 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
-.tvl-hist-date { font-size: 11px; color: #555; }
-.tvl-hist-time { font-size: 11px; color: #666; margin-top: 2px; }
+.tvl-hist-date { font-size: 11px; color: #7A86A8; }
+.tvl-hist-time { font-size: 11px; color: #7A86A8; margin-top: 2px; }
 
 .tvl-hist-action {
   padding: 8px 16px;
@@ -97,9 +98,9 @@
 }
 
 .tvl-hist-empty {
-  padding: 60px 48px;
+  padding: 60px 64px;
   text-align: center;
-  color: #555;
+  color: #7A86A8;
   font-size: 16px;
 }
 

@@ -2,7 +2,8 @@
 
 /* ── Account list ────────────────────────────────────────────────────────── */
 .tvl-acc-list {
-  padding: 20px 48px 40px;
+  /* ~5% title-safe horizontal inset (overscan) */
+  padding: 20px 64px 40px;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -53,7 +54,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.tvl-acc-host { font-size: 12px; color: #555; margin-top: 3px; }
+.tvl-acc-host { font-size: 12px; color: #7A86A8; margin-top: 3px; }
 .tvl-acc-badge {
   font-size: 11px;
   font-weight: 700;

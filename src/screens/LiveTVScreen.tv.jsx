@@ -1,12 +1,18 @@
 import { useState, useEffect, useRef } from "react";
 import { useApp } from "../context/AppContext";
 import { useContentService } from "../domain/hooks/useContentService";
+import { VirtualGridTV } from "../presentation/components/VirtualGrid.tv";
 import "../styles/tvl.css";
+import "../styles/tvResponsiveScaling.css";
+import "../styles/tvRemoteFocus.css";
 import "./LiveTVScreen.tv.css";
 
 const CAT_COLS = 4;
 const CH_COLS = 8;
 const CH_PAGE = 40;
+// Virtual-grid row metrics (design px @ 1280 viewport): 8-col 16:9 logo + name.
+const CH_GAP = 12;
+const CH_ROW_H = 120;
 
 const KEY_LEFT = 37;
 const KEY_UP = 38;
@@ -31,7 +37,6 @@ export default function LiveTVScreenTV({ navigation }) {
   const pageRef = useRef(null);
   const allItemsRef = useRef(new Map());
   const catElRef = useRef(null);
-  const chElRef = useRef(null);
   const navActiveRef = useRef(false);
 
   const focusNav = () => {
@@ -181,16 +186,10 @@ export default function LiveTVScreenTV({ navigation }) {
   };
 
   // ── Channel grid keys ─────────────────────────────────────────────────────
+  // The grid is virtualized (VirtualGridTV), so focus may roam the whole list —
+  // bounds use the full length, not a display cap.
   const movCh = (pg, focus) => {
     const n = { ...pg, focus };
-    pageRef.current = n;
-    setPage(n);
-  };
-  const growCh = (pg) => {
-    const n = {
-      ...pg,
-      display: Math.min(pg.display + CH_PAGE, pg.items.length),
-    };
     pageRef.current = n;
     setPage(n);
   };
@@ -199,22 +198,18 @@ export default function LiveTVScreenTV({ navigation }) {
     if (pg.focus > 0) movCh(pg, pg.focus - 1);
   };
   const onChRight = (pg) => {
-    const max = Math.min(pg.display, pg.items.length) - 1;
+    const max = pg.items.length - 1;
     if (pg.focus >= max) return;
     movCh(pg, pg.focus + 1);
-    if (pg.focus + 1 >= pg.display - CH_COLS && pg.display < pg.items.length)
-      growCh(pg);
   };
   const onChUp = (pg) => {
     if (pg.focus >= CH_COLS) movCh(pg, pg.focus - CH_COLS);
     else focusNav();
   };
   const onChDown = (pg) => {
-    const max = Math.min(pg.display, pg.items.length) - 1;
+    const max = pg.items.length - 1;
     const next = Math.min(pg.focus + CH_COLS, max);
     movCh(pg, next);
-    if (next >= pg.display - CH_COLS && pg.display < pg.items.length)
-      growCh(pg);
   };
   const onChEnter = (pg) => {
     const item = pg.items[pg.focus];
@@ -251,9 +246,7 @@ export default function LiveTVScreenTV({ navigation }) {
   useEffect(() => {
     catElRef.current?.scrollIntoView({ block: "nearest" });
   }, [catFocus]);
-  useEffect(() => {
-    chElRef.current?.scrollIntoView({ block: "nearest" });
-  }, [page?.focus]);
+  // Channel-grid focus scrolling is handled inside VirtualGridTV (focusIndex).
 
   // ── Render ────────────────────────────────────────────────────────────────
   if (loading) {
@@ -283,7 +276,6 @@ export default function LiveTVScreenTV({ navigation }) {
   }
 
   if (page) {
-    const displayed = page.items ? page.items.slice(0, page.display) : null;
     return (
       <div className="tvl-screen">
         <div className="tvl-topbar">
@@ -302,18 +294,23 @@ export default function LiveTVScreenTV({ navigation }) {
             </span>
           )}
         </div>
-        {displayed ? (
-          <div className="tvl-scroll">
-            <div className="tvl-ch-grid">
-              {displayed.map((item, i) => (
+        {page.items ? (
+          <div className="tvl-ch-grid-window">
+            <VirtualGridTV
+              items={page.items}
+              cols={CH_COLS}
+              rowHeight={CH_ROW_H}
+              gap={CH_GAP}
+              focusIndex={page.focus}
+              className="tvl-ch-vgrid"
+              renderItem={(item, i) => (
                 <ChannelCard
                   key={String(item.stream_id)}
                   item={item}
                   isFocused={i === page.focus}
-                  elRef={i === page.focus ? chElRef : null}
                 />
-              ))}
-            </div>
+              )}
+            />
           </div>
         ) : (
           <div className="tvl-center">
@@ -352,12 +349,11 @@ export default function LiveTVScreenTV({ navigation }) {
   );
 }
 
-function ChannelCard({ item, isFocused, elRef }) {
+function ChannelCard({ item, isFocused }) {
   const [err, setErr] = useState(false);
   const src = item.stream_icon || null;
   return (
     <div
-      ref={elRef}
       className={isFocused ? "tvl-ch-card tvl-ch-card--on" : "tvl-ch-card"}
     >
       <div className="tvl-ch-logo">

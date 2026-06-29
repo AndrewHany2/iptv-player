@@ -39,7 +39,7 @@ function createWindow() {
       contextIsolation: true,
       webSecurity: false,
     },
-    backgroundColor: "#1a1a1a",
+    backgroundColor: "#0A0E1A",
     title: "IPTV Player",
   });
 

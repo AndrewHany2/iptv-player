@@ -1,6 +1,8 @@
 const TMDB_BASE = 'https://api.themoviedb.org/3';
 const TTL = 6 * 60 * 60 * 1000; // 6h cache
 const API_KEY = process.env.EXPO_PUBLIC_TMDB_API_KEY || null;
+// Hard cap on cached page entries so the Map can't grow unbounded over a session.
+const MAX_CACHE_ENTRIES = 200;
 
 const normalize = (s) =>
   String(s || '')
@@ -24,11 +26,17 @@ class TmdbApi {
   }
 
   _cacheSet(key, data) {
+    // Refresh insertion order so the cap evicts the genuinely oldest entry.
+    if (this._cache.has(key)) this._cache.delete(key);
+    else if (this._cache.size >= MAX_CACHE_ENTRIES) {
+      const oldest = this._cache.keys().next().value;
+      if (oldest !== undefined) this._cache.delete(oldest);
+    }
     this._cache.set(key, { data, expiresAt: Date.now() + TTL });
   }
 
   // Fetch a single TMDB page; returns { results, total_pages }
-  async fetchPage(type, page) {
+  async fetchPage(type, page, { signal } = {}) {
     const cacheKey = `tmdb_${type}_p${page}`;
     const cached = this._cacheGet(cacheKey);
     if (cached) return cached;
@@ -36,10 +44,11 @@ class TmdbApi {
 
     let data;
     try {
-      const r = await fetch(`${TMDB_BASE}/${type}/top_rated?api_key=${API_KEY}&page=${page}`);
+      const r = await fetch(`${TMDB_BASE}/${type}/top_rated?api_key=${API_KEY}&page=${page}`, { signal });
       if (!r.ok) return { results: [], total_pages: 0 };
       data = await r.json();
-    } catch {
+    } catch (err) {
+      if (err?.name === 'AbortError') throw err; // let cancellation propagate
       return { results: [], total_pages: 0 };
     }
 
@@ -74,9 +83,9 @@ class TmdbApi {
   // Fetch one TMDB page, match against IPTV library.
   // Returns { matched: IPTV items annotated with tmdb_rating, totalPages, hasMore }.
   // seenIds: Set of already-emitted IDs to avoid dupes across pages.
-  async matchTopRatedPage({ type, iptvItems, idField, page, seenIds }) {
+  async matchTopRatedPage({ type, iptvItems, idField, page, seenIds, signal }) {
     if (!API_KEY) return { matched: [], totalPages: 0, hasMore: false };
-    const { results, total_pages } = await this.fetchPage(type, page);
+    const { results, total_pages } = await this.fetchPage(type, page, { signal });
     const streamMap = this._getStreamMap(iptvItems);
     const matched = [];
     for (const tmdb of results) {
@@ -90,13 +99,13 @@ class TmdbApi {
   }
 
   // Fetch multiple TMDB pages in parallel, return concatenated matches sorted by rating.
-  async matchTopRatedRange({ type, iptvItems, idField, fromPage, toPage, seenIds }) {
+  async matchTopRatedRange({ type, iptvItems, idField, fromPage, toPage, seenIds, signal }) {
     if (!API_KEY) return { matched: [], totalPages: 0, hasMore: false };
     const pages = [];
     for (let p = fromPage; p <= toPage; p++) pages.push(p);
 
     const results = await Promise.all(
-      pages.map((p) => this.fetchPage(type, p))
+      pages.map((p) => this.fetchPage(type, p, { signal }))
     );
 
     const streamMap = this._getStreamMap(iptvItems);

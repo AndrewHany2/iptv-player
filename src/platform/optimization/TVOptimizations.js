@@ -27,8 +27,8 @@ export class TVOptimizations {
         transition: none !important;
         transition-duration: 0s !important;
       }
-      /* Allow a single fast outline pulse for focus feedback */
-      .tv-focused { outline: 3px solid #6C5CE7 !important; outline-offset: 4px !important; }
+      /* Focus ring: cyan, consistent with tvRemoteFocus.css / .tvl-*--on states */
+      .tv-focus, .tv-focused { outline: 2px solid #22D3EE !important; outline-offset: 2px !important; }
     `;
     document.head.appendChild(s);
   }
@@ -69,13 +69,15 @@ export class TVOptimizations {
   static _simplifyStyles() {
     const s = document.createElement("style");
     s.id = "tv-opt-styles";
+    // Scope to TV namespaces (.tvl-* screens, legacy .tv-*) so the heavy
+    // box-shadow/filter sweeps don't strip effects from unrelated/global UI.
     s.textContent = `
-      * {
+      [class*="tvl-"], [class*="tv-"] {
         box-shadow: none !important;
         text-shadow: none !important;
         filter: none !important;
       }
-      *:hover {
+      [class*="tvl-"]:hover, [class*="tv-"]:hover {
         transform: none !important;
         scale: 1 !important;
         box-shadow: none !important;
@@ -101,8 +103,9 @@ export class TVOptimizations {
   static _disableTextSelection() {
     const s = document.createElement("style");
     s.id = "tv-opt-selection";
+    // Scope to TV namespaces so global/non-TV UI keeps default selection behavior.
     s.textContent = `
-      * { user-select: none; -webkit-user-select: none; }
+      [class*="tvl-"], [class*="tv-"] { user-select: none; -webkit-user-select: none; }
       input, textarea { user-select: text; -webkit-user-select: text; }
     `;
     document.head.appendChild(s);

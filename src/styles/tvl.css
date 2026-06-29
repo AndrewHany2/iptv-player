@@ -36,7 +36,8 @@
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 24px 60px;
+  /* ~5% title-safe horizontal inset (overscan) — matches grids/lists */
+  padding: 24px 64px;
   border-bottom: 1px solid #28324E;
   flex-shrink: 0;
 }
@@ -81,7 +82,7 @@
 .tvl-topbar-count {
   font-size: 18px;
   font-weight: 500;
-  color: #555;
+  color: #7A86A8;
 }
 
 /* ── Center (loading / empty) ────────────────────────────────────────────── */
@@ -143,7 +144,7 @@
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 20px;
-  padding: 36px 60px;
+  padding: 36px 64px;
 }
 .tvl-cat-card {
   display: block;
@@ -177,6 +178,8 @@
   border-color: #22D3EE;
   outline: 2px solid #22D3EE;
   outline-offset: 2px;
+  /* bg tint instead of a transform (transforms jank on old TV Chromium) */
+  background: rgba(34, 211, 238, 0.1);
 }
 
 .tvl-card-img {
@@ -216,15 +219,19 @@
 }
 .tvl-card-title {
   padding: 6px 4px 2px;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
-  color: #7A86A8;
+  color: #EAF0FF;
   line-height: 1.4;
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
+}
+/* Brighten + tint title when its card is focused */
+.tvl-card--on .tvl-card-title {
+  color: #fff;
 }
 
 /* ── Hero banner (backdrop image only, content lives below) ───────────────── */

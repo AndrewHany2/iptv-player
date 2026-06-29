@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef, memo } from "react";
-import { FlatList, Image, Modal, Alert, TouchableOpacity } from "react-native";
+import { FlatList, Image, Modal, Alert, TouchableOpacity, RefreshControl } from "react-native";
 import { YStack, XStack, Text, Input, ScrollView, Spinner } from "tamagui";
+import { colors } from "../ui/tokens";
 import { useApp } from "../context/AppContext";
 import iptvApi from "../services/iptvApi";
 
@@ -86,6 +87,8 @@ function LiveShelf({ cat, epgCache, fetchEpg, onPress }) {
 export default function LiveTVScreen({ navigation }) {
   const { users, activeUserId, channels, setChannels, saveChannels, playVideo } = useApp();
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [categories, setCategories] = useState([]);
   const [channelsByCategory, setChannelsByCategory] = useState({});
   const [searchQuery, setSearchQuery] = useState("");
@@ -135,7 +138,7 @@ export default function LiveTVScreen({ navigation }) {
   const loadChannels = async () => {
     const user = users.find((u) => u.id === activeUserId);
     if (!user) return;
-    setLoading(true); loadedRef.current.clear(); setCategories([]); setChannelsByCategory({});
+    setLoading(true); setError(false); loadedRef.current.clear(); setCategories([]); setChannelsByCategory({});
     try {
       iptvApi.setCredentials(user.host, user.username, user.password);
       const cats = await iptvApi.getLiveCategories();
@@ -143,7 +146,12 @@ export default function LiveTVScreen({ navigation }) {
       const catList = cats.map((c) => ({ id: c.category_id, name: c.category_name }));
       setCategories(catList);
       catList.slice(0, 3).forEach((c) => loadChannelCategory(c.id));
-    } catch (err) { console.error("Error loading channels:", err); } finally { setLoading(false); }
+    } catch (err) { console.error("Error loading channels:", err); setError(true); } finally { setLoading(false); }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try { await loadChannels(); } finally { setRefreshing(false); }
   };
 
   const handleChannelPress = (item) => {
@@ -177,6 +185,19 @@ export default function LiveTVScreen({ navigation }) {
     );
   }
 
+  if (error) {
+    return (
+      <YStack flex={1} justifyContent="center" alignItems="center" backgroundColor="#0A0E1A" padding={24}>
+        <Text fontSize={48} marginBottom={12}>⚠️</Text>
+        <Text color={colors.danger} fontSize={18} fontWeight="600" marginBottom={8}>Couldn't load channels</Text>
+        <Text color="#7A86A8" fontSize={14} textAlign="center" marginBottom={20}>Check your connection and try again.</Text>
+        <YStack backgroundColor="#6C5CE7" paddingHorizontal={24} paddingVertical={12} borderRadius={10} cursor="pointer" onPress={loadChannels} pressStyle={{ opacity: 0.9 }}>
+          <Text color="#fff" fontWeight="600">Retry</Text>
+        </YStack>
+      </YStack>
+    );
+  }
+
   return (
     <YStack flex={1} backgroundColor="#0A0E1A">
       <XStack alignItems="center" paddingHorizontal={16} paddingVertical={14} gap={10}>
@@ -199,6 +220,7 @@ export default function LiveTVScreen({ navigation }) {
         ListEmptyComponent={<YStack padding={60} alignItems="center"><Text color="#666" fontSize={15}>No channels found</Text></YStack>}
         contentContainerStyle={{ paddingBottom: 60 }}
         showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#6C5CE7" colors={["#6C5CE7"]} />}
       />
 
       <Modal visible={showAddChannel} transparent animationType="slide" onRequestClose={() => setShowAddChannel(false)}>

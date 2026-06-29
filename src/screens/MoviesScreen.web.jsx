@@ -3,7 +3,8 @@ import { YStack, XStack, Text, Input, ScrollView, Spinner } from "../ui/primitiv
 import { useApp } from "../context/AppContext";
 import { useMovies } from "../domain/hooks/useMovies";
 import { useTVNavigation } from "../hooks/useTVNavigation";
-import { ss } from "../utils/scaleSize";
+import { ss, useScale } from "../utils/scaleSize";
+import { colors } from "../ui/tokens";
 import { getPlatformConfig, detectPlatform } from "../platform/configs/detectPlatform";
 import ContentShelf from "../presentation/components/ContentShelf.web";
 import PosterCard from "../presentation/components/PosterCard.web";
@@ -11,6 +12,9 @@ import MovieDetail from "../components/MovieDetail.web";
 
 const _cfg = getPlatformConfig(detectPlatform());
 const GRID_PAGE = _cfg.performance.gridPageSize;
+
+// Caps the browse content width on ultrawide monitors (centered via margin auto).
+const MAX_W = 1700;
 
 /* ─── Category Page (drill-in grid + web D-pad) ─── */
 function CategoryPage({ name, items, onBack, onPlay, onLoadMore, hasRemote, loadingMore }) {
@@ -136,11 +140,13 @@ function CategoryPage({ name, items, onBack, onPlay, onLoadMore, hasRemote, load
 /* ─── Screen ─── */
 export default function MoviesScreen({ navigation }) {
   const {
-    loading, activeUserId, shelves, discoverItems,
+    loading, error, reload, activeUserId, shelves, discoverItems,
     handleShelfVisible, handleLoadMore, openCategory, closeCategory,
     categoryPage, isTopRatedCategory, topRatedHasMore, topRatedLoadingMore, handleTopRatedMore,
     selectedMovie, selectMovie, clearSelectedMovie, playVideoObject,
   } = useMovies({ navigation });
+
+  useScale(); // re-render + recompute ss() on window resize
 
   const { focusedRow, focusedCol } = useTVNavigation({
     active: !categoryPage && !selectedMovie,
@@ -152,6 +158,19 @@ export default function MoviesScreen({ navigation }) {
       <YStack flex={1} justifyContent="center" alignItems="center" backgroundColor="#0A0E1A" padding={ss(24)}>
         <Spinner size="large" color="#6C5CE7" />
         <Text color="#7A86A8" marginTop={ss(12)} fontSize={ss(14)}>Loading movies...</Text>
+      </YStack>
+    );
+  }
+
+  if (error) {
+    return (
+      <YStack flex={1} justifyContent="center" alignItems="center" backgroundColor="#0A0E1A" padding={ss(24)}>
+        <Text fontSize={ss(48)} marginBottom={ss(12)}>⚠️</Text>
+        <Text color={colors.danger} fontSize={ss(18)} fontWeight="700" marginBottom={ss(8)}>Couldn't load movies</Text>
+        <Text color="#7A86A8" fontSize={ss(14)} textAlign="center" marginBottom={ss(20)}>Check your connection and try again</Text>
+        <YStack backgroundColor="#6C5CE7" paddingHorizontal={ss(24)} paddingVertical={ss(12)} borderRadius={ss(10)} onPress={reload}>
+          <Text color="#fff" fontWeight="600">Retry</Text>
+        </YStack>
       </YStack>
     );
   }
@@ -172,6 +191,7 @@ export default function MoviesScreen({ navigation }) {
   return (
     <YStack flex={1} backgroundColor="#0A0E1A" position="relative">
       <ScrollView flex={1} minHeight={0} contentContainerStyle={{ paddingBottom: ss(80) }}>
+        <YStack maxWidth={MAX_W} width="100%" alignSelf="center">
         <YStack paddingHorizontal={ss(48)} paddingTop={ss(24)} paddingBottom={ss(4)}>
           <Text color="#fff" fontSize={ss(22)} fontWeight="700" letterSpacing={-0.3} marginBottom={ss(12)}>Discover</Text>
           <XStack gap={ss(10)} flexWrap="wrap">
@@ -209,6 +229,7 @@ export default function MoviesScreen({ navigation }) {
           ) : (
             <YStack padding={ss(60)} alignItems="center"><Text color="#666" fontSize={ss(15)}>No movies found</Text></YStack>
           )}
+        </YStack>
         </YStack>
       </ScrollView>
       {categoryPage && (

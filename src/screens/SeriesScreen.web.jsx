@@ -4,11 +4,14 @@ import { YStack, XStack, Text, Input, ScrollView, Spinner } from "tamagui";
 import { useApp } from "../context/AppContext";
 import { useContentService } from "../domain/hooks/useContentService";
 import { useTVNavigation } from "../hooks/useTVNavigation";
-import { ss } from "../utils/scaleSize";
+import { ss, useScale } from "../utils/scaleSize";
 import iptvApi from "../services/iptvApi";
 import tmdbApi from "../services/tmdbApi";
 import SeriesDetail from "../components/SeriesDetail.web";
 import TVPosterCard from "../components/TVPosterCard";
+
+// Caps the browse content width on ultrawide monitors (centered via margin auto).
+const MAX_W = 1700;
 const SHELF_PAGE =
   typeof window !== "undefined"
     ? Math.ceil(window.innerWidth / ss(200)) + 2
@@ -475,7 +478,9 @@ function CategoryPage({
 export default function SeriesScreen({ navigation }) {
   const { activeUser, activeUserId } = useContentService();
   const { playVideo } = useApp();
+  useScale(); // re-render + recompute ss() on window resize
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
   const [shelves, setShelves] = useState([]);
   const [currentCategory, setCurrentCategory] = useState(null);
   const [categoryItems, setCategoryItems] = useState(null);
@@ -495,6 +500,7 @@ export default function SeriesScreen({ navigation }) {
   const load = async () => {
     if (!activeUser) return;
     setLoading(true);
+    setError(false);
     loadedRef.current.clear();
     allShuffledRef.current = [];
     topRatedRef.current = [];
@@ -519,6 +525,7 @@ export default function SeriesScreen({ navigation }) {
       prefetchRef.current = { topRated: prefetchTopRatedSeries() };
     } catch (err) {
       console.error("Error loading series:", err);
+      setError(true);
     } finally {
       setLoading(false);
     }
@@ -788,6 +795,51 @@ export default function SeriesScreen({ navigation }) {
     );
   }
 
+  if (error) {
+    return (
+      <YStack
+        flex={1}
+        justifyContent="center"
+        alignItems="center"
+        backgroundColor="#0A0E1A"
+        padding={ss(24)}
+      >
+        <Text fontSize={ss(48)} marginBottom={ss(12)}>
+          ⚠️
+        </Text>
+        <Text
+          color="#fff"
+          fontSize={ss(18)}
+          fontWeight="600"
+          marginBottom={ss(8)}
+        >
+          Couldn't load series
+        </Text>
+        <Text
+          color="#7A86A8"
+          fontSize={ss(14)}
+          textAlign="center"
+          marginBottom={ss(20)}
+        >
+          Check your connection or IPTV account and try again
+        </Text>
+        <YStack
+          backgroundColor="#6C5CE7"
+          paddingHorizontal={ss(24)}
+          paddingVertical={ss(12)}
+          borderRadius={ss(10)}
+          cursor="pointer"
+          onPress={load}
+          pressStyle={{ opacity: 0.9 }}
+        >
+          <Text color="#fff" fontWeight="600">
+            Retry
+          </Text>
+        </YStack>
+      </YStack>
+    );
+  }
+
   if (!activeUserId) {
     return (
       <YStack
@@ -838,6 +890,7 @@ export default function SeriesScreen({ navigation }) {
   return (
     <YStack flex={1} backgroundColor="#0A0E1A" position="relative">
       <ScrollView flex={1} contentContainerStyle={{ paddingBottom: ss(80) }}>
+        <YStack maxWidth={MAX_W} width="100%" alignSelf="center">
         <YStack
           paddingHorizontal={ss(48)}
           paddingTop={ss(24)}
@@ -915,6 +968,7 @@ export default function SeriesScreen({ navigation }) {
               </Text>
             </YStack>
           )}
+        </YStack>
         </YStack>
       </ScrollView>
       {currentCategory && (

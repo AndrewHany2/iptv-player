@@ -4,6 +4,28 @@ const TTL = {
   seriesInfo: 30 * 60 * 1000,
 };
 
+// Hard cap on in-memory cache entries so the Map cannot grow unbounded over a
+// long session (one entry per category/info id can otherwise accumulate).
+const MAX_CACHE_ENTRIES = 200;
+// Max concurrent requests when fanning out per-category in the robust fetchers.
+const FANOUT_CONCURRENCY = 5;
+
+// Run `tasks` (array of () => Promise) with at most `limit` in flight at once.
+// Preserves result order. Used to bound the per-category fan-out so we don't
+// open hundreds of sockets at once on large libraries.
+async function runPool(tasks, limit) {
+  const results = new Array(tasks.length);
+  let next = 0;
+  const workers = new Array(Math.min(limit, tasks.length)).fill(0).map(async () => {
+    while (next < tasks.length) {
+      const i = next++;
+      results[i] = await tasks[i]();
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
 class IPTVApi {
   _cache = new Map();
   baseUrl = null;
@@ -30,6 +52,12 @@ class IPTVApi {
   }
 
   _cacheSet(key, data, ttl) {
+    // Refresh insertion order so the cap evicts the genuinely oldest entry.
+    if (this._cache.has(key)) this._cache.delete(key);
+    else if (this._cache.size >= MAX_CACHE_ENTRIES) {
+      const oldest = this._cache.keys().next().value;
+      if (oldest !== undefined) this._cache.delete(oldest);
+    }
     this._cache.set(key, { data, expiresAt: Date.now() + ttl });
   }
 
@@ -44,10 +72,11 @@ class IPTVApi {
     return url.toString();
   }
 
-  async fetch(url) {
+  async fetch(url, { signal } = {}) {
     const response = await globalThis.fetch(url, {
       method: 'GET',
       headers: { Accept: 'application/json, text/plain, */*' },
+      signal,
     });
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     return response.json();
@@ -65,9 +94,9 @@ class IPTVApi {
     return this._cached('live_categories', TTL.categories, () => this.fetch(this.buildUrl('get_live_categories')));
   }
 
-  getLiveStreamsByCategory(categoryId) {
+  getLiveStreamsByCategory(categoryId, { signal } = {}) {
     return this._cached(`live_streams_${categoryId}`, TTL.streams, () =>
-      this.fetch(this.buildUrl('get_live_streams', { category_id: categoryId }))
+      this.fetch(this.buildUrl('get_live_streams', { category_id: categoryId }), { signal })
     );
   }
 
@@ -79,9 +108,9 @@ class IPTVApi {
     return this._cached('vod_categories', TTL.categories, () => this.fetch(this.buildUrl('get_vod_categories')));
   }
 
-  getVODStreams(categoryId) {
+  getVODStreams(categoryId, { signal } = {}) {
     return this._cached(`vod_streams_${categoryId}`, TTL.streams, () =>
-      this.fetch(this.buildUrl('get_vod_streams', { category_id: categoryId }))
+      this.fetch(this.buildUrl('get_vod_streams', { category_id: categoryId }), { signal })
     );
   }
 
@@ -99,18 +128,22 @@ class IPTVApi {
       } catch { /* fall through */ }
       const cats = await this.getVODCategories();
       if (!Array.isArray(cats) || !cats.length) return [];
-      const results = await Promise.all(
-        cats.map((c) => this.getVODStreams(c.category_id).catch(() => []))
+      // Bounded fan-out instead of unbounded Promise.all so large libraries
+      // don't open hundreds of sockets at once.
+      const results = await runPool(
+        cats.map((c) => () => this.getVODStreams(c.category_id).catch(() => [])),
+        FANOUT_CONCURRENCY
       );
       const seen = new Set();
       const merged = [];
-      for (const list of results) {
-        for (const item of list || []) {
+      for (let i = 0; i < results.length; i++) {
+        for (const item of results[i] || []) {
           if (item?.stream_id != null && !seen.has(item.stream_id)) {
             seen.add(item.stream_id);
             merged.push(item);
           }
         }
+        results[i] = null; // release per-category array after merge
       }
       return merged;
     });
@@ -126,9 +159,9 @@ class IPTVApi {
     return this._cached('series_categories', TTL.categories, () => this.fetch(this.buildUrl('get_series_categories')));
   }
 
-  getSeries(categoryId) {
+  getSeries(categoryId, { signal } = {}) {
     return this._cached(`series_${categoryId}`, TTL.streams, () =>
-      this.fetch(this.buildUrl('get_series', { category_id: categoryId }))
+      this.fetch(this.buildUrl('get_series', { category_id: categoryId }), { signal })
     );
   }
 
@@ -146,18 +179,22 @@ class IPTVApi {
       } catch { /* fall through */ }
       const cats = await this.getSeriesCategories();
       if (!Array.isArray(cats) || !cats.length) return [];
-      const results = await Promise.all(
-        cats.map((c) => this.getSeries(c.category_id).catch(() => []))
+      // Bounded fan-out instead of unbounded Promise.all so large libraries
+      // don't open hundreds of sockets at once.
+      const results = await runPool(
+        cats.map((c) => () => this.getSeries(c.category_id).catch(() => [])),
+        FANOUT_CONCURRENCY
       );
       const seen = new Set();
       const merged = [];
-      for (const list of results) {
-        for (const item of list || []) {
+      for (let i = 0; i < results.length; i++) {
+        for (const item of results[i] || []) {
           if (item?.series_id != null && !seen.has(item.series_id)) {
             seen.add(item.series_id);
             merged.push(item);
           }
         }
+        results[i] = null; // release per-category array after merge
       }
       return merged;
     });

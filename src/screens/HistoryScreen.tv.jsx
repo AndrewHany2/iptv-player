@@ -3,6 +3,8 @@ import { useApp } from "../context/AppContext";
 import iptvApi from "../services/iptvApi";
 import { useContentService } from "../domain/hooks/useContentService";
 import "../styles/tvl.css";
+import "../styles/tvResponsiveScaling.css";
+import "../styles/tvRemoteFocus.css";
 import "./HistoryScreen.tv.css";
 import "./MoviesScreen.tv.css";
 import "./SeriesScreen.tv.css";
@@ -13,6 +15,13 @@ const KEY_RIGHT = 39;
 const KEY_DOWN = 40;
 const KEY_ENTER = 13;
 const KEY_BACK = new Set([27, 461, 10009, 8]);
+
+// List windowing: cap rendered rows so large favorites/history don't mount
+// every item on memory-constrained TVs. We render a sliding window around the
+// focused row and pad with spacers so scroll height + D-pad scrollIntoView stay
+// correct. Row height is the design-px height of a .tvl-hist-item (@1280).
+const HIST_WINDOW = 24; // rows kept above/below focus
+const HIST_ITEM_H = 84;
 
 const getTrailerUrl = (t) => {
   if (!t) return null;
@@ -809,6 +818,39 @@ export default function HistoryScreenTV({ navigation }) {
     );
   }
 
+  // ── Windowed section render (caps mounted rows) ───────────────────────────
+  const renderHistWindow = (items, section, focusRef, isFav) => {
+    const isActive = listSection === section;
+    const focusIdx = isActive ? listFocus : 0;
+    const start = Math.max(0, focusIdx - HIST_WINDOW);
+    const end = Math.min(items.length, focusIdx + HIST_WINDOW + 1);
+    const padTop = start * HIST_ITEM_H;
+    const padBottom = Math.max(0, items.length - end) * HIST_ITEM_H;
+    return (
+      <>
+        {padTop > 0 && <div style={{ height: padTop, flexShrink: 0 }} />}
+        {items.slice(start, end).map((item, j) => {
+          const i = start + j;
+          const focused = isActive && i === listFocus;
+          const isRemoveSlot = focused && itemSlot === "remove";
+          return (
+            <HistItem
+              key={item.id}
+              item={item}
+              isFocused={focused}
+              isRemoveSlot={isRemoveSlot}
+              elRef={focused ? focusRef : null}
+              fmtDate={fmtDate}
+              fmtTime={fmtTime}
+              isFav={isFav}
+            />
+          );
+        })}
+        {padBottom > 0 && <div style={{ height: padBottom, flexShrink: 0 }} />}
+      </>
+    );
+  };
+
   // ── Render: list (two sections) ───────────────────────────────────────────
   const isEmpty = favItems.length === 0 && histItems.length === 0;
 
@@ -834,23 +876,7 @@ export default function HistoryScreenTV({ navigation }) {
           {favItems.length > 0 && (
             <>
               <div className="tvl-hist-section-hdr">Favorites</div>
-              {favItems.map((item, i) => {
-                const focused =
-                  listSection === "favorites" && i === listFocus;
-                const isRemoveSlot = focused && itemSlot === "remove";
-                return (
-                  <HistItem
-                    key={item.id}
-                    item={item}
-                    isFocused={focused}
-                    isRemoveSlot={isRemoveSlot}
-                    elRef={focused ? focusedFavRef : null}
-                    fmtDate={fmtDate}
-                    fmtTime={fmtTime}
-                    isFav
-                  />
-                );
-              })}
+              {renderHistWindow(favItems, "favorites", focusedFavRef, true)}
             </>
           )}
 
@@ -858,23 +884,7 @@ export default function HistoryScreenTV({ navigation }) {
           {histItems.length > 0 && (
             <>
               <div className="tvl-hist-section-hdr">Watch History</div>
-              {histItems.map((item, i) => {
-                const focused =
-                  listSection === "history" && i === listFocus;
-                const isRemoveSlot = focused && itemSlot === "remove";
-                return (
-                  <HistItem
-                    key={item.id}
-                    item={item}
-                    isFocused={focused}
-                    isRemoveSlot={isRemoveSlot}
-                    elRef={focused ? focusedHistRef : null}
-                    fmtDate={fmtDate}
-                    fmtTime={fmtTime}
-                    isFav={false}
-                  />
-                );
-              })}
+              {renderHistWindow(histItems, "history", focusedHistRef, false)}
             </>
           )}
         </div>

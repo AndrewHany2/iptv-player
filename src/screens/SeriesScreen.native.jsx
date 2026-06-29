@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef, memo } from "react";
-import { FlatList, Image } from "react-native";
+import { FlatList, Image, RefreshControl } from "react-native";
 import { YStack, XStack, Text, Input, ScrollView, Spinner } from "tamagui";
+import { colors } from "../ui/tokens";
 import { useApp } from "../context/AppContext";
 import { useTVNavigation } from "../hooks/useTVNavigation";
 import iptvApi from "../services/iptvApi";
@@ -148,6 +149,8 @@ function CategoryPage({ name, items, onBack, onPress, onLoadMore, hasRemote, loa
 export default function SeriesScreen({ navigation }) {
   const { users, activeUserId, playVideo } = useApp();
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [shelves, setShelves] = useState([]);
   const [currentCategory, setCurrentCategory] = useState(null);
   const [categoryItems, setCategoryItems] = useState(null);
@@ -165,7 +168,7 @@ export default function SeriesScreen({ navigation }) {
   const load = async () => {
     const user = users.find((u) => u.id === activeUserId);
     if (!user) return;
-    setLoading(true);
+    setLoading(true); setError(false);
     loadedRef.current.clear(); allShuffledRef.current = []; topRatedRef.current = []; prefetchRef.current = { topRated: null }; setShelves([]);
     try {
       iptvApi.setCredentials(user.host, user.username, user.password);
@@ -173,7 +176,12 @@ export default function SeriesScreen({ navigation }) {
       if (!cats?.length) { setLoading(false); return; }
       setShelves(cats.map((c) => ({ id: c.category_id, name: c.category_name, items: null, totalCount: null, hasMore: false, loadingMore: false, manual: false })));
       prefetchRef.current = { topRated: prefetchTopRatedSeries() };
-    } catch (err) { console.error("Error loading series:", err); } finally { setLoading(false); }
+    } catch (err) { console.error("Error loading series:", err); setError(true); } finally { setLoading(false); }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try { await load(); } finally { setRefreshing(false); }
   };
 
   const handleShelfVisible = useCallback(async (catId) => {
@@ -302,6 +310,19 @@ export default function SeriesScreen({ navigation }) {
     );
   }
 
+  if (error) {
+    return (
+      <YStack flex={1} justifyContent="center" alignItems="center" backgroundColor="#0A0E1A" padding={24}>
+        <Text fontSize={48} marginBottom={12}>⚠️</Text>
+        <Text color={colors.danger} fontSize={18} fontWeight="600" marginBottom={8}>Couldn't load series</Text>
+        <Text color="#7A86A8" fontSize={14} textAlign="center" marginBottom={20}>Check your connection and try again.</Text>
+        <YStack backgroundColor="#6C5CE7" paddingHorizontal={24} paddingVertical={12} borderRadius={10} cursor="pointer" onPress={load} pressStyle={{ opacity: 0.9 }}>
+          <Text color="#fff" fontWeight="600">Retry</Text>
+        </YStack>
+      </YStack>
+    );
+  }
+
   const isTopRated = currentCategory?.catId === "top_rated";
   const listHeader = (
     <YStack paddingHorizontal={16} paddingTop={20} paddingBottom={4}>
@@ -341,6 +362,7 @@ export default function SeriesScreen({ navigation }) {
         )}
         ListEmptyComponent={<YStack padding={60} alignItems="center"><Text color="#666" fontSize={15}>No series found</Text></YStack>}
         windowSize={5} maxToRenderPerBatch={3} initialNumToRender={3} removeClippedSubviews
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#6C5CE7" colors={["#6C5CE7"]} />}
       />
       {currentCategory && (
         <YStack position="absolute" top={0} left={0} right={0} bottom={0}>

@@ -11,6 +11,7 @@
  */
 import { forwardRef } from "react";
 import { splitStyleProps, toWebStyle } from "./styleProps";
+import { colors, accentAlpha } from "./tokens";
 
 const isTV = () => typeof globalThis !== "undefined" && globalThis.__TV__ === true;
 
@@ -56,9 +57,22 @@ export const Text = forwardRef(function Text(props, ref) {
   return <div ref={ref} onClick={onPress} style={css} {...other}>{children}</div>;
 });
 
+let placeholderRuleInjected = false;
+function ensurePlaceholderRule() {
+  if (placeholderRuleInjected || typeof document === "undefined") return;
+  placeholderRuleInjected = true;
+  // DOM ::placeholder colour isn't settable inline, so drive it off a CSS var
+  // we set per-input. Mirrors the ensureSpinKeyframes one-time-inject pattern.
+  const el = document.createElement("style");
+  el.textContent =
+    "input.__ui_input::placeholder{color:var(--ui-placeholder," + colors.muted + ")}";
+  document.head.appendChild(el);
+}
+
 export const Input = forwardRef(function Input(props, ref) {
+  ensurePlaceholderRule();
   const { styleProps, rest } = splitStyleProps(props);
-  const { style, value, onChangeText, onChange, placeholderTextColor, ...other } = rest;
+  const { style, value, onChangeText, onChange, placeholderTextColor, className, ...other } = rest;
   for (const k of DROP) delete other[k];
   // Bridge RN's onChangeText to the DOM onChange.
   const handleChange = onChangeText ? (e) => onChangeText(e.target.value) : onChange;
@@ -67,7 +81,13 @@ export const Input = forwardRef(function Input(props, ref) {
       ref={ref}
       value={value}
       onChange={handleChange}
-      style={{ outline: "none", border: "none", ...toWebStyle(styleProps), ...style }}
+      className={className ? `__ui_input ${className}` : "__ui_input"}
+      style={{
+        outline: "none", border: "none",
+        // Default placeholder colour → muted steel; callers can still override.
+        "--ui-placeholder": placeholderTextColor || colors.muted,
+        ...toWebStyle(styleProps), ...style,
+      }}
       {...other}
     />
   );
@@ -82,7 +102,7 @@ function ensureSpinKeyframes() {
   document.head.appendChild(el);
 }
 
-export const Spinner = forwardRef(function Spinner({ size = "small", color = "#6C5CE7", ...rest }, ref) {
+export const Spinner = forwardRef(function Spinner({ size = "small", color = colors.accent, ...rest }, ref) {
   ensureSpinKeyframes();
   const d = size === "large" ? 36 : 20;
   // On TV animations are disabled globally; the ring still reads as a "loading" affordance.
@@ -91,7 +111,8 @@ export const Spinner = forwardRef(function Spinner({ size = "small", color = "#6
       ref={ref}
       style={{
         width: d, height: d, borderRadius: "50%",
-        border: `${Math.max(2, d / 10)}px solid rgba(255,255,255,0.18)`,
+        // Track ring = faint accent wash; the moving arc is the full accent.
+        border: `${Math.max(2, d / 10)}px solid ${accentAlpha(0.18)}`,
         borderTopColor: color,
         animation: isTV() ? undefined : "_ui_spin 0.8s linear infinite",
       }}
