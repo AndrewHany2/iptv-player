@@ -1,7 +1,11 @@
 import { useEffect, useRef } from "react";
 import { ss } from "../../utils/scaleSize";
 import { Spinner } from "../../ui/primitives";
+import { colors, fonts, fontWeights, radii } from "../../ui/tokens";
+import Icon from "../../ui/Icon";
 import PosterCard from "./PosterCard.web";
+
+const isTV = () => typeof globalThis !== "undefined" && globalThis.__TV__ === true;
 
 /**
  * Horizontal content rail — web/desktop (raw DOM, no Tamagui). Lazy-loads on
@@ -73,20 +77,29 @@ export default function ContentShelf({
     <div style={{ paddingTop: ss(28), paddingBottom: ss(8) }}>
       <div ref={sentinelRef} style={{ height: 0 }} />
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", paddingLeft: ss(48), paddingRight: ss(48), marginBottom: ss(14) }}>
-        <div className="lumen-shelf-title-btn" style={{ cursor: "pointer" }} onClick={() => onTitlePress?.()}>
-          <span style={{ color: "#EAF0FF", fontSize: ss(22), fontWeight: 700, letterSpacing: -0.3, fontFamily: 'SpaceGrotesk, Inter, -apple-system, sans-serif' }}>
-            {title} <span style={{ color: "#22D3EE", fontSize: ss(18) }}>›</span>
+        <div className="lumen-shelf-title-btn" style={{ display: "flex", alignItems: "center", gap: ss(4), cursor: "pointer" }} onClick={() => onTitlePress?.()}>
+          <span style={{ color: colors.text, fontSize: ss(22), fontWeight: fontWeights.bold, letterSpacing: -0.3, fontFamily: fonts.display }}>
+            {title}
           </span>
+          <Icon name="chevron-right" size={ss(18)} color={colors.accent2} />
         </div>
-        {count != null && <span style={{ color: "#555", fontSize: ss(13), fontWeight: 500 }}>{count}</span>}
+        {count != null && <span style={{ color: colors.faint, fontSize: ss(13), fontWeight: fontWeights.medium }}>{count}</span>}
       </div>
       {items === null ? (
         <div style={{ paddingLeft: ss(48), paddingRight: ss(48), paddingTop: ss(18), paddingBottom: ss(18) }}>
-          <Spinner size="small" color="#6C5CE7" />
+          <Spinner size="small" color={colors.accent} />
         </div>
       ) : (
         <div style={{ position: "relative" }} className="lumen-shelf-rail">
-          <button className="lumen-shelf-nav" onClick={() => scrollBy(-800)}>‹</button>
+          {!isTV() && (
+            <>
+              <div style={{ position: "absolute", top: 0, bottom: 0, left: 0, width: ss(48), zIndex: 3, pointerEvents: "none", background: `linear-gradient(to right, ${colors.bg}, transparent)` }} />
+              <div style={{ position: "absolute", top: 0, bottom: 0, right: 0, width: ss(48), zIndex: 3, pointerEvents: "none", background: `linear-gradient(to left, ${colors.bg}, transparent)` }} />
+            </>
+          )}
+          <button className="lumen-shelf-nav" onClick={() => scrollBy(-800)} aria-label="Scroll left">
+            <Icon name="chevron-right" size={ss(28)} color={colors.text} style={{ transform: "rotate(180deg)" }} />
+          </button>
           <div
             ref={railRef}
             onScroll={handleScroll}
@@ -97,12 +110,14 @@ export default function ContentShelf({
               ? renderItem(item)
               : <PosterCard key={String(item.stream_id ?? item.id)} item={item} onPress={onPress} width={ss(200)} />))}
             {loadingMore && (
-              <div style={{ width: ss(200), aspectRatio: "2/3", borderRadius: ss(8), backgroundColor: "#141A2E", border: "1px solid #28324E", display: "flex", justifyContent: "center", alignItems: "center" }}>
-                <Spinner size="small" color="#6C5CE7" />
+              <div style={{ width: ss(200), aspectRatio: "2/3", borderRadius: radii.sm, backgroundColor: colors.surface, border: `1px solid ${colors.border}`, display: "flex", justifyContent: "center", alignItems: "center" }}>
+                <Spinner size="small" color={colors.accent} />
               </div>
             )}
           </div>
-          <button className="lumen-shelf-nav right" onClick={() => scrollBy(800)}>›</button>
+          <button className="lumen-shelf-nav right" onClick={() => scrollBy(800)} aria-label="Scroll right">
+            <Icon name="chevron-right" size={ss(28)} color={colors.text} />
+          </button>
         </div>
       )}
     </div>

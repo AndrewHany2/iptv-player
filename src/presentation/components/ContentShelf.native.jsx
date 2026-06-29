@@ -1,11 +1,18 @@
 import { useCallback, useRef } from "react";
 import { View, Text, ScrollView, ActivityIndicator, Pressable } from "react-native";
+import { colors, fonts, fontWeights } from "../../ui/tokens";
+import { ss } from "../../utils/scaleSize";
+import Icon from "../../ui/Icon";
 import PosterCard from "./PosterCard.native";
 
 /**
  * Horizontal content rail — native. Lazy-loads its items on first layout
  * (onVisible) and paginates on horizontal scroll (onLoadMore). View-only; all
  * data/state comes from the feature hook (e.g. useMovies).
+ *
+ * Aurora: tokenized colors/type, display-font section title with a cyan
+ * chevron-right affordance when the title is pressable. Horizontal scroll +
+ * pagination behaviour and the prop contract are unchanged.
  */
 export default function ContentShelf({
   title, count, items, hasMore, loadingMore, manual,
@@ -22,26 +29,27 @@ export default function ContentShelf({
   if (items !== null && !items.length) return null;
 
   return (
-    <View style={{ paddingTop: 20, paddingBottom: 8 }} onLayout={handleLayout}>
-      <View style={{ flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", paddingHorizontal: 16, marginBottom: 14 }}>
-        <Pressable onPress={() => onTitlePress?.()}>
-          <Text style={{ color: "#fff", fontSize: 20, fontWeight: "700", letterSpacing: -0.3 }}>
-            {title} <Text style={{ color: "#6C5CE7", fontSize: 16 }}>›</Text>
+    <View style={{ paddingTop: ss(20), paddingBottom: ss(8) }} onLayout={handleLayout}>
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: ss(16), marginBottom: ss(14) }}>
+        <Pressable onPress={() => onTitlePress?.()} style={{ flexDirection: "row", alignItems: "center", gap: ss(4) }}>
+          <Text style={{ color: colors.text, fontFamily: fonts.display, fontSize: ss(20), fontWeight: fontWeights.bold, letterSpacing: -0.3 }}>
+            {title}
           </Text>
+          <Icon name="chevron-right" size={ss(18)} color={colors.accent2} />
         </Pressable>
-        {count != null && <Text style={{ color: "#555", fontSize: 13, fontWeight: "500" }}>{count}</Text>}
+        {count != null && <Text style={{ color: colors.muted, fontFamily: fonts.body, fontSize: ss(13), fontWeight: fontWeights.medium }}>{count}</Text>}
       </View>
 
       {items === null ? (
-        <View style={{ paddingHorizontal: 16, paddingVertical: 18 }}>
-          <ActivityIndicator size="small" color="#6C5CE7" />
+        <View style={{ paddingHorizontal: ss(16), paddingVertical: ss(18) }}>
+          <ActivityIndicator size="small" color={colors.accent} />
         </View>
       ) : (
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           removeClippedSubviews
-          contentContainerStyle={{ paddingHorizontal: 16, gap: 10 }}
+          contentContainerStyle={{ paddingHorizontal: ss(16), gap: ss(10) }}
           scrollEventThrottle={200}
           onScroll={(e) => {
             if (!hasMore || loadingMore) return;
@@ -53,8 +61,8 @@ export default function ContentShelf({
             ? renderItem(item)
             : <PosterCard key={String(item.stream_id ?? item.id)} item={item} onPress={onPress} />))}
           {loadingMore && (
-            <View style={{ width: 60, justifyContent: "center", alignItems: "center" }}>
-              <ActivityIndicator size="small" color="#6C5CE7" />
+            <View style={{ width: ss(60), justifyContent: "center", alignItems: "center" }}>
+              <ActivityIndicator size="small" color={colors.accent} />
             </View>
           )}
         </ScrollView>

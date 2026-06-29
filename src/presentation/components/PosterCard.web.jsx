@@ -1,17 +1,47 @@
 import { memo, useState } from "react";
-import { colors } from "../../ui/tokens";
+import { colors, focusRing, GLOW_WEB, motion, easing, overlay, radii, fonts, fontWeights } from "../../ui/tokens";
+import { ss } from "../../utils/scaleSize";
+import Icon from "../../ui/Icon";
+
+const isTV = () => typeof globalThis !== "undefined" && globalThis.__TV__ === true;
 
 /**
  * Poster card — web/TV (raw DOM, no Tamagui). Shared across Movies/Series/LiveTV.
  *
  * Uses an EXPLICIT poster height (width × 3/2) rather than `aspect-ratio`, which
- * isn't supported on older webOS Chromium and collapsed the box there. Focus and
- * hover both show the cyan Aurora ring (hover via the `.lumen-poster-card` CSS
- * class so it can't shift layout / overlap neighbours like a transform would).
+ * isn't supported on older webOS Chromium and collapsed the box there.
+ *
+ * Aurora interaction language: the cyan (accent2) ring + soft glow are shown
+ * ONLY on focus/hover, never at rest — resting state is a subtle 1px border.
+ *  - Focus (isFocused, TV/keyboard): instant cyan ring. On web it also gets the
+ *    GLOW_WEB box-shadow; on TV there is NO shadow (old Chromium strips it).
+ *  - Hover (web only): the cyan ring comes from the global `.lumen-poster-card`
+ *    :hover rule in AppNavigator; the matching soft glow is injected once below
+ *    (web-only, gated on !isTV()) so it can't shift layout like a transform.
  */
+const tv = isTV();
+
+// One-time inject the hover glow (web only). The hover RING already lives in the
+// global `.lumen-poster-card:hover` rule (AppNavigator); this adds the matching
+// soft cyan box-shadow on the inner poster box. TV strips shadows, so skip it.
+let hoverGlowInjected = false;
+function ensureHoverGlowRule() {
+  if (hoverGlowInjected || tv || typeof document === "undefined") return;
+  hoverGlowInjected = true;
+  const el = document.createElement("style");
+  el.textContent =
+    "body:not(.keyboard-nav) .lumen-poster-card:hover .lumen-poster-box{box-shadow:" +
+    GLOW_WEB +
+    ";border-color:" +
+    focusRing.color +
+    "}";
+  document.head.appendChild(el);
+}
+
 function PosterCardWeb({ item, onPress, isFocused, width = 200 }) {
   const [imageError, setImageError] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
+  if (!tv) ensureHoverGlowRule();
   const posterH = Math.round(width * 1.5);
   const poster = item.stream_icon || item.cover || item.movie_image || item.backdrop_path || null;
   const ratingValue = item.tmdb_rating ?? item.rating;
@@ -31,33 +61,54 @@ function PosterCardWeb({ item, onPress, isFocused, width = 200 }) {
       style={{
         width,
         cursor: "pointer",
-        borderRadius: 14,
-        outline: isFocused ? "2px solid #22D3EE" : "none",
+        borderRadius: radii.md,
+        // Focus ring is interaction-only (instant cyan; allowed on TV). Hover ring
+        // comes from the global `.lumen-poster-card:hover` rule.
+        outline: isFocused ? `${focusRing.width}px solid ${focusRing.color}` : "none",
         outlineOffset: 3,
       }}
     >
-      <div style={{ width, height: posterH, borderRadius: 12, backgroundColor: "#141A2E", overflow: "hidden", position: "relative", boxSizing: "border-box", border: "2px solid #22D3EE", boxShadow: "0 0 12px rgba(34,211,238,0.35)" }}>
+      <div
+        className="lumen-poster-box"
+        style={{
+          width,
+          height: posterH,
+          borderRadius: radii.card,
+          backgroundColor: colors.surface,
+          overflow: "hidden",
+          position: "relative",
+          boxSizing: "border-box",
+          // Resting: subtle hairline border, NO glow/ring. Focus: cyan ring +
+          // (web only) soft glow. Hover glow is injected via CSS above.
+          border: `1px solid ${isFocused ? focusRing.color : colors.border}`,
+          boxShadow: isFocused && !tv ? GLOW_WEB : "none",
+          transition: tv ? undefined : `box-shadow ${motion.base}ms ${easing}, border-color ${motion.fast}ms ${easing}`,
+        }}
+      >
         {/* Always-present placeholder so a loading/empty card reads as a card,
             not a floating badge. The poster fades in over it once decoded. */}
-        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "#141A2E", fontSize: 32 }}>🎬</div>
+        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: colors.surface }}>
+          <Icon name="film" color={colors.muted} size={ss(32)} />
+        </div>
         {poster && !imageError && (
           <img src={poster} alt={item.name} loading="lazy" draggable={false}
             onLoad={() => setImageLoaded(true)} onError={() => setImageError(true)}
             style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block", opacity: imageLoaded ? 1 : 0, transition: "opacity 0.2s ease", WebkitUserDrag: "none", userSelect: "none" }} />
         )}
         {showBadges && (
-          <div style={{ position: "absolute", top: 8, right: 8, backgroundColor: "rgba(0,0,0,0.65)", borderRadius: 4, padding: "2px 5px" }}>
-            <span style={{ color: "#ccc", fontSize: 9, fontWeight: 700, letterSpacing: 0.5 }}>HD</span>
+          <div style={{ position: "absolute", top: 8, right: 8, backgroundColor: overlay, borderRadius: radii.sm / 2, padding: "2px 5px" }}>
+            <span style={{ color: colors.muted, fontFamily: fonts.body, fontSize: 9, fontWeight: fontWeights.bold, letterSpacing: 0.5 }}>HD</span>
           </div>
         )}
         {showBadges && ratingLabel && (
-          <div style={{ position: "absolute", top: 8, left: 8, backgroundColor: "rgba(0,0,0,0.7)", borderRadius: 4, padding: "2px 5px" }}>
-            <span style={{ color: colors.rating, fontSize: 9, fontWeight: 700 }}>⭐ {ratingLabel}</span>
+          <div style={{ position: "absolute", top: 8, left: 8, display: "flex", alignItems: "center", gap: 3, backgroundColor: overlay, borderRadius: radii.sm / 2, padding: "2px 5px" }}>
+            <Icon name="star" color={colors.rating} size={ss(10)} />
+            <span style={{ color: colors.rating, fontFamily: fonts.body, fontSize: 9, fontWeight: fontWeights.bold }}>{ratingLabel}</span>
           </div>
         )}
       </div>
       <div style={{
-        width, color: "#EAF0FF", fontSize: 13, fontWeight: 600, marginTop: 8, lineHeight: "17px", height: 34,
+        width, color: colors.text, fontFamily: fonts.body, fontSize: 13, fontWeight: fontWeights.medium, marginTop: 8, lineHeight: "17px", height: 34,
         overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box",
         WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
       }}>{item.name}</div>
