@@ -440,7 +440,10 @@
 .tvl-letter-btn--focused,
 .tvl-season-btn--on,
 .tvl-episode--on,
-.tvl-det-act-btn--on {
+.tvl-det-act-btn--on,
+.tvl-hist-item--on,
+.tvl-acc-item--on,
+.tvl-acc-add--on {
   border-color: var(--a-focus-ring);
   outline: 2px solid var(--a-focus-ring);
   outline-offset: 2px;

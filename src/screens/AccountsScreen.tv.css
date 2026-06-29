@@ -3,7 +3,7 @@
 /* ── Account list ────────────────────────────────────────────────────────── */
 .tvl-acc-list {
   /* ~5% title-safe horizontal inset (overscan) */
-  padding: 20px 64px 40px;
+  padding: 20px var(--a-inset) 40px;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -19,15 +19,11 @@
   border-radius: 8px;
   font-size: 15px;
   font-weight: 600;
-  color: #E5484D;
+  color: var(--a-danger);
   cursor: pointer;
   font-family: inherit;
   text-align: left;
   width: 100%;
-}
-.tvl-acc-add--on {
-  border-color: #22D3EE;
-  background: rgba(108, 92, 231, 0.15);
 }
 
 .tvl-acc-item {
@@ -35,14 +31,10 @@
   align-items: center;
   gap: 16px;
   padding: 16px 20px;
-  background: #141A2E;
+  background: var(--a-surface);
   border: 2px solid transparent;
   border-radius: 8px;
   cursor: pointer;
-}
-.tvl-acc-item--on {
-  border-color: #22D3EE;
-  background: #1B2236;
 }
 
 .tvl-acc-info { flex: 1; min-width: 0; }
@@ -54,30 +46,30 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.tvl-acc-host { font-size: 12px; color: #7A86A8; margin-top: 3px; }
+.tvl-acc-host { font-size: 12px; color: var(--a-muted); margin-top: 3px; }
 .tvl-acc-badge {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   font-size: 11px;
   font-weight: 700;
-  color: #22D3EE;
+  color: var(--a-cyan);
   margin-top: 3px;
 }
 
 .tvl-acc-actions { display: flex; gap: 8px; flex-shrink: 0; }
 .tvl-acc-btn {
   padding: 8px 14px;
-  background: #28324E;
-  border: 1px solid #28324E;
+  background: var(--a-border);
+  border: 1px solid var(--a-border);
   border-radius: 5px;
-  color: #7A86A8;
+  color: var(--a-muted);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   font-family: inherit;
 }
-.tvl-acc-btn-danger { border-color: #E5484D; color: #E5484D; }
+.tvl-acc-btn-danger { border-color: var(--a-danger); color: var(--a-danger); }
 
 .tvl-acc-error {
   display: flex;
@@ -87,7 +79,7 @@
   background: rgba(229, 72, 77, 0.15);
   border: 1px solid rgba(229, 72, 77, 0.4);
   border-radius: 6px;
-  color: #E5484D;
+  color: var(--a-danger);
   font-size: 13px;
   margin-bottom: 8px;
 }
@@ -105,26 +97,26 @@
 .tvl-field label {
   font-size: 12px;
   font-weight: 600;
-  color: #7A86A8;
+  color: var(--a-muted);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
 .tvl-field input {
   padding: 14px 16px;
-  background: #141A2E;
-  border: 2px solid #28324E;
+  background: var(--a-surface);
+  border: 2px solid var(--a-border);
   border-radius: 6px;
   color: #fff;
   font-size: 15px;
   font-family: inherit;
   outline: none;
 }
-.tvl-field input:focus { border-color: #22D3EE; }
+.tvl-field input:focus { border-color: var(--a-cyan); }
 .tvl-field input::placeholder { color: #444; }
 .tvl-field--on { background: rgba(255,255,255,0.03); border-radius: 6px; padding: 6px 8px; margin: -6px -8px; }
-.tvl-field--on input { border-color: #22D3EE; }
+.tvl-field--on input { border-color: var(--a-cyan); }
 
-.tvl-btn--on { outline: 3px solid #22D3EE; outline-offset: 2px; }
+.tvl-btn--on { outline: 3px solid var(--a-cyan); outline-offset: 2px; }
 
 .tvl-form-actions { display: flex; gap: 12px; padding-top: 4px; }
 
@@ -136,5 +128,5 @@
   flex-direction: column;
   gap: 16px;
 }
-.tvl-confirm p { font-size: 16px; color: #7A86A8; margin: 0; }
+.tvl-confirm p { font-size: 16px; color: var(--a-muted); margin: 0; }
 .tvl-confirm-actions { display: flex; gap: 12px; margin-top: 8px; }
