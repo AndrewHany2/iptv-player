@@ -1,12 +1,38 @@
 /* Shared TV layout base — imported by all *.tv.jsx screens
    No transitions · No transforms · No gradients · No hover · No shadows */
 
+/* ── Aurora TV tokens — single source of truth (TV-safe: no effects) ──────── */
+:root {
+  --a-bg: #0A0E1A;
+  --a-surface: #141A2E;
+  --a-surface-2: #1B2236;
+  --a-border: #28324E;
+  --a-indigo: #6C5CE7;
+  --a-cyan: #22D3EE;
+  --a-danger: #E5484D;
+  --a-text: #EAF0FF;
+  --a-text-dim: #B8C0DA;
+  --a-muted: #7A86A8;
+  --a-rating: #ffd700;
+  --a-hairline: linear-gradient(100deg, #6C5CE7, #22D3EE);
+  --a-radius: 14px;
+  --a-radius-sm: 10px;
+  --a-inset: 64px;
+  --a-focus-ring: #22D3EE;
+  --a-focus-fill: rgba(34, 211, 238, 0.12);
+  --a-fs-screen: 28px;
+  --a-fs-hero: 36px;
+  --a-fs-card: 20px;
+  --a-fs-body: 16px;
+  --a-fs-meta: 13px;
+}
+
 /* ── Shell ───────────────────────────────────────────────────────────────── */
 .tvl-screen {
   width: 100%;
   height: 100vh;
-  background: #0A0E1A;
-  color: #EAF0FF;
+  background: var(--a-bg);
+  color: var(--a-text);
   font-family: Inter, -apple-system, "Segoe UI", Roboto, sans-serif;
   overflow: hidden;
   display: flex;
@@ -37,8 +63,8 @@
   align-items: center;
   gap: 16px;
   /* ~5% title-safe horizontal inset (overscan) — matches grids/lists */
-  padding: 24px 64px;
-  border-bottom: 1px solid #28324E;
+  padding: 24px var(--a-inset);
+  border-bottom: 1px solid var(--a-border);
   flex-shrink: 0;
 }
 /* Aurora gradient hairline under the bar — the one signature flourish */
@@ -49,14 +75,14 @@
   right: 0;
   bottom: -1px;
   height: 2px;
-  background: linear-gradient(100deg, #6C5CE7, #22D3EE);
+  background: var(--a-hairline);
 }
 .tvl-topbar {
   position: relative;
 }
 .tvl-topbar-back {
   font-size: 24px;
-  color: #6C5CE7;
+  color: var(--a-indigo);
   font-weight: 700;
   flex-shrink: 0;
   background: none;
@@ -82,7 +108,7 @@
 .tvl-topbar-count {
   font-size: 18px;
   font-weight: 500;
-  color: #7A86A8;
+  color: var(--a-muted);
 }
 
 /* ── Center (loading / empty) ────────────────────────────────────────────── */
@@ -93,7 +119,7 @@
   justify-content: center;
   flex: 1;
   gap: 14px;
-  color: #7A86A8;
+  color: var(--a-muted);
   font-size: 15px;
 }
 .tvl-empty-msg {
@@ -107,8 +133,8 @@
 .tvl-spinner {
   width: 40px;
   height: 40px;
-  border: 4px solid #28324E;
-  border-top-color: #22D3EE;
+  border: 4px solid var(--a-border);
+  border-top-color: var(--a-cyan);
   border-radius: 50%;
   animation: tvl-spin 0.9s linear infinite;
 }
@@ -121,22 +147,22 @@
 /* ── Button ───────────────────────────────────────────────────────────────── */
 .tvl-btn {
   padding: 12px 28px;
-  background: linear-gradient(100deg, #6C5CE7, #22D3EE);
+  background: var(--a-hairline);
   color: #fff;
   border: none;
-  border-radius: 14px;
+  border-radius: var(--a-radius);
   font-size: 15px;
   font-weight: 700;
   cursor: pointer;
   font-family: inherit;
 }
 .tvl-btn-ghost {
-  background: #1B2236;
-  border: 2px solid #28324E;
-  color: #EAF0FF;
+  background: var(--a-surface-2);
+  border: 2px solid var(--a-border);
+  color: var(--a-text);
 }
 .tvl-btn-danger {
-  background: #E5484D;
+  background: var(--a-danger);
 }
 
 /* ── Category grid ───────────────────────────────────────────────────────── */
@@ -144,49 +170,37 @@
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 20px;
-  padding: 36px 64px;
+  padding: 36px var(--a-inset);
 }
 .tvl-cat-card {
   display: block;
   width: 100%;
   text-align: left;
   padding: 32px 24px;
-  background: #141A2E;
-  border: 2px solid #28324E;
-  border-radius: 14px;
-  font-size: 20px;
+  background: var(--a-surface);
+  border: 2px solid var(--a-border);
+  border-radius: var(--a-radius);
+  font-size: var(--a-fs-card);
   font-weight: 600;
-  color: #B8C0DA;
+  color: var(--a-text-dim);
   cursor: pointer;
   line-height: 1.3;
   word-break: break-word;
-}
-.tvl-cat-card--on {
-  border-color: #22D3EE;
-  color: #EAF0FF;
-  background: #1B2236;
 }
 
 /* ── Poster card (movies / series) ───────────────────────────────────────── */
 .tvl-card {
   border: 2px solid transparent;
-  border-radius: 14px;
+  border-radius: var(--a-radius);
   cursor: pointer;
   overflow: hidden;
-}
-.tvl-card--on {
-  border-color: #22D3EE;
-  outline: 2px solid #22D3EE;
-  outline-offset: 2px;
-  /* bg tint instead of a transform (transforms jank on old TV Chromium) */
-  background: rgba(34, 211, 238, 0.1);
 }
 
 .tvl-card-img {
   position: relative;
   width: 100%;
   aspect-ratio: 2 / 3;
-  background: #141A2E;
+  background: var(--a-surface);
   overflow: hidden;
   border-radius: 12px;
 }
@@ -203,7 +217,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #28324E;
+  color: var(--a-border);
   font-size: 28px;
 }
 .tvl-card-rating {
@@ -211,7 +225,7 @@
   top: 5px;
   left: 5px;
   background: rgba(0, 0, 0, 0.8);
-  color: #ffd700;
+  color: var(--a-rating);
   font-size: 10px;
   font-weight: 700;
   padding: 2px 5px;
@@ -221,7 +235,7 @@
   padding: 6px 4px 2px;
   font-size: 13px;
   font-weight: 600;
-  color: #EAF0FF;
+  color: var(--a-text);
   line-height: 1.4;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -241,7 +255,7 @@
   height: 36vh;
   flex-shrink: 0;
   overflow: hidden;
-  background: #0A0E1A;
+  background: var(--a-bg);
 }
 .tvl-det-hero--series {
   height: 26vh;
@@ -274,7 +288,7 @@
   gap: 28px;
   padding: 12px 80px 14px;
   flex-shrink: 0;
-  background: #0A0E1A;
+  background: var(--a-bg);
 }
 .tvl-det-hero-thumb {
   width: 120px;
@@ -282,12 +296,11 @@
   aspect-ratio: 2 / 3;
   border-radius: 10px;
   overflow: hidden;
-  border: 3px solid rgba(255, 255, 255, 0.15);
-  background: #1B2236;
+  border: 3px solid var(--a-border);
+  background: var(--a-surface-2);
   margin-top: -70px;
   position: relative;
   z-index: 1;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7);
 }
 .tvl-det-hero-thumb img {
   width: 100%;
@@ -313,7 +326,7 @@
   padding-top: 8px;
 }
 .tvl-det-hero-title {
-  font-size: 36px;
+  font-size: var(--a-fs-hero);
   font-weight: 900;
   color: #fff;
   letter-spacing: -0.5px;
@@ -327,18 +340,18 @@
 }
 .tvl-det-tag {
   font-size: 13px;
-  color: #7A86A8;
+  color: var(--a-muted);
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 5px;
   padding: 4px 10px;
 }
 .tvl-det-tag--alert {
-  border-color: #6C5CE7;
-  color: #6C5CE7;
+  border-color: var(--a-indigo);
+  color: var(--a-indigo);
 }
 .tvl-det-rating {
   font-size: 14px;
-  color: #ffd700;
+  color: var(--a-rating);
   font-weight: 700;
 }
 .tvl-det-hero-btns {
@@ -365,17 +378,12 @@
 }
 .tvl-det-hero-btn--saved {
   background: rgba(108, 92, 231, 0.18);
-  border-color: #6C5CE7;
+  border-color: var(--a-indigo);
   color: #fff;
-}
-.tvl-det-hero-btn--on {
-  border-color: #22D3EE;
-  outline: 2px solid #22D3EE;
-  outline-offset: 2px;
 }
 .tvl-det-hero-plot {
   font-size: 16px;
-  color: #7A86A8;
+  color: var(--a-muted);
   line-height: 1.65;
   margin: 0;
   display: -webkit-box;
@@ -394,7 +402,7 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
-  background: #0A0E1A;
+  background: var(--a-bg);
 }
 .tvl-det-body::-webkit-scrollbar {
   display: none;
@@ -406,13 +414,13 @@
   margin: 0;
   padding: 22px 26px;
   background: rgba(26, 26, 46, 0.6);
-  border-radius: 12px;
-  border-left: 4px solid #6C5CE7;
+  border-radius: var(--a-radius-sm);
+  border-left: 4px solid var(--a-indigo);
   font-weight: 500;
 }
 .tvl-det-body-crew {
   font-size: 17px;
-  color: #7A86A8;
+  color: var(--a-muted);
   line-height: 1.6;
   margin: 0;
   padding: 10px 4px;
@@ -421,4 +429,21 @@
   color: #fff;
   font-weight: 700;
   margin-right: 8px;
+}
+
+/* ── Canonical focus — the ONE focus treatment for all TV elements ────────── */
+.tvl-cat-card--on,
+.tvl-card--on,
+.tvl-ch-card--on,
+.tvl-det-hero-btn--on,
+.tvl-mov-btn--on,
+.tvl-letter-btn--focused,
+.tvl-season-btn--on,
+.tvl-episode--on,
+.tvl-det-act-btn--on {
+  border-color: var(--a-focus-ring);
+  outline: 2px solid var(--a-focus-ring);
+  outline-offset: 2px;
+  background: var(--a-focus-fill);
+  color: var(--a-text);
 }
