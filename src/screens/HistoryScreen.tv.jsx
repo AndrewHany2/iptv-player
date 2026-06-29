@@ -39,6 +39,7 @@ export default function HistoryScreenTV({ navigation }) {
   // Credentials are kept in sync automatically by useContentService
   useContentService();
   const {
+    activeUserId,
     playVideo,
     watchHistory,
     removeFromWatchHistory,
