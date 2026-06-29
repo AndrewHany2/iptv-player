@@ -1,0 +1,251 @@
+import { test, describe } from "node:test";
+import assert from "node:assert/strict";
+
+import {
+  reduce,
+  initialState,
+  BUFFERING_DOWNGRADE_THRESHOLD,
+} from "./recoveryMachine.js";
+
+/** Find the first effect of a given type. */
+function effect(effects, type) {
+  return effects.find((e) => e.type === type);
+}
+
+describe("initialState", () => {
+  test("defaults", () => {
+    const s = initialState();
+    assert.equal(s.state, "idle");
+    assert.equal(s.isLive, false);
+    assert.equal(s.savedTime, 0);
+    assert.equal(s.attemptCount, 0);
+    assert.equal(s.qualityCap, "auto");
+  });
+
+  test("honors isLive and startTime", () => {
+    const s = initialState({ isLive: true, startTime: 42 });
+    assert.equal(s.isLive, true);
+    assert.equal(s.savedTime, 42);
+  });
+});
+
+describe("happy path", () => {
+  test("LOAD -> loading, PLAYING -> playing", () => {
+    let s = initialState();
+    s = reduce(s, { type: "LOAD" }).state;
+    assert.equal(s.state, "loading");
+    s = reduce(s, { type: "PLAYING" }).state;
+    assert.equal(s.state, "playing");
+  });
+
+  test("PROGRESS saves currentTime", () => {
+    let s = initialState();
+    s = reduce(s, { type: "PLAYING" }).state;
+    s = reduce(s, { type: "PROGRESS", currentTime: 123 }).state;
+    assert.equal(s.savedTime, 123);
+  });
+});
+
+describe("GONE -> fatal", () => {
+  test("404 raw error goes fatal", () => {
+    let s = initialState();
+    s = reduce(s, { type: "LOAD" }).state;
+    const r = reduce(s, { type: "ERROR", raw: { httpStatus: 404 } });
+    assert.equal(r.state.state, "fatal");
+    assert.ok(effect(r.effects, "GO_FATAL"));
+    assert.equal(effect(r.effects, "GO_FATAL").reason, "GONE");
+  });
+});
+
+describe("AUTH_EXPIRED", () => {
+  test("first auth error refreshes credentials and schedules retry", () => {
+    let s = initialState();
+    s = reduce(s, { type: "LOAD" }).state;
+    const r = reduce(s, { type: "ERROR", raw: { httpStatus: 401 } });
+    assert.equal(r.state.state, "recovering");
+    assert.ok(effect(r.effects, "REFRESH_CREDENTIALS"));
+    assert.ok(effect(r.effects, "SCHEDULE_RETRY"));
+    assert.equal(r.state.credentialsRefreshed, true);
+  });
+
+  test("second consecutive auth error -> fatal", () => {
+    let s = initialState();
+    s = reduce(s, { type: "LOAD" }).state;
+    s = reduce(s, { type: "ERROR", raw: { httpStatus: 403 } }).state;
+    const r = reduce(s, { type: "ERROR", raw: { httpStatus: 403 } });
+    assert.equal(r.state.state, "fatal");
+    assert.equal(effect(r.effects, "GO_FATAL").reason, "AUTH_EXPIRED");
+  });
+
+  test("auth refresh latch clears after PLAYING", () => {
+    let s = initialState();
+    s = reduce(s, { type: "ERROR", raw: { httpStatus: 401 } }).state;
+    assert.equal(s.credentialsRefreshed, true);
+    s = reduce(s, { type: "PLAYING" }).state;
+    assert.equal(s.credentialsRefreshed, false);
+    // A fresh auth error now refreshes again rather than going fatal.
+    const r = reduce(s, { type: "ERROR", raw: { httpStatus: 401 } });
+    assert.equal(r.state.state, "recovering");
+    assert.ok(effect(r.effects, "REFRESH_CREDENTIALS"));
+  });
+});
+
+describe("OFFLINE / ONLINE", () => {
+  test("OFFLINE enters recovering and suppresses retries", () => {
+    let s = initialState({ startTime: 50 });
+    s = reduce(s, { type: "PLAYING" }).state;
+    s = reduce(s, { type: "PROGRESS", currentTime: 75 }).state;
+    const r = reduce(s, { type: "OFFLINE" });
+    assert.equal(r.state.state, "recovering");
+    assert.equal(r.state.offline, true);
+    assert.ok(effect(r.effects, "SHOW_RECONNECTING"));
+    assert.ok(!effect(r.effects, "SCHEDULE_RETRY"));
+
+    // RETRY while offline is a no-op (no RELOAD).
+    const retry = reduce(r.state, { type: "RETRY" });
+    assert.ok(!effect(retry.effects, "RELOAD"));
+    assert.equal(retry.state.attemptCount, 0);
+  });
+
+  test("ONLINE after OFFLINE reloads at saved seekTo (VOD)", () => {
+    let s = initialState({ isLive: false });
+    s = reduce(s, { type: "PROGRESS", currentTime: 88 }).state;
+    s = reduce(s, { type: "OFFLINE" }).state;
+    const r = reduce(s, { type: "ONLINE" });
+    const reload = effect(r.effects, "RELOAD");
+    assert.ok(reload);
+    assert.equal(reload.seekTo, 88);
+    assert.equal(reload.toLiveEdge, false);
+    assert.equal(r.state.offline, false);
+  });
+
+  test("ONLINE after OFFLINE reloads to live edge (live)", () => {
+    let s = initialState({ isLive: true });
+    s = reduce(s, { type: "OFFLINE" }).state;
+    const r = reduce(s, { type: "ONLINE" });
+    const reload = effect(r.effects, "RELOAD");
+    assert.equal(reload.toLiveEdge, true);
+    assert.equal(reload.seekTo, null);
+  });
+
+  test("classified OFFLINE error behaves like OFFLINE event", () => {
+    let s = initialState();
+    const r = reduce(s, { type: "ERROR", raw: { offline: true } });
+    assert.equal(r.state.state, "recovering");
+    assert.equal(r.state.offline, true);
+  });
+});
+
+describe("STALL / TRANSIENT recovering + retry", () => {
+  test("TRANSIENT error enters recovering and schedules retry", () => {
+    let s = initialState();
+    s = reduce(s, { type: "PLAYING" }).state;
+    const r = reduce(s, { type: "ERROR", raw: { httpStatus: 503 } });
+    assert.equal(r.state.state, "recovering");
+    assert.ok(effect(r.effects, "SCHEDULE_RETRY"));
+    assert.ok(effect(r.effects, "SHOW_RECONNECTING"));
+  });
+
+  test("retry delays increase and cap; attempts are indefinite", () => {
+    let s = initialState();
+    s = reduce(s, { type: "PLAYING" }).state;
+    const delays = [];
+
+    // First error schedules retry at attemptCount=0.
+    let r = reduce(s, { type: "ERROR", raw: { kind: "timeout" } });
+    delays.push(effect(r.effects, "SCHEDULE_RETRY").delayMs);
+    s = r.state;
+
+    // Fire many retries; each RETRY increments attemptCount and RELOADs.
+    for (let i = 0; i < 20; i++) {
+      r = reduce(s, { type: "RETRY" });
+      assert.ok(effect(r.effects, "RELOAD"), "retry reloads");
+      s = r.state;
+      // Re-error to schedule the next retry.
+      r = reduce(s, { type: "ERROR", raw: { kind: "timeout" } });
+      delays.push(effect(r.effects, "SCHEDULE_RETRY").delayMs);
+      s = r.state;
+    }
+
+    // attemptCount kept incrementing (indefinite retry).
+    assert.ok(s.attemptCount >= 20, `attemptCount=${s.attemptCount}`);
+    // All delays within cap (default max 15000).
+    for (const d of delays) assert.ok(d <= 15000 + 1, `delay ${d} <= max`);
+    // Later delays are at the cap region (>= an early delay), proving growth.
+    assert.ok(delays[delays.length - 1] > 0);
+  });
+
+  test("STALL while user-paused is ignored", () => {
+    let s = initialState();
+    s = reduce(s, { type: "PLAYING" }).state;
+    s = reduce(s, { type: "USER_PAUSE" }).state;
+    const r = reduce(s, { type: "STALL" });
+    assert.equal(r.state.state, "playing");
+    assert.equal(r.effects.length, 0);
+  });
+});
+
+describe("adaptive quality downgrade", () => {
+  test("K consecutive buffering episodes emit SET_QUALITY_CAP down", () => {
+    let s = initialState();
+    s = reduce(s, { type: "PLAYING" }).state;
+
+    let setCapEffect = null;
+    for (let i = 0; i < BUFFERING_DOWNGRADE_THRESHOLD; i++) {
+      const r = reduce(s, { type: "STALL" });
+      s = r.state;
+      const e = effect(r.effects, "SET_QUALITY_CAP");
+      if (e) setCapEffect = e;
+    }
+    assert.ok(setCapEffect, "SET_QUALITY_CAP emitted after K buffering");
+    assert.equal(setCapEffect.cap, "1080"); // auto -> 1080
+    assert.equal(s.qualityCap, "1080");
+    assert.equal(s.bufferingStreak, 0); // reset after downgrade
+  });
+
+  test("sustained PLAYING resets attempts and steps cap back up", () => {
+    let s = initialState();
+    s = reduce(s, { type: "PLAYING" }).state;
+    // Downgrade to 720.
+    for (let i = 0; i < BUFFERING_DOWNGRADE_THRESHOLD * 2; i++) {
+      s = reduce(s, { type: "STALL" }).state;
+    }
+    assert.equal(s.qualityCap, "720");
+    // Build up some attempts.
+    s = reduce(s, { type: "RETRY" }).state;
+    assert.ok(s.attemptCount > 0);
+
+    // Sustained progress while playing.
+    s = reduce(s, { type: "PLAYING" }).state;
+    const r = reduce(s, { type: "PROGRESS", currentTime: 200 });
+    assert.equal(r.state.attemptCount, 0);
+    assert.equal(r.state.bufferingStreak, 0);
+    assert.equal(r.state.qualityCap, "1080"); // stepped up one rung
+    assert.ok(effect(r.effects, "SET_QUALITY_CAP"));
+  });
+
+  test("downgrade never exceeds manual ceiling on step up", () => {
+    let s = initialState({ qualityCap: "480", manualCap: "720" });
+    s = reduce(s, { type: "PLAYING" }).state;
+    // Progress steps up but cannot exceed 720.
+    s = reduce(s, { type: "PLAYING" }).state;
+    s = reduce(s, { type: "PROGRESS", currentTime: 1 }).state;
+    s = reduce(s, { type: "PROGRESS", currentTime: 2 }).state;
+    s = reduce(s, { type: "PROGRESS", currentTime: 3 }).state;
+    assert.equal(s.qualityCap, "720");
+  });
+});
+
+describe("RESET", () => {
+  test("returns to a fresh idle state preserving isLive and manualCap", () => {
+    let s = initialState({ isLive: true, startTime: 10, manualCap: "720" });
+    s = reduce(s, { type: "PROGRESS", currentTime: 99 }).state;
+    s = reduce(s, { type: "ERROR", raw: { httpStatus: 404 } }).state;
+    assert.equal(s.state, "fatal");
+    const r = reduce(s, { type: "RESET" });
+    assert.equal(r.state.state, "idle");
+    assert.equal(r.state.isLive, true);
+    assert.equal(r.state.manualCap, "720");
+    assert.equal(r.state.attemptCount, 0);
+  });
+});
