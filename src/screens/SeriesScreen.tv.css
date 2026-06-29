@@ -85,7 +85,7 @@
 .tvl-seasons-row {
   display: flex;
   gap: 10px;
-  padding: 18px 60px;
+  padding: 18px var(--a-inset);
   border-bottom: 1px solid var(--a-border);
   flex-shrink: 0;
   overflow-x: auto;
@@ -114,7 +114,7 @@
   flex: 1;
   overflow-y: auto;
   scrollbar-width: none;
-  padding: 12px 60px 40px;
+  padding: 12px var(--a-inset) 40px;
 }
 .tvl-episodes::-webkit-scrollbar {
   display: none;
