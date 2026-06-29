@@ -605,7 +605,7 @@ export default function HistoryScreenTV({ navigation }) {
     const buttons = [
       { label: resume?.currentTime > 0 ? "▶  Continue" : "▶  Play", type: "play" },
       ...(resume?.currentTime > 0 ? [{ label: "↺  From Start", type: "restart" }] : []),
-      ...(trailer ? [{ label: showTrailer ? "✕  Close Trailer" : "🎬  Trailer", type: "trailer" }] : []),
+      ...(trailer ? [{ label: showTrailer ? <><Icon name="close" size={16} color="currentColor" />&nbsp;&nbsp;Close Trailer</> : <><Icon name="film" size={16} color="currentColor" />&nbsp;&nbsp;Trailer</>, type: "trailer" }] : []),
       { label: inFav ? "♥  Saved" : "♡  Add to Favorites", type: "fav" },
     ];
     const btnClass = (i, type) =>
@@ -618,7 +618,7 @@ export default function HistoryScreenTV({ navigation }) {
     return (
       <div className="tvl-screen">
         <div className="tvl-topbar">
-          <button className="tvl-topbar-back" onClick={closeMovieDetail}>◀</button>
+          <button className="tvl-topbar-back" onClick={closeMovieDetail}><Icon name="back" size={20} color={colors.text} /></button>
           <button className="tvl-topbar-title tvl-topbar-title--back" onClick={closeMovieDetail}>
             {item.name}
           </button>
@@ -639,7 +639,7 @@ export default function HistoryScreenTV({ navigation }) {
             <div className="tvl-det-hero-meta">
               {year && <span className="tvl-det-tag">{year}</span>}
               {data.genre && <span className="tvl-det-tag">{data.genre.split(",")[0].trim()}</span>}
-              {data.rating && <span className="tvl-det-rating">⭐ {Number.parseFloat(data.rating).toFixed(1)}</span>}
+              {data.rating && <span className="tvl-det-rating"><Icon name="star" size={14} color={colors.rating} /> {Number.parseFloat(data.rating).toFixed(1)}</span>}
               {data.age && <span className="tvl-det-tag tvl-det-tag--alert">{data.age}</span>}
               {data.duration && <span className="tvl-det-tag">{data.duration}</span>}
             </div>
@@ -716,7 +716,7 @@ export default function HistoryScreenTV({ navigation }) {
     return (
       <div className="tvl-screen">
         <div className="tvl-topbar">
-          <button className="tvl-topbar-back" onClick={closeSeriesDetail}>◀</button>
+          <button className="tvl-topbar-back" onClick={closeSeriesDetail}><Icon name="back" size={20} color={colors.text} /></button>
           <button className="tvl-topbar-title tvl-topbar-title--back" onClick={closeSeriesDetail}>
             {item.name}
           </button>
@@ -737,7 +737,7 @@ export default function HistoryScreenTV({ navigation }) {
             <div className="tvl-det-hero-meta">
               {si.releaseDate && <span className="tvl-det-tag">{si.releaseDate.slice(0, 4)}</span>}
               {si.genre && <span className="tvl-det-tag">{si.genre.split(",")[0].trim()}</span>}
-              {si.rating && <span className="tvl-det-rating">⭐ {Number.parseFloat(si.rating).toFixed(1)}</span>}
+              {si.rating && <span className="tvl-det-rating"><Icon name="star" size={14} color={colors.rating} /> {Number.parseFloat(si.rating).toFixed(1)}</span>}
             </div>
             {!rawInfo && <div className="tvl-spinner" style={{ alignSelf: "flex-start" }} />}
             {rawInfo && (
@@ -772,7 +772,7 @@ export default function HistoryScreenTV({ navigation }) {
               ))}
               {trailer && (
                 <div className={trailerFocus ? "tvl-season-btn tvl-season-btn--on" : "tvl-season-btn"}>
-                  {showTrailer ? "✕ Trailer" : "🎬 Trailer"}
+                  {showTrailer ? <><Icon name="close" size={16} color={colors.text} /> Trailer</> : <><Icon name="film" size={16} color={colors.text} /> Trailer</>}
                 </div>
               )}
             </div>

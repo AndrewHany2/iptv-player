@@ -5,6 +5,7 @@ import { YStack, XStack, Text, ScrollView, Spinner } from "../ui/primitives";
 import { colors } from "../ui/tokens";
 import { useApp } from "../context/AppContext";
 import iptvApi from "../services/iptvApi";
+import Icon from "../ui/Icon";
 
 const FILL = { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 };
 
@@ -108,7 +109,10 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
       <YStack flex={1} backgroundColor={colors.bg}>
         <XStack alignItems="center" gap={14} paddingHorizontal={16} paddingTop={insets.top + 16} paddingBottom={14} borderBottomWidth={1} borderBottomColor={colors.border}>
           <YStack paddingVertical={8} paddingHorizontal={12} backgroundColor={colors.surface2} borderRadius={8} cursor="pointer" onPress={() => setShowEpisodes(false)} pressStyle={{ opacity: 0.8 }}>
-            <Text color={colors.accent} fontSize={14} fontWeight="600">← Back</Text>
+            <XStack alignItems="center" gap={6}>
+              <Icon name="back" color={colors.accent} size={14} />
+              <Text color={colors.accent} fontSize={14} fontWeight="600">Back</Text>
+            </XStack>
           </YStack>
           <Text color={colors.text} fontSize={18} fontWeight="700" flex={1} numberOfLines={1}>{seriesName}</Text>
         </XStack>
@@ -149,7 +153,10 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
         <GradientOverlay />
 
         <YStack position="absolute" top={50} left={16} zIndex={10} paddingVertical={8} paddingHorizontal={14} backgroundColor="rgba(0,0,0,0.55)" borderRadius={8} cursor="pointer" onPress={onBack} pressStyle={{ opacity: 0.8 }}>
-          <Text color={colors.accent} fontSize={14} fontWeight="600">← Back</Text>
+          <XStack alignItems="center" gap={6}>
+            <Icon name="back" color={colors.accent} size={14} />
+            <Text color={colors.accent} fontSize={14} fontWeight="600">Back</Text>
+          </XStack>
         </YStack>
 
         <YStack position="absolute" bottom={0} left={16} right={16} zIndex={5} paddingBottom={24}>
@@ -161,7 +168,12 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
             <XStack alignItems="center" gap={8} marginBottom={16} flexWrap="wrap">
               {year ? <YStack borderWidth={1} borderColor={colors.border} borderRadius={4} paddingHorizontal={8} paddingVertical={3}><Text color={colors.muted} fontSize={12}>{year}</Text></YStack> : null}
               {data.genre ? <YStack borderWidth={1} borderColor={colors.border} borderRadius={4} paddingHorizontal={8} paddingVertical={3}><Text color={colors.muted} fontSize={12}>{data.genre.split(",")[0].trim()}</Text></YStack> : null}
-              {data.rating ? <Text color={colors.rating} fontSize={13} fontWeight="600">⭐ {Number.parseFloat(data.rating).toFixed(1)}</Text> : null}
+              {data.rating ? (
+                <XStack alignItems="center" gap={4}>
+                  <Icon name="star" color={colors.rating} size={13} />
+                  <Text color={colors.rating} fontSize={13} fontWeight="600">{Number.parseFloat(data.rating).toFixed(1)}</Text>
+                </XStack>
+              ) : null}
             </XStack>
           )}
 
@@ -191,7 +203,10 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
             </YStack>
             {!isLoading && !!trailer && (
               <YStack backgroundColor="rgba(40,40,60,0.85)" paddingHorizontal={20} paddingVertical={12} borderRadius={8} borderWidth={1} borderColor={colors.border} cursor="pointer" onPress={() => Linking.openURL(trailer)} pressStyle={{ opacity: 0.8 }} hoverStyle={{ borderColor: colors.text }} animation="quick">
-                <Text color={colors.text} fontSize={15} fontWeight="600">🎬  Trailer</Text>
+                <XStack alignItems="center" gap={7}>
+                  <Icon name="film" color={colors.muted} size={15} />
+                  <Text color={colors.text} fontSize={15} fontWeight="600">Trailer</Text>
+                </XStack>
               </YStack>
             )}
             <YStack

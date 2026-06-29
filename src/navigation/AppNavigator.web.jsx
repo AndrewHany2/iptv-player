@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { YStack, XStack, Text } from "../ui/primitives";
+import Icon from "../ui/Icon";
 import { colors } from "../ui/tokens";
 import { useApp } from "../context/AppContext";
 import { isSupabaseConfigured } from "../services/supabase";
@@ -291,7 +292,7 @@ function TopNav({
           borderColor={accountsFocused ? colors.accent2 : "transparent"}
           {...{ className: "lumen-icon-btn" }}
         >
-          <Text fontSize={S.iconFont}>📡</Text>
+          <Icon name="signal" size={S.iconFont} color={colors.text} />
         </YStack>
         <YStack
           width={S.icon}
@@ -306,7 +307,7 @@ function TopNav({
           borderColor={settingsFocused ? colors.accent2 : "transparent"}
           {...{ className: "lumen-icon-btn" }}
         >
-          <Text fontSize={S.iconFont}>⚙</Text>
+          <Icon name="settings" size={S.iconFont} color={colors.text} />
         </YStack>
         <YStack
           width={S.avatar}
@@ -588,7 +589,7 @@ export default function AppNavigator() {
                 }}
                 aria-label="Close"
               >
-                ✕
+                <Icon name="close" size={ss(16)} color={colors.text} />
               </button>
             </div>
             <AccountsScreen navigation={webNavigation} />
@@ -656,7 +657,7 @@ export default function AppNavigator() {
                 }}
                 aria-label="Close"
               >
-                ✕
+                <Icon name="close" size={ss(16)} color={colors.text} />
               </button>
             </div>
             <SettingsScreen />

@@ -3,6 +3,7 @@ import { Image, Linking, View, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { YStack, XStack, Text, ScrollView, Spinner } from "../ui/primitives";
 import { colors } from "../ui/tokens";
+import Icon from "../ui/Icon";
 import { useApp } from "../context/AppContext";
 import iptvApi from "../services/iptvApi";
 
@@ -81,7 +82,10 @@ export default function MovieDetail({ item, onBack, onPlay }) {
         <GradientOverlay />
 
         <YStack position="absolute" top={insets.top + 8} left={16} zIndex={10} paddingVertical={8} paddingHorizontal={14} backgroundColor="rgba(0,0,0,0.55)" borderRadius={8} cursor="pointer" onPress={onBack} pressStyle={{ opacity: 0.8 }}>
-          <Text color={colors.accent} fontSize={14} fontWeight="600">← Back</Text>
+          <XStack alignItems="center" gap={6}>
+            <Icon name="back" color={colors.accent} size={14} />
+            <Text color={colors.accent} fontSize={14} fontWeight="600">Back</Text>
+          </XStack>
         </YStack>
 
         <YStack position="absolute" bottom={0} left={16} right={16} zIndex={5} paddingBottom={24}>
@@ -93,7 +97,7 @@ export default function MovieDetail({ item, onBack, onPlay }) {
             <XStack alignItems="center" gap={8} marginBottom={16} flexWrap="wrap">
               {year ? <YStack borderWidth={1} borderColor={colors.border} borderRadius={4} paddingHorizontal={8} paddingVertical={3}><Text color={colors.muted} fontSize={12}>{year}</Text></YStack> : null}
               {data.genre ? <YStack borderWidth={1} borderColor={colors.border} borderRadius={4} paddingHorizontal={8} paddingVertical={3}><Text color={colors.muted} fontSize={12}>{data.genre.split(",")[0].trim()}</Text></YStack> : null}
-              {data.rating ? <Text color={colors.rating} fontSize={13} fontWeight="600">⭐ {parseFloat(data.rating).toFixed(1)}</Text> : null}
+              {data.rating ? <XStack alignItems="center" gap={4}><Icon name="star" color={colors.rating} size={13} /><Text color={colors.rating} fontSize={13} fontWeight="600">{parseFloat(data.rating).toFixed(1)}</Text></XStack> : null}
               {data.age ? <YStack borderWidth={1} borderColor={colors.accent} borderRadius={4} paddingHorizontal={8} paddingVertical={3}><Text color={colors.accent} fontSize={12}>{data.age}</Text></YStack> : null}
             </XStack>
           )}
@@ -115,7 +119,10 @@ export default function MovieDetail({ item, onBack, onPlay }) {
             )}
             {!isLoading && !!trailer && (
               <YStack backgroundColor="rgba(40,40,60,0.85)" paddingHorizontal={20} paddingVertical={12} borderRadius={8} borderWidth={1} borderColor={colors.border} cursor="pointer" onPress={() => Linking.openURL(trailer)} pressStyle={{ opacity: 0.8 }} hoverStyle={{ borderColor: "#fff" }} animation="quick">
-                <Text color={colors.text} fontSize={15} fontWeight="600">🎬  Trailer</Text>
+                <XStack alignItems="center" gap={6}>
+                  <Icon name="film" color={colors.muted} size={15} />
+                  <Text color={colors.text} fontSize={15} fontWeight="600">Trailer</Text>
+                </XStack>
               </YStack>
             )}
             <YStack

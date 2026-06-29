@@ -28,6 +28,9 @@ const GLYPHS = {
   warning: "!", // exclamation inside a bordered triangle (built below)
   search: "⌕", // ⌕ telephone recorder / magnifier glyph
   settings: "⚙", // ⚙ gear
+  series: "▤", // ▤ square with horizontal fill (stacked-collection stand-in)
+  history: "◷", // ◷ clock-face quarter (history/clock stand-in)
+  signal: "⦿", // ⦿ circled bullet (broadcast source stand-in)
 };
 
 // A right-pointing triangle (play) made from a zero-size View whose left border
@@ -150,6 +153,20 @@ function Warning({ size, color }) {
   );
 }
 
+// A user / person silhouette: a filled head circle above a rounded "shoulders"
+// bar. Drawn from Views (no clean non-emoji person glyph exists in basic Unicode).
+function UserShape({ size, color }) {
+  const head = size * 0.34;
+  const bodyW = size * 0.7;
+  const bodyH = size * 0.4;
+  return (
+    <View style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}>
+      <View style={{ width: head, height: head, borderRadius: head / 2, backgroundColor: color, marginBottom: size * 0.06 }} />
+      <View style={{ width: bodyW, height: bodyH, borderTopLeftRadius: bodyW / 2, borderTopRightRadius: bodyW / 2, backgroundColor: color }} />
+    </View>
+  );
+}
+
 function Glyph({ glyph, size, color }) {
   return (
     <Text
@@ -188,6 +205,8 @@ function Icon({ name, size = 20, color = colors.text, ...rest }) {
       return <View {...rest}><Close size={size} color={color} /></View>;
     case "warning":
       return <View {...rest}><Warning size={size} color={color} /></View>;
+    case "user":
+      return <View {...rest}><UserShape size={size} color={color} /></View>;
     default: {
       // Content icons fall back to a clean non-emoji Unicode glyph.
       const glyph = GLYPHS[name];

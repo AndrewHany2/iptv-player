@@ -7,6 +7,7 @@ import { ss, useScale } from "../utils/scaleSize";
 import iptvApi from "../services/iptvApi";
 import ProxiedImage from "./ProxiedImage";
 import { usePlatform } from "../platform";
+import Icon from "../ui/Icon";
 
 const FILL = { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 };
 
@@ -179,13 +180,16 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
             onPress={() => setShowEpisodes(false)}
             pressStyle={{ opacity: 0.8 }}
           >
-            <Text
-              color={colors.accent}
-              fontSize={epBackSize}
-              fontWeight={isTV ? "700" : "600"}
-            >
-              ← Back
-            </Text>
+            <XStack alignItems="center" gap={ss(isTV ? 8 : 6)}>
+              <Icon name="back" color={colors.accent} size={epBackSize} />
+              <Text
+                color={colors.accent}
+                fontSize={epBackSize}
+                fontWeight={isTV ? "700" : "600"}
+              >
+                Back
+              </Text>
+            </XStack>
           </YStack>
           <Text
             color={colors.text}
@@ -352,13 +356,16 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
           onPress={onBack}
           pressStyle={{ opacity: 0.8 }}
         >
-          <Text
-            color={colors.accent}
-            fontSize={backSize}
-            fontWeight={isTV ? "700" : "600"}
-          >
-            ← Back
-          </Text>
+          <XStack alignItems="center" gap={ss(isTV ? 8 : 6)}>
+            <Icon name="back" color={colors.accent} size={backSize} />
+            <Text
+              color={colors.accent}
+              fontSize={backSize}
+              fontWeight={isTV ? "700" : "600"}
+            >
+              Back
+            </Text>
+          </XStack>
         </YStack>
 
         <YStack
@@ -423,13 +430,16 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
                 </YStack>
               ) : null}
               {data.rating ? (
-                <Text
-                  color={colors.rating}
-                  fontSize={ratingSize}
-                  fontWeight={isTV ? "700" : "600"}
-                >
-                  ⭐ {Number.parseFloat(data.rating).toFixed(1)}
-                </Text>
+                <XStack alignItems="center" gap={ss(isTV ? 6 : 4)}>
+                  <Icon name="star" color={colors.rating} size={ratingSize} />
+                  <Text
+                    color={colors.rating}
+                    fontSize={ratingSize}
+                    fontWeight={isTV ? "700" : "600"}
+                  >
+                    {Number.parseFloat(data.rating).toFixed(1)}
+                  </Text>
+                </XStack>
               ) : null}
             </XStack>
           )}
@@ -490,9 +500,14 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
                 hoverStyle={{ borderColor: "#fff" }}
                 animation="quick"
               >
-                <Text color={colors.text} fontSize={buttonTextSize} fontWeight="600">
-                  {showTrailer ? "✕  Close Trailer" : "🎬  Watch Trailer"}
-                </Text>
+                <XStack alignItems="center" gap={ss(isTV ? 10 : 7)}>
+                  {showTrailer
+                    ? <Icon name="close" color={colors.text} size={buttonTextSize} />
+                    : <Icon name="film" color={colors.muted} size={buttonTextSize} />}
+                  <Text color={colors.text} fontSize={buttonTextSize} fontWeight="600">
+                    {showTrailer ? "Close Trailer" : "Watch Trailer"}
+                  </Text>
+                </XStack>
               </YStack>
             )}
             <YStack
