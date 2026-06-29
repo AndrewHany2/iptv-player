@@ -33,9 +33,9 @@ const FONT_STEP = 2;
 // alternatives users reach for (white, yellow, black).
 const COLOR_SWATCHES = [
   colors.text, // ice
-  "#FFFFFF",
-  "#FFD700", // gold
-  "#000000",
+  "#FFFFFF", // white — subtitle color value (user content, not theme chrome)
+  colors.rating, // gold
+  "#000000", // black — subtitle color value (user content, not theme chrome)
 ];
 
 /**
@@ -66,7 +66,7 @@ export default function SubtitleSettings({
     <YStack
       gap={space.lg}
       padding={space.lg}
-      backgroundColor={colors.surface}
+      backgroundColor={colors.surface2}
       borderRadius={radii.md}
       borderWidth={1}
       borderColor={colors.border}
@@ -190,7 +190,7 @@ function StepButton({ label, onPress, disabled }) {
       fontSize={fontSizes.md}
       fontWeight="700"
       color={disabled ? colors.faint : colors.text}
-      backgroundColor={colors.surface2}
+      backgroundColor={colors.surface}
       borderRadius={radii.sm}
       borderWidth={1}
       borderColor={colors.border}
@@ -227,7 +227,7 @@ function Chip({ label, selected, onPress }) {
       fontSize={fontSizes.sm}
       fontWeight={selected ? "600" : "400"}
       color={selected ? colors.text : colors.muted}
-      backgroundColor={selected ? accentAlpha(0.25) : colors.surface2}
+      backgroundColor={selected ? accentAlpha(0.25) : colors.surface}
       borderWidth={1}
       borderColor={selected ? colors.accent : colors.border}
       borderRadius={radii.pill}
@@ -246,7 +246,7 @@ function Toggle({ on, onToggle }) {
       width={48}
       height={28}
       borderRadius={radii.pill}
-      backgroundColor={on ? colors.accent : colors.surface2}
+      backgroundColor={on ? colors.accent : colors.surface}
       borderWidth={1}
       borderColor={on ? colors.accent : colors.border}
       padding={2}

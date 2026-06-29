@@ -11,7 +11,8 @@
  * shows an em-dash placeholder.
  */
 import { YStack, XStack, Text } from "../../ui/primitives";
-import { colors, radii, space, zIndex } from "../../ui/tokens";
+import { colors, radii, space, zIndex, overlay, iconSizes } from "../../ui/tokens";
+import Icon from "../../ui/Icon";
 
 const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Courier New", monospace';
 const DASH = "—";
@@ -60,18 +61,15 @@ export default function StatsOverlay({ stats = {} }) {
       borderRadius={radii.sm}
       borderWidth={1}
       borderColor={colors.border}
-      backgroundColor="rgba(10,14,26,0.82)"
+      backgroundColor={overlay}
       minWidth={210}
     >
-      <Text
-        fontFamily={MONO}
-        fontSize={11}
-        fontWeight="700"
-        color={colors.accent2}
-        marginBottom={2}
-      >
-        STATS
-      </Text>
+      <XStack alignItems="center" gap={space.xs} marginBottom={2}>
+        <Icon name="settings" size={iconSizes.sm} color={colors.accent2} />
+        <Text fontFamily={MONO} fontSize={11} fontWeight="700" color={colors.accent2}>
+          STATS
+        </Text>
+      </XStack>
       {rows.map(([label, value]) => (
         <StatRow key={label} label={label} value={value} />
       ))}

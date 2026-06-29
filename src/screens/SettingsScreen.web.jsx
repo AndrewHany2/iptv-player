@@ -1,7 +1,11 @@
 import { YStack, XStack, Text } from "../ui/primitives";
-import { colors } from "../ui/tokens";
+import { colors, fonts, fontWeights, radii, accentAlpha } from "../ui/tokens";
+import Button from "../ui/Button";
+import Icon from "../ui/Icon";
 import { useSettings } from "../hooks/useSettings";
 import { ss } from "../utils/scaleSize";
+
+const isTV = () => typeof globalThis !== "undefined" && globalThis.__TV__ === true;
 
 const ASPECT_OPTIONS = [
   { value: "default", label: "Default" },
@@ -15,8 +19,9 @@ function SectionTitle({ children }) {
   return (
     <Text
       color={colors.muted}
+      fontFamily={fonts.display}
       fontSize={ss(11)}
-      fontWeight="700"
+      fontWeight={fontWeights.bold}
       letterSpacing={1}
       textTransform="uppercase"
       marginBottom={ss(12)}
@@ -27,6 +32,7 @@ function SectionTitle({ children }) {
 }
 
 function ToggleRow({ label, value, onChange }) {
+  const tv = isTV();
   return (
     <XStack
       justifyContent="space-between"
@@ -35,19 +41,29 @@ function ToggleRow({ label, value, onChange }) {
       borderBottomWidth={1}
       borderBottomColor={colors.border}
     >
-      <Text color={colors.text} fontSize={ss(14)}>
+      <Text color={colors.text} fontFamily={fonts.body} fontSize={ss(14)}>
         {label}
       </Text>
       <div
+        role="switch"
+        tabIndex={0}
+        aria-checked={value}
+        aria-label={label}
         onClick={() => onChange(!value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onChange(!value);
+          }
+        }}
         style={{
           width: ss(44),
           height: ss(24),
-          borderRadius: ss(12),
+          borderRadius: radii.pill,
           backgroundColor: value ? colors.accent : colors.border,
           position: "relative",
           cursor: "pointer",
-          transition: "background 0.2s",
+          transition: tv ? undefined : "background 0.2s",
           flexShrink: 0,
         }}
       >
@@ -59,8 +75,8 @@ function ToggleRow({ label, value, onChange }) {
             width: ss(18),
             height: ss(18),
             borderRadius: "50%",
-            backgroundColor: "#fff",
-            transition: "left 0.2s",
+            backgroundColor: colors.text,
+            transition: tv ? undefined : "left 0.2s",
           }}
         />
       </div>
@@ -71,29 +87,30 @@ function ToggleRow({ label, value, onChange }) {
 function ChipRow({ label, options, value, onChange }) {
   return (
     <YStack paddingVertical={ss(14)} borderBottomWidth={1} borderBottomColor={colors.border}>
-      <Text color={colors.muted} fontSize={ss(13)} marginBottom={ss(10)}>
+      <Text color={colors.muted} fontFamily={fonts.body} fontSize={ss(13)} marginBottom={ss(10)}>
         {label}
       </Text>
       <XStack gap={ss(8)} flexWrap="wrap">
-        {options.map((opt) => (
-          <div
-            key={opt.value}
-            onClick={() => onChange(opt.value)}
-            style={{
-              padding: `${ss(6)}px ${ss(14)}px`,
-              borderRadius: ss(6),
-              border: `1.5px solid ${value === opt.value ? colors.accent : colors.border}`,
-              backgroundColor: value === opt.value ? "rgba(108, 92, 231,0.12)" : "transparent",
-              color: value === opt.value ? colors.accent : colors.muted,
-              fontSize: ss(13),
-              cursor: "pointer",
-              fontWeight: value === opt.value ? "700" : "400",
-              transition: "all 0.15s",
-            }}
-          >
-            {opt.label}
-          </div>
-        ))}
+        {options.map((opt) => {
+          const selected = value === opt.value;
+          return (
+            <Button
+              key={opt.value}
+              size="sm"
+              variant={selected ? "secondary" : "ghost"}
+              onPress={() => onChange(opt.value)}
+              aria-pressed={selected}
+              style={{
+                borderColor: selected ? colors.accent : colors.border,
+                backgroundColor: selected ? accentAlpha(0.12) : "transparent",
+                color: selected ? colors.accent : colors.muted,
+                fontWeight: selected ? fontWeights.bold : fontWeights.regular,
+              }}
+            >
+              {opt.label}
+            </Button>
+          );
+        })}
       </XStack>
     </YStack>
   );
@@ -111,6 +128,18 @@ export default function SettingsScreen() {
       alignSelf="center"
       width="100%"
     >
+      <XStack alignItems="center" gap={ss(10)} marginBottom={ss(24)}>
+        <Icon name="settings" size={ss(24)} color={colors.accent} />
+        <Text
+          color={colors.text}
+          fontFamily={fonts.display}
+          fontWeight={fontWeights.bold}
+          fontSize={ss(24)}
+        >
+          Settings
+        </Text>
+      </XStack>
+
       <YStack marginBottom={ss(32)}>
         <SectionTitle>Playback</SectionTitle>
         <ToggleRow

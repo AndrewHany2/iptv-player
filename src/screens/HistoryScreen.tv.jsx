@@ -2,6 +2,9 @@ import { useState, useEffect, useRef } from "react";
 import { useApp } from "../context/AppContext";
 import iptvApi from "../services/iptvApi";
 import { useContentService } from "../domain/hooks/useContentService";
+import Icon from "../ui/Icon";
+import StatePanel from "../ui/StatePanel";
+import { colors } from "../ui/tokens";
 import "../styles/tvl.css";
 import "../styles/tvResponsiveScaling.css";
 import "../styles/tvRemoteFocus.css";
@@ -575,15 +578,14 @@ export default function HistoryScreenTV({ navigation }) {
   if (!activeUserId) {
     return (
       <div className="tvl-screen">
-        <div className="tvl-center">
-          <p className="tvl-empty-msg">No IPTV Account</p>
-          <button
-            className="tvl-btn"
-            onClick={() => navigation.navigate("Accounts")}
-          >
-            Add Account
-          </button>
-        </div>
+        <StatePanel
+          mode="empty"
+          icon="tv"
+          title="No IPTV Account"
+          message="Add an account to start watching"
+          cta={() => navigation.navigate("Accounts")}
+          ctaLabel="Add Account"
+        />
       </div>
     );
   }
@@ -630,7 +632,7 @@ export default function HistoryScreenTV({ navigation }) {
         {/* Content below banner */}
         <div className="tvl-det-content">
           <div className="tvl-det-hero-thumb">
-            {poster ? <img src={poster} alt="" /> : <div className="tvl-det-hero-thumb-ph">🎬</div>}
+            {poster ? <img src={poster} alt="" /> : <div className="tvl-det-hero-thumb-ph"><Icon name="film" size={40} color={colors.muted} /></div>}
           </div>
           <div className="tvl-det-hero-info">
             <div className="tvl-det-hero-title">{item.name}</div>
@@ -728,7 +730,7 @@ export default function HistoryScreenTV({ navigation }) {
         {/* Content below banner */}
         <div className="tvl-det-content">
           <div className="tvl-det-hero-thumb">
-            {poster ? <img src={poster} alt="" /> : <div className="tvl-det-hero-thumb-ph">📺</div>}
+            {poster ? <img src={poster} alt="" /> : <div className="tvl-det-hero-thumb-ph"><Icon name="tv" size={40} color={colors.muted} /></div>}
           </div>
           <div className="tvl-det-hero-info">
             <div className="tvl-det-hero-title">{item.name}</div>
@@ -795,17 +797,17 @@ export default function HistoryScreenTV({ navigation }) {
                     <div className="tvl-ep-body">
                       <div className="tvl-ep-title">
                         {ep.title || `Episode ${ep.episode_num}`}
-                        {isWatched && <span style={{ marginLeft: 8, color: "#22D3EE" }}>✓</span>}
+                        {isWatched && <span style={{ marginLeft: 8, display: "inline-flex", verticalAlign: "middle" }}><Icon name="check" size={14} color={colors.accent2} /></span>}
                       </div>
                       {ep.info?.plot && <div className="tvl-ep-plot">{ep.info.plot}</div>}
                       {ep.info?.duration && <div className="tvl-ep-dur">{ep.info.duration}</div>}
                       {hasProgress && !isWatched && (
-                        <div style={{ fontSize: 11, color: "#6C5CE7", marginTop: 4 }}>
+                        <div style={{ fontSize: 11, color: colors.accent, marginTop: 4 }}>
                           Continue from {fmtTime(epHistory.currentTime)}
                         </div>
                       )}
                     </div>
-                    <span className="tvl-ep-play">{hasProgress && !isWatched ? "↻" : "▶"}</span>
+                    <span className="tvl-ep-play" style={{ display: "inline-flex", alignItems: "center" }}><Icon name="play" size={18} color={colors.text} /></span>
                   </div>
                 );
               })}
@@ -860,7 +862,12 @@ export default function HistoryScreenTV({ navigation }) {
         <div className="tvl-topbar">
           <span className="tvl-topbar-title">My List &amp; History</span>
         </div>
-        <div className="tvl-hist-empty">Nothing here yet — start watching!</div>
+        <StatePanel
+          mode="empty"
+          icon="film"
+          title="Nothing here yet"
+          message="Start watching something and it will appear here"
+        />
       </div>
     );
   }
@@ -899,12 +906,12 @@ function HistItem({ item, isFocused, isRemoveSlot, elRef, fmtDate, fmtTime, isFa
   const progress = item.currentTime || 0;
   const duration = item.duration || 0;
   const pct = duration > 0 ? Math.min((progress / duration) * 100, 100) : 0;
-  const typeIcon =
+  const typeIconName =
     item.type === "movies" || item.type === "movie"
-      ? "🎬"
+      ? "film"
       : item.type === "series"
-        ? "📺"
-        : "📡";
+        ? "tv"
+        : "tv";
 
   return (
     <div
@@ -915,7 +922,9 @@ function HistItem({ item, isFocused, isRemoveSlot, elRef, fmtDate, fmtTime, isFa
         {src && !imgErr ? (
           <img src={src} alt="" onError={() => setImgErr(true)} loading="lazy" />
         ) : (
-          <div className="tvl-hist-ph">{typeIcon}</div>
+          <div className="tvl-hist-ph">
+            <Icon name={typeIconName} size={20} color={colors.border} />
+          </div>
         )}
         {pct > 0 && pct < 100 && (
           <div className="tvl-hist-bar" style={{ width: `${pct}%` }} />
@@ -944,8 +953,14 @@ function HistItem({ item, isFocused, isRemoveSlot, elRef, fmtDate, fmtTime, isFa
             ? "tvl-hist-action tvl-hist-action--remove"
             : "tvl-hist-action"
         }
+        style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
       >
-        {isRemoveSlot ? "✕ Remove" : isFav ? "Open" : pct > 0 && pct < 100 ? "Resume" : "Play"}
+        {isRemoveSlot ? (
+          <>
+            <Icon name="close" size={14} color="currentColor" />
+            Remove
+          </>
+        ) : isFav ? "Open" : pct > 0 && pct < 100 ? "Resume" : "Play"}
       </div>
     </div>
   );

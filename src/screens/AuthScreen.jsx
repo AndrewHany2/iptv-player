@@ -1,9 +1,22 @@
 import { useState, useEffect } from "react";
 import { KeyboardAvoidingView, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { YStack, XStack, Text, Input, ScrollView, Spinner } from "../ui/primitives";
-import { colors } from "../ui/tokens";
+import { YStack, XStack, Text, Input, ScrollView } from "../ui/primitives";
+import Button from "../ui/Button";
+import Icon from "../ui/Icon";
+import {
+  colors,
+  fonts,
+  fontWeights,
+  radii,
+  iconSizes,
+  shadows,
+  accentAlpha,
+} from "../ui/tokens";
+import { ss } from "../utils/scaleSize";
 import { useApp } from "../context/AppContext";
+
+const isTV = () => typeof globalThis !== "undefined" && globalThis.__TV__ === true;
 
 export default function AuthScreen() {
   const { signIn, signUp } = useApp();
@@ -83,167 +96,169 @@ export default function AuthScreen() {
     return () => globalThis.removeEventListener("keydown", handler);
   }, [username, email, password, confirmPassword, mode, loading]);
 
+  // Shared, tokenized input styling so every field reads identically. Resting
+  // state is a hairline border on the elevated surface; no glow at rest.
+  const inputStyle = {
+    backgroundColor: colors.bg,
+    color: colors.text,
+    fontFamily: fonts.body,
+    borderRadius: radii.card,
+    paddingHorizontal: ss(14),
+    paddingVertical: ss(12),
+    fontSize: ss(15),
+    borderWidth: 1,
+    borderColor: colors.border,
+  };
+  const labelStyle = {
+    fontSize: ss(13),
+    color: colors.muted,
+    fontFamily: fonts.body,
+    marginBottom: ss(6),
+    marginTop: ss(12),
+  };
+
+  let submitLabel = mode === "login" ? "Sign In" : "Create Account";
+  if (loading) submitLabel = "Please wait…";
+
   return (
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: colors.bg, paddingTop: insets.top, paddingBottom: insets.bottom }}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
-      <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: "center", padding: 20 }} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: "center", padding: ss(20) }} keyboardShouldPersistTaps="handled">
         <YStack
           backgroundColor={colors.surface2}
-          borderRadius={16}
-          padding={28}
-          shadowColor="#000"
-          shadowOffset={{ width: 0, height: 4 }}
-          shadowOpacity={0.3}
-          shadowRadius={8}
-          elevation={8}
+          borderRadius={radii.lg}
+          borderWidth={1}
+          borderColor={colors.border}
+          padding={ss(28)}
+          maxWidth={ss(420)}
+          width="100%"
+          alignSelf="center"
+          {...(isTV() ? {} : shadows.modal)}
         >
-          <Text fontSize={48} textAlign="center" marginBottom={8}>📺</Text>
-          <Text fontSize={26} fontWeight="bold" color={colors.text} textAlign="center" marginBottom={4}>
+          <YStack
+            alignSelf="center"
+            alignItems="center"
+            justifyContent="center"
+            width={ss(64)}
+            height={ss(64)}
+            borderRadius={radii.md}
+            backgroundColor={isTV() ? colors.surface : accentAlpha(0.18)}
+            marginBottom={ss(12)}
+          >
+            <Icon name="tv" size={ss(iconSizes.lg)} color={colors.accent2} />
+          </YStack>
+          <Text
+            fontSize={ss(26)}
+            fontFamily={fonts.display}
+            fontWeight={fontWeights.bold}
+            color={colors.text}
+            textAlign="center"
+            marginBottom={ss(4)}
+          >
             IPTV Player
           </Text>
-          <Text fontSize={14} color={colors.muted} textAlign="center" marginBottom={24}>
+          <Text fontSize={ss(14)} fontFamily={fonts.body} color={colors.muted} textAlign="center" marginBottom={ss(24)}>
             {mode === "login" ? "Sign in to your account" : "Create an account"}
           </Text>
 
-          <Text fontSize={13} color={colors.muted} marginBottom={6} marginTop={12}>
-            {mode === "login" ? "Username or Email" : "Username"}
-          </Text>
+          <Text {...labelStyle}>{mode === "login" ? "Username or Email" : "Username"}</Text>
           <Input
             placeholder={mode === "login" ? "your_username or you@example.com" : "your_username"}
-            placeholderTextColor="#666"
+            placeholderTextColor={colors.faint}
             value={username}
             onChangeText={setUsername}
             autoCapitalize="none"
             autoCorrect={false}
             disabled={loading}
-            backgroundColor={colors.bg}
-            color={colors.text}
-            borderRadius={10}
-            paddingHorizontal={14}
-            paddingVertical={12}
-            fontSize={15}
-            borderWidth={1}
-            borderColor={colors.border}
+            {...inputStyle}
           />
 
           {mode === "register" && (
             <>
-              <Text fontSize={13} color={colors.muted} marginBottom={6} marginTop={12}>Email</Text>
+              <Text {...labelStyle}>Email</Text>
               <Input
                 placeholder="you@example.com"
-                placeholderTextColor="#666"
+                placeholderTextColor={colors.faint}
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
                 disabled={loading}
-                backgroundColor={colors.bg}
-                color={colors.text}
-                borderRadius={10}
-                paddingHorizontal={14}
-                paddingVertical={12}
-                fontSize={15}
-                borderWidth={1}
-                borderColor={colors.border}
+                {...inputStyle}
               />
             </>
           )}
 
-          <Text fontSize={13} color={colors.muted} marginBottom={6} marginTop={12}>Password</Text>
+          <Text {...labelStyle}>Password</Text>
           <Input
             placeholder="••••••••"
-            placeholderTextColor="#666"
+            placeholderTextColor={colors.faint}
             value={password}
             onChangeText={setPassword}
             secureTextEntry
             disabled={loading}
-            backgroundColor={colors.bg}
-            color={colors.text}
-            borderRadius={10}
-            paddingHorizontal={14}
-            paddingVertical={12}
-            fontSize={15}
-            borderWidth={1}
-            borderColor={colors.border}
+            {...inputStyle}
           />
 
           {mode === "register" && (
             <>
-              <Text fontSize={13} color={colors.muted} marginBottom={6} marginTop={12}>Confirm Password</Text>
+              <Text {...labelStyle}>Confirm Password</Text>
               <Input
                 placeholder="••••••••"
-                placeholderTextColor="#666"
+                placeholderTextColor={colors.faint}
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
                 secureTextEntry
                 disabled={loading}
-                backgroundColor={colors.bg}
-                color={colors.text}
-                borderRadius={10}
-                paddingHorizontal={14}
-                paddingVertical={12}
-                fontSize={15}
-                borderWidth={1}
-                borderColor={colors.border}
+                {...inputStyle}
               />
             </>
           )}
 
           {!!error && (
-            <Text color={colors.danger} fontSize={13} marginTop={12} textAlign="center">{error}</Text>
+            <XStack
+              alignItems="center"
+              justifyContent="center"
+              gap={ss(8)}
+              marginTop={ss(14)}
+              paddingVertical={ss(10)}
+              paddingHorizontal={ss(12)}
+              borderRadius={radii.sm}
+              borderWidth={1}
+              borderColor={colors.danger}
+              backgroundColor={colors.surface}
+            >
+              <Icon name="warning" size={ss(iconSizes.sm)} color={colors.danger} />
+              <Text color={colors.danger} fontFamily={fonts.body} fontSize={ss(13)} flex={1}>
+                {error}
+              </Text>
+            </XStack>
           )}
 
-          <YStack
-            backgroundColor={colors.accent}
-            borderRadius={10}
-            paddingVertical={14}
-            marginTop={20}
-            alignItems="center"
-            opacity={loading ? 0.6 : 1}
-            cursor={loading ? "not-allowed" : "pointer"}
-            onPress={loading ? undefined : handleSubmit}
-            pressStyle={{ opacity: 0.9 }}
+          <Button
+            variant="primary"
+            size="lg"
+            onPress={handleSubmit}
+            disabled={loading}
+            style={{ marginTop: ss(20), width: "100%" }}
           >
-            {loading ? <Spinner color={colors.text} /> : (
-              <Text color={colors.text} fontSize={16} fontWeight="600">
-                {mode === "login" ? "Sign In" : "Create Account"}
-              </Text>
-            )}
-          </YStack>
+            {submitLabel}
+          </Button>
 
-          <XStack justifyContent="center" marginTop={20}>
-            {mode === "login" ? (
-              <>
-                <Text color={colors.muted} fontSize={14}>Don't have an account? </Text>
-                <Text
-                  color={colors.accent}
-                  fontSize={14}
-                  fontWeight="600"
-                  cursor="pointer"
-                  onPress={() => switchMode("register")}
-                  pressStyle={{ opacity: 0.7 }}
-                >
-                  Register
-                </Text>
-              </>
-            ) : (
-              <>
-                <Text color={colors.muted} fontSize={14}>Already have an account? </Text>
-                <Text
-                  color={colors.accent}
-                  fontSize={14}
-                  fontWeight="600"
-                  cursor="pointer"
-                  onPress={() => switchMode("login")}
-                  pressStyle={{ opacity: 0.7 }}
-                >
-                  Sign In
-                </Text>
-              </>
-            )}
+          <XStack justifyContent="center" alignItems="center" marginTop={ss(16)}>
+            <Text color={colors.muted} fontFamily={fonts.body} fontSize={ss(14)}>
+              {mode === "login" ? "Don't have an account?" : "Already have an account?"}
+            </Text>
+            <Button
+              variant="ghost"
+              size="sm"
+              onPress={() => switchMode(mode === "login" ? "register" : "login")}
+            >
+              {mode === "login" ? "Register" : "Sign In"}
+            </Button>
           </XStack>
         </YStack>
       </ScrollView>

@@ -1,12 +1,16 @@
 import { useState, useEffect, useCallback, useRef, memo } from "react";
 import { FlatList, Image, RefreshControl } from "react-native";
 import { YStack, XStack, Text, Input, ScrollView, Spinner } from "../ui/primitives";
-import { colors } from "../ui/tokens";
+import { colors, fonts, fontWeights } from "../ui/tokens";
+import StatePanel from "../ui/StatePanel";
+import Icon from "../ui/Icon";
 import { useApp } from "../context/AppContext";
 import { useTVNavigation } from "../hooks/useTVNavigation";
 import iptvApi from "../services/iptvApi";
 import tmdbApi from "../services/tmdbApi";
 import SeriesDetail from "../components/SeriesDetail";
+import Hero from "../presentation/components/Hero.native";
+import { selectHeroItem } from "../presentation/heroItem";
 
 const FILL = { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 };
 const SHELF_PAGE = 12;
@@ -48,9 +52,10 @@ const PosterCard = memo(function PosterCard({ item, onPress }) {
           <Text color={colors.muted} fontSize={9} fontWeight="700" letterSpacing={0.5}>HD</Text>
         </YStack>
         {ratingLabel && (
-          <YStack position="absolute" top={8} left={8} zIndex={4} backgroundColor="rgba(0,0,0,0.7)" borderRadius={4} paddingHorizontal={5} paddingVertical={2}>
-            <Text color={colors.rating} fontSize={9} fontWeight="700">⭐ {ratingLabel}</Text>
-          </YStack>
+          <XStack position="absolute" top={8} left={8} zIndex={4} alignItems="center" gap={3} backgroundColor="rgba(0,0,0,0.7)" borderRadius={4} paddingHorizontal={5} paddingVertical={2}>
+            <Icon name="star" size={10} color={colors.rating} />
+            <Text color={colors.rating} fontSize={9} fontWeight={fontWeights.bold}>{ratingLabel}</Text>
+          </XStack>
         )}
       </YStack>
       <Text color={colors.text} fontSize={12} fontWeight="600" marginTop={8} lineHeight={16} numberOfLines={2}>{item.name}</Text>
@@ -73,12 +78,13 @@ function Shelf({ shelf, onVisible, onPress, onTitlePress, onLoadMore }) {
   return (
     <YStack paddingTop={20} paddingBottom={8} onLayout={handleLayout}>
       <XStack alignItems="baseline" justifyContent="space-between" paddingHorizontal={16} marginBottom={14}>
-        <YStack cursor="pointer" onPress={() => onTitlePress?.(shelf.id, shelf.name)} pressStyle={{ opacity: 0.8 }}>
-          <Text color={colors.text} fontSize={20} fontWeight="700" letterSpacing={-0.3}>
-            {shelf.name} <Text color={colors.accent} fontSize={16}>›</Text>
+        <XStack alignItems="center" gap={4} cursor="pointer" onPress={() => onTitlePress?.(shelf.id, shelf.name)} pressStyle={{ opacity: 0.8 }}>
+          <Text color={colors.text} fontFamily={fonts.display} fontSize={20} fontWeight={fontWeights.bold} letterSpacing={-0.3}>
+            {shelf.name}
           </Text>
-        </YStack>
-        {shelf.totalCount != null && <Text color="#555" fontSize={13} fontWeight="500">{shelf.totalCount}</Text>}
+          <Icon name="chevron-right" size={16} color={colors.accent} />
+        </XStack>
+        {shelf.totalCount != null && <Text color={colors.muted} fontSize={13} fontWeight={fontWeights.medium}>{shelf.totalCount}</Text>}
       </XStack>
       {shelf.items === null ? (
         <YStack paddingHorizontal={16} paddingVertical={18}><Spinner size="small" color={colors.accent} /></YStack>
@@ -114,10 +120,11 @@ function CategoryPage({ name, items, onBack, onPress, onLoadMore, hasRemote, loa
   return (
     <YStack flex={1} backgroundColor={colors.bg}>
       <XStack alignItems="center" gap={12} paddingHorizontal={16} paddingTop={16} paddingBottom={10} borderBottomWidth={1} borderBottomColor={colors.border}>
-        <YStack paddingVertical={8} paddingHorizontal={12} backgroundColor={colors.surface2} borderRadius={8} cursor="pointer" onPress={onBack} pressStyle={{ opacity: 0.8 }}>
-          <Text color={colors.accent} fontSize={14} fontWeight="600">← Back</Text>
-        </YStack>
-        <Text color={colors.text} fontSize={18} fontWeight="700" flex={1} numberOfLines={1}>{name}</Text>
+        <XStack alignItems="center" gap={8} paddingVertical={8} paddingHorizontal={12} backgroundColor={colors.surface2} borderRadius={8} cursor="pointer" onPress={onBack} pressStyle={{ opacity: 0.8 }}>
+          <Icon name="back" size={16} color={colors.accent} />
+          <Text color={colors.accent} fontSize={14} fontWeight={fontWeights.medium}>Back</Text>
+        </XStack>
+        <Text color={colors.text} fontFamily={fonts.display} fontSize={18} fontWeight={fontWeights.bold} flex={1} numberOfLines={1}>{name}</Text>
         {filtered != null && (
           <YStack backgroundColor="rgba(255,255,255,0.07)" borderRadius={20} paddingHorizontal={10} paddingVertical={4}>
             <Text color={colors.muted} fontSize={12} fontWeight="600">{filtered.length.toLocaleString()}</Text>
@@ -289,62 +296,71 @@ export default function SeriesScreen({ navigation }) {
   });
 
   if (loading) {
-    return (
-      <YStack flex={1} justifyContent="center" alignItems="center" backgroundColor={colors.bg} padding={24}>
-        <Spinner size="large" color={colors.accent} />
-        <Text color={colors.muted} marginTop={12} fontSize={14}>Loading series...</Text>
-      </YStack>
-    );
+    return <StatePanel mode="loading" title="Loading series..." />;
   }
 
   if (!activeUserId) {
     return (
-      <YStack flex={1} justifyContent="center" alignItems="center" backgroundColor={colors.bg} padding={24}>
-        <Text fontSize={48} marginBottom={12}>📺</Text>
-        <Text color={colors.text} fontSize={18} fontWeight="600" marginBottom={8}>No IPTV Account</Text>
-        <Text color={colors.muted} fontSize={14} textAlign="center" marginBottom={20}>Tap "Accounts" to add your IPTV service</Text>
-        <YStack backgroundColor={colors.accent} paddingHorizontal={24} paddingVertical={12} borderRadius={10} cursor="pointer" onPress={() => navigation.navigate("Accounts")} pressStyle={{ opacity: 0.9 }}>
-          <Text color={colors.text} fontWeight="600">Add Account</Text>
-        </YStack>
-      </YStack>
+      <StatePanel
+        mode="empty"
+        icon="tv"
+        title="No IPTV Account"
+        message='Tap "Accounts" to add your IPTV service'
+        cta={() => navigation.navigate("Accounts")}
+        ctaLabel="Add Account"
+      />
     );
   }
 
   if (error) {
     return (
-      <YStack flex={1} justifyContent="center" alignItems="center" backgroundColor={colors.bg} padding={24}>
-        <Text fontSize={48} marginBottom={12}>⚠️</Text>
-        <Text color={colors.danger} fontSize={18} fontWeight="600" marginBottom={8}>Couldn't load series</Text>
-        <Text color={colors.muted} fontSize={14} textAlign="center" marginBottom={20}>Check your connection and try again.</Text>
-        <YStack backgroundColor={colors.accent} paddingHorizontal={24} paddingVertical={12} borderRadius={10} cursor="pointer" onPress={load} pressStyle={{ opacity: 0.9 }}>
-          <Text color={colors.text} fontWeight="600">Retry</Text>
-        </YStack>
-      </YStack>
+      <StatePanel
+        mode="error"
+        title="Couldn't load series"
+        message="Check your connection and try again."
+        onRetry={load}
+        retryLabel="Retry"
+      />
     );
   }
 
   const isTopRated = currentCategory?.catId === "top_rated";
+  // Hero featured item — picked over the first populated shelf's real titles
+  // (not the Discover pills); only on the browse list when no overlay is open.
+  const heroShelf = shelves.find((s) => s.items?.length);
+  const heroItem = heroShelf ? selectHeroItem(heroShelf.items) : null;
   const listHeader = (
-    <YStack paddingHorizontal={16} paddingTop={20} paddingBottom={4}>
-      <Text color={colors.text} fontSize={20} fontWeight="700" letterSpacing={-0.3} marginBottom={12}>Discover</Text>
-      <XStack gap={10} flexWrap="wrap">
-        {discoverItems.map((pill, idx) => (
-          <XStack
-            key={pill.id}
-            alignItems="center" gap={8} paddingHorizontal={16} paddingVertical={10}
-            backgroundColor="rgba(108, 92, 231,0.08)" borderWidth={1}
-            borderColor={focusedRow === 0 && focusedCol === idx ? colors.accent2 : "rgba(108, 92, 231,0.28)"}
-            borderRadius={999} cursor="pointer"
-            onPress={() => handleTitlePress(pill.id, pill.label)}
-            pressStyle={{ opacity: 0.75 }} hoverStyle={{ borderColor: colors.accent }} animation="quick"
-            scale={focusedRow === 0 && focusedCol === idx ? 1.05 : 1}
-          >
-            <Text fontSize={14}>{pill.id === "all" ? "📺" : "⭐"}</Text>
-            <Text color={colors.text} fontSize={12} fontWeight="600">{pill.label}</Text>
-            <Text color={colors.accent} fontSize={14} fontWeight="700">→</Text>
-          </XStack>
-        ))}
-      </XStack>
+    <YStack>
+      {heroItem && (
+        <YStack paddingHorizontal={16} paddingTop={16}>
+          <Hero
+            item={heroItem}
+            onPlay={() => handleSeriesPress(heroItem)}
+            onDetails={() => handleSeriesPress(heroItem)}
+          />
+        </YStack>
+      )}
+      <YStack paddingHorizontal={16} paddingTop={20} paddingBottom={4}>
+        <Text color={colors.text} fontFamily={fonts.display} fontSize={20} fontWeight={fontWeights.bold} letterSpacing={-0.3} marginBottom={12}>Discover</Text>
+        <XStack gap={10} flexWrap="wrap">
+          {discoverItems.map((pill, idx) => (
+            <XStack
+              key={pill.id}
+              alignItems="center" gap={8} paddingHorizontal={16} paddingVertical={10}
+              backgroundColor="rgba(108, 92, 231,0.08)" borderWidth={1}
+              borderColor={focusedRow === 0 && focusedCol === idx ? colors.accent2 : "rgba(108, 92, 231,0.28)"}
+              borderRadius={999} cursor="pointer"
+              onPress={() => handleTitlePress(pill.id, pill.label)}
+              pressStyle={{ opacity: 0.75 }} hoverStyle={{ borderColor: colors.accent }} animation="quick"
+              scale={focusedRow === 0 && focusedCol === idx ? 1.05 : 1}
+            >
+              <Icon name={pill.id === "all" ? "tv" : "star"} size={16} color={colors.accent2} />
+              <Text color={colors.text} fontSize={12} fontWeight={fontWeights.medium}>{pill.label}</Text>
+              <Icon name="chevron-right" size={16} color={colors.accent} />
+            </XStack>
+          ))}
+        </XStack>
+      </YStack>
     </YStack>
   );
 
@@ -360,7 +376,7 @@ export default function SeriesScreen({ navigation }) {
         renderItem={({ item }) => (
           <Shelf shelf={item} onVisible={handleShelfVisible} onPress={handleSeriesPress} onTitlePress={handleTitlePress} onLoadMore={handleLoadMore} />
         )}
-        ListEmptyComponent={<YStack padding={60} alignItems="center"><Text color="#666" fontSize={15}>No series found</Text></YStack>}
+        ListEmptyComponent={<StatePanel mode="empty" icon="tv" title="No series found" message="We couldn't find any series for this account." />}
         windowSize={5} maxToRenderPerBatch={3} initialNumToRender={3} removeClippedSubviews
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.accent} colors={[colors.accent]} />}
       />

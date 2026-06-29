@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { View } from "react-native";
 import { YStack, XStack, Text, Input, ScrollView, Spinner } from "../ui/primitives";
-import { colors } from "../ui/tokens";
+import { colors, fonts, fontWeights } from "../ui/tokens";
+import StatePanel from "../ui/StatePanel";
+import Icon from "../ui/Icon";
 import { useApp } from "../context/AppContext";
 import { useContentService } from "../domain/hooks/useContentService";
 import { useTVNavigation } from "../hooks/useTVNavigation";
@@ -11,6 +13,8 @@ import tmdbApi from "../services/tmdbApi";
 import SeriesDetail from "../components/SeriesDetail.web";
 import TVPosterCard from "../components/TVPosterCard";
 import DiscoverPills from "../presentation/components/DiscoverPills.web";
+import Hero from "../presentation/components/Hero.web";
+import { selectHeroItem } from "../presentation/heroItem";
 
 // Caps the browse content width on ultrawide monitors (centered via margin auto).
 const MAX_W = 1700;
@@ -162,7 +166,9 @@ function Shelf({
         paddingHorizontal={ss(48)}
         marginBottom={ss(14)}
       >
-        <YStack
+        <XStack
+          alignItems="center"
+          gap={ss(4)}
           cursor="pointer"
           onPress={() => onTitlePress?.(catId, title)}
           pressStyle={{ opacity: 0.8 }}
@@ -170,18 +176,17 @@ function Shelf({
         >
           <Text
             color={colors.text}
+            fontFamily={fonts.display}
             fontSize={ss(22)}
-            fontWeight="700"
+            fontWeight={fontWeights.bold}
             letterSpacing={-0.3}
           >
-            {title}{" "}
-            <Text color={colors.accent} fontSize={ss(18)}>
-              ›
-            </Text>
+            {title}
           </Text>
-        </YStack>
+          <Icon name="chevron-right" size={ss(18)} color={colors.accent} />
+        </XStack>
         {totalCount != null && (
-          <Text color="#555" fontSize={ss(13)} fontWeight="500">
+          <Text color={colors.muted} fontSize={ss(13)} fontWeight={fontWeights.medium}>
             {totalCount}
           </Text>
         )}
@@ -192,8 +197,10 @@ function Shelf({
         </YStack>
       ) : (
         <div style={{ position: "relative" }} className="lumen-shelf-rail">
-          <button className="lumen-shelf-nav" onClick={() => scrollBy(-800)}>
-            ‹
+          <button className="lumen-shelf-nav" onClick={() => scrollBy(-800)} aria-label="Scroll left">
+            <span style={{ display: "inline-block", transform: "rotate(180deg)" }}>
+              <Icon name="chevron-right" size={ss(22)} color={colors.text} />
+            </span>
           </button>
           <div
             ref={railRef}
@@ -236,8 +243,9 @@ function Shelf({
           <button
             className="lumen-shelf-nav right"
             onClick={() => scrollBy(800)}
+            aria-label="Scroll right"
           >
-            ›
+            <Icon name="chevron-right" size={ss(22)} color={colors.text} />
           </button>
         </div>
       )}
@@ -389,7 +397,9 @@ function CategoryPage({
         borderBottomWidth={1}
         borderBottomColor={colors.border}
       >
-        <YStack
+        <XStack
+          alignItems="center"
+          gap={ss(8)}
           paddingVertical={ss(8)}
           paddingHorizontal={ss(14)}
           backgroundColor={colors.surface2}
@@ -398,11 +408,12 @@ function CategoryPage({
           onPress={onBack}
           pressStyle={{ opacity: 0.8 }}
         >
-          <Text color={colors.accent} fontSize={ss(14)} fontWeight="600">
-            ← Back
+          <Icon name="back" size={ss(16)} color={colors.accent} />
+          <Text color={colors.accent} fontSize={ss(14)} fontWeight={fontWeights.medium}>
+            Back
           </Text>
-        </YStack>
-        <Text color={colors.text} fontSize={ss(22)} fontWeight="700">
+        </XStack>
+        <Text color={colors.text} fontFamily={fonts.display} fontSize={ss(22)} fontWeight={fontWeights.bold}>
           {name}
         </Text>
         {filtered != null && (
@@ -768,8 +779,8 @@ export default function SeriesScreen({ navigation }) {
   }, [topRatedLoadingMore]);
 
   const discoverItems = [
-    { id: "all", label: "All Series", icon: "📺" },
-    { id: "top_rated", label: "Top Rated", icon: "⭐" },
+    { id: "all", label: "All Series" },
+    { id: "top_rated", label: "Top Rated" },
   ];
   const { focusedRow, focusedCol } = useTVNavigation({
     active: !currentCategory && !currentSeries,
@@ -783,118 +794,53 @@ export default function SeriesScreen({ navigation }) {
   });
 
   if (loading) {
-    return (
-      <YStack
-        flex={1}
-        justifyContent="center"
-        alignItems="center"
-        backgroundColor={colors.bg}
-        padding={ss(24)}
-      >
-        <Spinner size="large" color={colors.accent} />
-        <Text color={colors.muted} marginTop={ss(12)} fontSize={ss(14)}>
-          Loading series...
-        </Text>
-      </YStack>
-    );
+    return <StatePanel mode="loading" title="Loading series..." />;
   }
 
   if (error) {
     return (
-      <YStack
-        flex={1}
-        justifyContent="center"
-        alignItems="center"
-        backgroundColor={colors.bg}
-        padding={ss(24)}
-      >
-        <Text fontSize={ss(48)} marginBottom={ss(12)}>
-          ⚠️
-        </Text>
-        <Text
-          color={colors.text}
-          fontSize={ss(18)}
-          fontWeight="600"
-          marginBottom={ss(8)}
-        >
-          Couldn't load series
-        </Text>
-        <Text
-          color={colors.muted}
-          fontSize={ss(14)}
-          textAlign="center"
-          marginBottom={ss(20)}
-        >
-          Check your connection or IPTV account and try again
-        </Text>
-        <YStack
-          backgroundColor={colors.accent}
-          paddingHorizontal={ss(24)}
-          paddingVertical={ss(12)}
-          borderRadius={ss(10)}
-          cursor="pointer"
-          onPress={load}
-          pressStyle={{ opacity: 0.9 }}
-        >
-          <Text color={colors.text} fontWeight="600">
-            Retry
-          </Text>
-        </YStack>
-      </YStack>
+      <StatePanel
+        mode="error"
+        title="Couldn't load series"
+        message="Check your connection or IPTV account and try again"
+        onRetry={load}
+        retryLabel="Retry"
+      />
     );
   }
 
   if (!activeUserId) {
     return (
-      <YStack
-        flex={1}
-        justifyContent="center"
-        alignItems="center"
-        backgroundColor={colors.bg}
-        padding={ss(24)}
-      >
-        <Text fontSize={ss(48)} marginBottom={ss(12)}>
-          📺
-        </Text>
-        <Text
-          color={colors.text}
-          fontSize={ss(18)}
-          fontWeight="600"
-          marginBottom={ss(8)}
-        >
-          No IPTV Account
-        </Text>
-        <Text
-          color={colors.muted}
-          fontSize={ss(14)}
-          textAlign="center"
-          marginBottom={ss(20)}
-        >
-          Add your IPTV service from Settings
-        </Text>
-        <YStack
-          backgroundColor={colors.accent}
-          paddingHorizontal={ss(24)}
-          paddingVertical={ss(12)}
-          borderRadius={ss(10)}
-          cursor="pointer"
-          onPress={() => navigation.navigate("Accounts")}
-          pressStyle={{ opacity: 0.9 }}
-        >
-          <Text color={colors.text} fontWeight="600">
-            Add Account
-          </Text>
-        </YStack>
-      </YStack>
+      <StatePanel
+        mode="empty"
+        icon="tv"
+        title="No IPTV Account"
+        message="Add your IPTV service from Settings"
+        cta={() => navigation.navigate("Accounts")}
+        ctaLabel="Add Account"
+      />
     );
   }
 
   const isTopRated = currentCategory?.catId === "top_rated";
+  // Hero featured item — picked over the first populated shelf's real titles
+  // (not the Discover pills). Only shown on the browse view (no overlay).
+  const heroShelf = shelves.find((s) => s.items?.length);
+  const heroItem = heroShelf ? selectHeroItem(heroShelf.items) : null;
 
   return (
     <YStack flex={1} backgroundColor={colors.bg} position="relative">
       <ScrollView flex={1} contentContainerStyle={{ paddingBottom: ss(80) }}>
         <YStack maxWidth={MAX_W} width="100%" alignSelf="center">
+        {heroItem && (
+          <YStack paddingHorizontal={ss(48)} paddingTop={ss(24)}>
+            <Hero
+              item={heroItem}
+              onPlay={() => handleSeriesPress(heroItem)}
+              onDetails={() => handleSeriesPress(heroItem)}
+            />
+          </YStack>
+        )}
         <YStack
           paddingHorizontal={ss(48)}
           paddingTop={ss(24)}
@@ -934,11 +880,12 @@ export default function SeriesScreen({ navigation }) {
               />
             ))
           ) : (
-            <YStack padding={ss(60)} alignItems="center">
-              <Text color="#666" fontSize={ss(15)}>
-                No series found
-              </Text>
-            </YStack>
+            <StatePanel
+              mode="empty"
+              icon="tv"
+              title="No series found"
+              message="We couldn't find any series for this account."
+            />
           )}
         </YStack>
         </YStack>

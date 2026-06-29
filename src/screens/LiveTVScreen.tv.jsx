@@ -2,6 +2,10 @@ import { useState, useEffect, useRef } from "react";
 import { useApp } from "../context/AppContext";
 import { useContentService } from "../domain/hooks/useContentService";
 import { VirtualGridTV } from "../presentation/components/VirtualGrid.tv";
+import StatePanel from "../ui/StatePanel";
+import Icon from "../ui/Icon";
+import { colors, iconSizes } from "../ui/tokens";
+import { ss } from "../utils/scaleSize";
 import "../styles/tvl.css";
 import "../styles/tvResponsiveScaling.css";
 import "../styles/tvRemoteFocus.css";
@@ -252,25 +256,21 @@ export default function LiveTVScreenTV({ navigation }) {
   if (loading) {
     return (
       <div className="tvl-screen">
-        <div className="tvl-center">
-          <div className="tvl-spinner" />
-          <p>Loading channels…</p>
-        </div>
+        <StatePanel mode="loading" title="Loading channels…" />
       </div>
     );
   }
   if (!activeUserId) {
     return (
       <div className="tvl-screen">
-        <div className="tvl-center">
-          <p className="tvl-empty-msg">No IPTV Account</p>
-          <button
-            className="tvl-btn"
-            onClick={() => navigation.navigate("Accounts")}
-          >
-            Add Account
-          </button>
-        </div>
+        <StatePanel
+          mode="empty"
+          icon="tv"
+          title="No IPTV Account"
+          message='Open "Accounts" to add your IPTV service'
+          cta={() => navigation.navigate("Accounts")}
+          ctaLabel="Add Account"
+        />
       </div>
     );
   }
@@ -279,8 +279,10 @@ export default function LiveTVScreenTV({ navigation }) {
     return (
       <div className="tvl-screen">
         <div className="tvl-topbar">
-          <button className="tvl-topbar-back" onClick={closePage}>
-            ◀
+          <button className="tvl-topbar-back" onClick={closePage} aria-label="Back">
+            <span style={{ display: "inline-flex", transform: "rotate(180deg)" }}>
+              <Icon name="chevron-right" size={ss(iconSizes.md)} color={colors.text} />
+            </span>
           </button>
           <button
             className="tvl-topbar-title tvl-topbar-title--back"
@@ -360,7 +362,9 @@ function ChannelCard({ item, isFocused }) {
         {src && !err ? (
           <img src={src} alt="" onError={() => setErr(true)} loading="lazy" />
         ) : (
-          <div className="tvl-ch-ph">📺</div>
+          <div className="tvl-ch-ph">
+            <Icon name="tv" size={ss(iconSizes.lg)} color={colors.border} />
+          </div>
         )}
         <span className="tvl-ch-live">LIVE</span>
       </div>

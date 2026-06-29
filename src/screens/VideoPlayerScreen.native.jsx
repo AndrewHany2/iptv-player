@@ -4,7 +4,10 @@ import { useVideoPlayer, VideoView } from "expo-video";
 import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake";
 import * as ScreenOrientation from "expo-screen-orientation";
 import { YStack, XStack, Text, ScrollView, Spinner } from "../ui/primitives";
-import { colors } from "../ui/tokens";
+import { colors, accentAlpha, radii, fonts } from "../ui/tokens";
+import Icon from "../ui/Icon";
+import Button from "../ui/Button";
+import StatePanel from "../ui/StatePanel";
 import { useApp } from "../context/AppContext";
 import iptvApi from "../services/iptvApi";
 import storage from "../utils/storage";
@@ -566,15 +569,14 @@ export default function VideoPlayerScreen({ navigation }) {
 
       {/* Loading overlay */}
       {isLoading && !isFatal && !needsResumeChoice && (
-        <YStack position="absolute" top={0} left={0} right={0} bottom={0} justifyContent="center" alignItems="center" backgroundColor="rgba(0,0,0,0.5)" pointerEvents="none">
-          <Spinner size="large" color={colors.accent} />
-          <Text color={colors.text} marginTop={10} fontSize={14}>Loading stream...</Text>
+        <YStack position="absolute" top={0} left={0} right={0} bottom={0} backgroundColor="rgba(0,0,0,0.5)" pointerEvents="none">
+          <StatePanel mode="loading" title="Loading stream..." />
         </YStack>
       )}
 
       {/* Reconnecting badge */}
       {isRecovering && !isFatal && (
-        <XStack position="absolute" bottom={16} right={16} backgroundColor="rgba(108, 92, 231,0.92)" paddingHorizontal={14} paddingVertical={8} borderRadius={8} alignItems="center" gap={8} pointerEvents="none" zIndex={30}>
+        <XStack position="absolute" bottom={16} right={16} backgroundColor={accentAlpha(0.92)} paddingHorizontal={14} paddingVertical={8} borderRadius={radii.sm} alignItems="center" gap={8} pointerEvents="none" zIndex={30}>
           <Spinner size="small" color={colors.text} />
           <Text color={colors.text} fontSize={13} fontWeight="600">Reconnecting…</Text>
         </XStack>
@@ -582,29 +584,28 @@ export default function VideoPlayerScreen({ navigation }) {
 
       {/* Sleep-timer countdown badge */}
       {sleep.active && (
-        <XStack position="absolute" bottom={16} left={16} backgroundColor="rgba(0,0,0,0.7)" paddingHorizontal={12} paddingVertical={7} borderRadius={8} alignItems="center" gap={6} pointerEvents="none" zIndex={30}>
-          <Text color={colors.text} fontSize={13} fontWeight="600">⏾ {formatRemaining(sleep.secondsLeft)}</Text>
+        <XStack position="absolute" bottom={16} left={16} backgroundColor="rgba(0,0,0,0.7)" paddingHorizontal={12} paddingVertical={7} borderRadius={radii.sm} alignItems="center" gap={6} pointerEvents="none" zIndex={30}>
+          <Text color={colors.text} fontSize={13} fontWeight="600">{formatRemaining(sleep.secondsLeft)}</Text>
         </XStack>
       )}
 
       {/* Fatal error screen */}
       {isFatal && (
-        <YStack position="absolute" top={0} left={0} right={0} bottom={0} justifyContent="center" alignItems="center" backgroundColor="rgba(0,0,0,0.85)" gap={10} zIndex={40}>
-          <Text color={colors.text} fontSize={20} fontWeight="700">Failed to load stream</Text>
-          <Text color={colors.muted} fontSize={14}>
-            {playback.fatalReason === "GONE"
-              ? "This stream is no longer available."
-              : playback.fatalReason === "AUTH_EXPIRED"
-                ? "Stream unavailable. The server rejected the connection."
-                : "The stream could not be played."}
-          </Text>
-          <XStack gap={16} marginTop={8}>
-            <YStack backgroundColor="rgba(255,255,255,0.15)" paddingHorizontal={28} paddingVertical={12} borderRadius={10} borderWidth={1} borderColor="rgba(255,255,255,0.2)" cursor="pointer" onPress={() => playback.retry()} pressStyle={{ opacity: 0.7 }}>
-              <Text color={colors.text} fontSize={15} fontWeight="600">Retry</Text>
-            </YStack>
-            <YStack backgroundColor="rgba(108, 92, 231,0.9)" paddingHorizontal={28} paddingVertical={12} borderRadius={10} cursor="pointer" onPress={handleClose} pressStyle={{ opacity: 0.8 }}>
-              <Text color={colors.text} fontSize={15} fontWeight="600">Close</Text>
-            </YStack>
+        <YStack position="absolute" top={0} left={0} right={0} bottom={0} backgroundColor="rgba(0,0,0,0.85)" zIndex={40}>
+          <StatePanel
+            mode="error"
+            title="Failed to load stream"
+            message={
+              playback.fatalReason === "GONE"
+                ? "This stream is no longer available."
+                : playback.fatalReason === "AUTH_EXPIRED"
+                  ? "Stream unavailable. The server rejected the connection."
+                  : "The stream could not be played."
+            }
+            onRetry={() => playback.retry()}
+          />
+          <XStack justifyContent="center" paddingBottom={32}>
+            <Button variant="secondary" size="md" icon="close" onPress={handleClose}>Close</Button>
           </XStack>
         </YStack>
       )}
@@ -613,71 +614,49 @@ export default function VideoPlayerScreen({ navigation }) {
       {showControls && (
         <YStack position="absolute" top={0} left={0} right={0} paddingTop={topPadding} pointerEvents="box-none">
           <XStack alignItems="center" paddingHorizontal={12} paddingVertical={8} backgroundColor="rgba(0,0,0,0.7)" flexWrap="wrap" gap={8}>
-            <YStack width={34} height={34} backgroundColor="rgba(108, 92, 231,0.9)" borderRadius={17} justifyContent="center" alignItems="center" cursor="pointer" onPress={handleClose} pressStyle={{ opacity: 0.8 }}>
-              <Text color={colors.text} fontSize={14} fontWeight="700">✕</Text>
+            <YStack width={34} height={34} backgroundColor={accentAlpha(0.9)} borderRadius={17} justifyContent="center" alignItems="center" cursor="pointer" onPress={handleClose} pressStyle={{ opacity: 0.8 }}>
+              <Icon name="close" size={16} color={colors.text} />
             </YStack>
 
-            <Text color={colors.text} fontSize={14} fontWeight="600" flex={1} minWidth={60} numberOfLines={1}>{currentVideo.name}</Text>
+            <Text color={colors.text} fontFamily={fonts.display} fontSize={14} fontWeight="600" flex={1} minWidth={60} numberOfLines={1}>{currentVideo.name}</Text>
 
             {/* Live channel zap */}
             {isLive && channels.length > 1 && (
               <>
-                <YStack backgroundColor="rgba(255,255,255,0.15)" paddingHorizontal={10} paddingVertical={6} borderRadius={8} borderWidth={1} borderColor="rgba(255,255,255,0.2)" cursor="pointer" onPress={() => zapChannel("prev")} pressStyle={{ opacity: 0.7 }}>
-                  <Text color={colors.text} fontSize={12} fontWeight="600">⏮ Ch</Text>
-                </YStack>
-                <YStack backgroundColor="rgba(255,255,255,0.15)" paddingHorizontal={10} paddingVertical={6} borderRadius={8} borderWidth={1} borderColor="rgba(255,255,255,0.2)" cursor="pointer" onPress={() => zapChannel("next")} pressStyle={{ opacity: 0.7 }}>
-                  <Text color={colors.text} fontSize={12} fontWeight="600">Ch ⏭</Text>
-                </YStack>
+                <Button variant="secondary" size="sm" icon="back" onPress={() => zapChannel("prev")}>Ch</Button>
+                <Button variant="secondary" size="sm" icon="chevron-right" onPress={() => zapChannel("next")}>Ch</Button>
               </>
             )}
 
             {!isLive && (
-              <YStack backgroundColor="rgba(255,255,255,0.15)" paddingHorizontal={10} paddingVertical={6} borderRadius={8} borderWidth={1} borderColor="rgba(255,255,255,0.2)" cursor="pointer" onPress={() => { setShowSpeedMenu(true); setShowAudioMenu(false); setShowSubtitleMenu(false); }} pressStyle={{ opacity: 0.7 }}>
-                <Text color={colors.text} fontSize={12} fontWeight="600">▶ {speed}x</Text>
-              </YStack>
+              <Button variant="secondary" size="sm" icon="play" onPress={() => { setShowSpeedMenu(true); setShowAudioMenu(false); setShowSubtitleMenu(false); }}>{`${speed}x`}</Button>
             )}
 
             {audioTracks.length > 1 && (
-              <YStack backgroundColor="rgba(255,255,255,0.15)" paddingHorizontal={10} paddingVertical={6} borderRadius={8} borderWidth={1} borderColor="rgba(255,255,255,0.2)" cursor="pointer" onPress={() => { setShowAudioMenu(true); setShowSpeedMenu(false); setShowSubtitleMenu(false); }} pressStyle={{ opacity: 0.7 }}>
-                <Text color={colors.text} fontSize={12} fontWeight="600">♪ Audio</Text>
-              </YStack>
+              <Button variant="secondary" size="sm" onPress={() => { setShowAudioMenu(true); setShowSpeedMenu(false); setShowSubtitleMenu(false); }}>Audio</Button>
             )}
 
             {subtitleTracks.length > 0 && (
-              <YStack backgroundColor="rgba(255,255,255,0.15)" paddingHorizontal={10} paddingVertical={6} borderRadius={8} borderWidth={1} borderColor="rgba(255,255,255,0.2)" cursor="pointer" onPress={() => { setShowSubtitleMenu(true); setShowSpeedMenu(false); setShowAudioMenu(false); }} pressStyle={{ opacity: 0.7 }}>
-                <Text color={colors.text} fontSize={12} fontWeight="600">CC</Text>
-              </YStack>
+              <Button variant="secondary" size="sm" onPress={() => { setShowSubtitleMenu(true); setShowSpeedMenu(false); setShowAudioMenu(false); }}>CC</Button>
             )}
 
             {/* Subtitle & audio tuning panel */}
-            <YStack backgroundColor="rgba(255,255,255,0.15)" paddingHorizontal={10} paddingVertical={6} borderRadius={8} borderWidth={1} borderColor="rgba(255,255,255,0.2)" cursor="pointer" onPress={() => setShowSubtitleSettings(true)} pressStyle={{ opacity: 0.7 }}>
-              <Text color={colors.text} fontSize={12} fontWeight="600">⚙ Tune</Text>
-            </YStack>
+            <Button variant="secondary" size="sm" icon="settings" onPress={() => setShowSubtitleSettings(true)}>Tune</Button>
 
             {/* Aspect / contentFit cycle */}
-            <YStack backgroundColor="rgba(255,255,255,0.15)" paddingHorizontal={10} paddingVertical={6} borderRadius={8} borderWidth={1} borderColor="rgba(255,255,255,0.2)" cursor="pointer" onPress={cycleContentFit} pressStyle={{ opacity: 0.7 }}>
-              <Text color={colors.text} fontSize={12} fontWeight="600">⤢ {contentFit}</Text>
-            </YStack>
+            <Button variant="secondary" size="sm" onPress={cycleContentFit}>{contentFit}</Button>
 
             {/* Stats toggle */}
-            <YStack backgroundColor={showStats ? "rgba(108, 92, 231,0.9)" : "rgba(255,255,255,0.15)"} paddingHorizontal={10} paddingVertical={6} borderRadius={8} borderWidth={1} borderColor="rgba(255,255,255,0.2)" cursor="pointer" onPress={() => setShowStats((s) => !s)} pressStyle={{ opacity: 0.7 }}>
-              <Text color={colors.text} fontSize={12} fontWeight="600">ⓘ Stats</Text>
-            </YStack>
+            <Button variant={showStats ? "primary" : "secondary"} size="sm" onPress={() => setShowStats((s) => !s)}>Stats</Button>
 
             {/* Sleep timer */}
-            <YStack backgroundColor={sleep.active ? "rgba(108, 92, 231,0.9)" : "rgba(255,255,255,0.15)"} paddingHorizontal={10} paddingVertical={6} borderRadius={8} borderWidth={1} borderColor="rgba(255,255,255,0.2)" cursor="pointer" onPress={() => setShowSleepMenu(true)} pressStyle={{ opacity: 0.7 }}>
-              <Text color={colors.text} fontSize={12} fontWeight="600">⏾ Sleep</Text>
-            </YStack>
+            <Button variant={sleep.active ? "primary" : "secondary"} size="sm" onPress={() => setShowSleepMenu(true)}>Sleep</Button>
 
             {/* PiP */}
-            <YStack backgroundColor="rgba(255,255,255,0.15)" paddingHorizontal={10} paddingVertical={6} borderRadius={8} borderWidth={1} borderColor="rgba(255,255,255,0.2)" cursor="pointer" onPress={handlePip} pressStyle={{ opacity: 0.7 }}>
-              <Text color={colors.text} fontSize={12} fontWeight="600">⧉ PiP</Text>
-            </YStack>
+            <Button variant="secondary" size="sm" onPress={handlePip}>PiP</Button>
 
             {nextEpisode && (
-              <YStack backgroundColor="rgba(108, 92, 231,0.9)" paddingHorizontal={12} paddingVertical={6} borderRadius={8} cursor="pointer" onPress={handleNextEpisode} pressStyle={{ opacity: 0.8 }}>
-                <Text color={colors.text} fontSize={12} fontWeight="600">Next ▶</Text>
-              </YStack>
+              <Button variant="primary" size="sm" icon="play" onPress={handleNextEpisode}>Next</Button>
             )}
           </XStack>
 
@@ -706,7 +685,7 @@ export default function VideoPlayerScreen({ navigation }) {
             <Text color={colors.muted} fontSize={12} fontWeight="600" textAlign="center" paddingVertical={8} borderBottomWidth={1} borderBottomColor={colors.border} marginBottom={4}>Playback Speed</Text>
             <ScrollView>
               {SPEEDS.map((rate) => (
-                <YStack key={rate} paddingVertical={12} paddingHorizontal={16} borderRadius={8} backgroundColor={speed === rate ? "rgba(108, 92, 231,0.2)" : "transparent"} cursor="pointer" onPress={() => handleSpeedChange(rate)} pressStyle={{ opacity: 0.7 }}>
+                <YStack key={rate} paddingVertical={12} paddingHorizontal={16} borderRadius={8} backgroundColor={speed === rate ? accentAlpha(0.2) : "transparent"} cursor="pointer" onPress={() => handleSpeedChange(rate)} pressStyle={{ opacity: 0.7 }}>
                   <Text color={speed === rate ? colors.accent : colors.muted} fontSize={15} fontWeight={speed === rate ? "700" : "400"}>{rate}x{rate === 1 ? " (Normal)" : ""}</Text>
                 </YStack>
               ))}
@@ -722,7 +701,7 @@ export default function VideoPlayerScreen({ navigation }) {
             <Text color={colors.muted} fontSize={12} fontWeight="600" textAlign="center" paddingVertical={8} borderBottomWidth={1} borderBottomColor={colors.border} marginBottom={4}>Audio Track</Text>
             <ScrollView>
               {audioTracks.map((track, idx) => (
-                <YStack key={idx} paddingVertical={12} paddingHorizontal={16} borderRadius={8} backgroundColor={selectedAudio === track ? "rgba(108, 92, 231,0.2)" : "transparent"} cursor="pointer" onPress={() => handleAudioChange(track)} pressStyle={{ opacity: 0.7 }}>
+                <YStack key={idx} paddingVertical={12} paddingHorizontal={16} borderRadius={8} backgroundColor={selectedAudio === track ? accentAlpha(0.2) : "transparent"} cursor="pointer" onPress={() => handleAudioChange(track)} pressStyle={{ opacity: 0.7 }}>
                   <Text color={selectedAudio === track ? colors.accent : colors.muted} fontSize={15} fontWeight={selectedAudio === track ? "700" : "400"}>{track.language || track.label || `Track ${idx + 1}`}</Text>
                 </YStack>
               ))}
@@ -737,11 +716,11 @@ export default function VideoPlayerScreen({ navigation }) {
           <YStack backgroundColor={colors.surface2} borderRadius={14} padding={8} width={220} maxHeight={350} borderWidth={1} borderColor={colors.border}>
             <Text color={colors.muted} fontSize={12} fontWeight="600" textAlign="center" paddingVertical={8} borderBottomWidth={1} borderBottomColor={colors.border} marginBottom={4}>Subtitles</Text>
             <ScrollView>
-              <YStack paddingVertical={12} paddingHorizontal={16} borderRadius={8} backgroundColor={selectedSubtitle === null ? "rgba(108, 92, 231,0.2)" : "transparent"} cursor="pointer" onPress={() => handleSubtitleChange(null)} pressStyle={{ opacity: 0.7 }}>
+              <YStack paddingVertical={12} paddingHorizontal={16} borderRadius={8} backgroundColor={selectedSubtitle === null ? accentAlpha(0.2) : "transparent"} cursor="pointer" onPress={() => handleSubtitleChange(null)} pressStyle={{ opacity: 0.7 }}>
                 <Text color={selectedSubtitle === null ? colors.accent : colors.muted} fontSize={15} fontWeight={selectedSubtitle === null ? "700" : "400"}>Off</Text>
               </YStack>
               {subtitleTracks.map((track, idx) => (
-                <YStack key={idx} paddingVertical={12} paddingHorizontal={16} borderRadius={8} backgroundColor={selectedSubtitle === track ? "rgba(108, 92, 231,0.2)" : "transparent"} cursor="pointer" onPress={() => handleSubtitleChange(track)} pressStyle={{ opacity: 0.7 }}>
+                <YStack key={idx} paddingVertical={12} paddingHorizontal={16} borderRadius={8} backgroundColor={selectedSubtitle === track ? accentAlpha(0.2) : "transparent"} cursor="pointer" onPress={() => handleSubtitleChange(track)} pressStyle={{ opacity: 0.7 }}>
                   <Text color={selectedSubtitle === track ? colors.accent : colors.muted} fontSize={15} fontWeight={selectedSubtitle === track ? "700" : "400"}>{track.language || track.label || `Track ${idx + 1}`}</Text>
                 </YStack>
               ))}
@@ -793,7 +772,7 @@ export default function VideoPlayerScreen({ navigation }) {
                 </YStack>
               ))}
               {sleep.active && (
-                <YStack paddingVertical={12} paddingHorizontal={16} borderRadius={8} backgroundColor="rgba(108, 92, 231,0.2)" cursor="pointer" onPress={() => { sleep.cancel(); setShowSleepMenu(false); }} pressStyle={{ opacity: 0.7 }}>
+                <YStack paddingVertical={12} paddingHorizontal={16} borderRadius={8} backgroundColor={accentAlpha(0.2)} cursor="pointer" onPress={() => { sleep.cancel(); setShowSleepMenu(false); }} pressStyle={{ opacity: 0.7 }}>
                   <Text color={colors.accent} fontSize={15} fontWeight="700">Cancel timer ({formatRemaining(sleep.secondsLeft)})</Text>
                 </YStack>
               )}

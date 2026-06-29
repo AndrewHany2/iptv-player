@@ -3,6 +3,9 @@ import { useApp } from "../context/AppContext";
 import iptvApi from "../services/iptvApi";
 import { useContentService } from "../domain/hooks/useContentService";
 import { VirtualGridTV } from "../presentation/components/VirtualGrid.tv";
+import StatePanel from "../ui/StatePanel";
+import Icon from "../ui/Icon";
+import { colors, iconSizes } from "../ui/tokens";
 import "../styles/tvl.css";
 import "../styles/tvResponsiveScaling.css";
 import "../styles/tvRemoteFocus.css";
@@ -608,25 +611,21 @@ export default function SeriesScreenTV({ navigation, route }) {
   if (loading)
     return (
       <div className="tvl-screen">
-        <div className="tvl-center">
-          <div className="tvl-spinner" />
-          <p>Loading series…</p>
-        </div>
+        <StatePanel mode="loading" title="Loading series…" />
       </div>
     );
 
   if (!activeUserId) {
     return (
       <div className="tvl-screen">
-        <div className="tvl-center">
-          <p className="tvl-empty-msg">No IPTV Account</p>
-          <button
-            className="tvl-btn"
-            onClick={() => navigation.navigate("Accounts")}
-          >
-            Add Account
-          </button>
-        </div>
+        <StatePanel
+          mode="empty"
+          icon="tv"
+          title="No IPTV Account"
+          message="Add your IPTV service from Settings"
+          cta={() => navigation.navigate("Accounts")}
+          ctaLabel="Add Account"
+        />
       </div>
     );
   }
@@ -658,12 +657,13 @@ export default function SeriesScreenTV({ navigation, route }) {
       ...(historyEntry
         ? [{
             type: "continue",
-            label: "▶  Continue" + (historyEntry.seasonNum
+            icon: "play",
+            label: "Continue" + (historyEntry.seasonNum
               ? ` S${historyEntry.seasonNum}E${String(historyEntry.episodeNum).padStart(2, "0")}`
               : ""),
           }]
         : []),
-      { type: "fav", label: inFav ? "♥  Saved" : "♡  Favorites" },
+      { type: "fav", icon: "star", label: inFav ? "Saved" : "Favorites" },
     ];
     const actBtnClass = (i) =>
       [
@@ -678,7 +678,7 @@ export default function SeriesScreenTV({ navigation, route }) {
     return (
       <div className="tvl-screen">
         <div className="tvl-topbar">
-          <button className="tvl-topbar-back" onClick={closeDetail}>◀</button>
+          <button className="tvl-topbar-back" onClick={closeDetail}><Icon name="back" size={iconSizes.md} color="currentColor" /></button>
           <button className="tvl-topbar-title tvl-topbar-title--back" onClick={closeDetail}>
             {item.name}
           </button>
@@ -695,14 +695,14 @@ export default function SeriesScreenTV({ navigation, route }) {
           <div className="tvl-det-hero-thumb">
             {poster
               ? <img src={poster} alt="" />
-              : <div className="tvl-det-hero-thumb-ph">📺</div>}
+              : <div className="tvl-det-hero-thumb-ph"><Icon name="tv" size={iconSizes.lg} color={colors.border} /></div>}
           </div>
           <div className="tvl-det-hero-info">
             <div className="tvl-det-hero-title">{item.name}</div>
             <div className="tvl-det-hero-meta">
               {si.releaseDate && <span className="tvl-det-tag">{si.releaseDate.slice(0, 4)}</span>}
               {si.genre && <span className="tvl-det-tag">{si.genre.split(",")[0].trim()}</span>}
-              {si.rating && <span className="tvl-det-rating">⭐ {Number.parseFloat(si.rating).toFixed(1)}</span>}
+              {si.rating && <span className="tvl-det-rating" style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><Icon name="star" size={iconSizes.sm} color={colors.rating} /> {Number.parseFloat(si.rating).toFixed(1)}</span>}
             </div>
             {!rawInfo && <div className="tvl-spinner" style={{ alignSelf: "flex-start" }} />}
             {rawInfo && (
@@ -720,7 +720,10 @@ export default function SeriesScreenTV({ navigation, route }) {
                       }
                     }}
                   >
-                    {btn.label}
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
+                      <Icon name={btn.icon} size={iconSizes.md} color="currentColor" />
+                      {btn.label}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -744,7 +747,10 @@ export default function SeriesScreenTV({ navigation, route }) {
               ))}
               {trailer && (
                 <div className={trailerFocus ? "tvl-season-btn tvl-season-btn--on" : "tvl-season-btn"}>
-                  {showTrailer ? "✕ Trailer" : "🎬 Trailer"}
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                    <Icon name={showTrailer ? "close" : "film"} size={iconSizes.sm} color="currentColor" />
+                    Trailer
+                  </span>
                 </div>
               )}
             </div>
@@ -779,7 +785,7 @@ export default function SeriesScreenTV({ navigation, route }) {
                     <div className="tvl-ep-body">
                       <div className="tvl-ep-title">
                         {ep.title || `Episode ${ep.episode_num}`}
-                        {isWatched && <span style={{ marginLeft: 8, color: "#22D3EE" }}>✓</span>}
+                        {isWatched && <span style={{ marginLeft: 8, display: "inline-flex", verticalAlign: "middle" }}><Icon name="check" size={iconSizes.sm} color={colors.accent2} /></span>}
                       </div>
                       {ep.info?.plot && <div className="tvl-ep-plot">{ep.info.plot}</div>}
                       {ep.info?.duration && <div className="tvl-ep-dur">{ep.info.duration}</div>}
@@ -789,7 +795,7 @@ export default function SeriesScreenTV({ navigation, route }) {
                         </div>
                       )}
                     </div>
-                    <span className="tvl-ep-play">{hasProgress && !isWatched ? "↻" : "▶"}</span>
+                    <span className="tvl-ep-play"><Icon name="play" size={iconSizes.md} color="currentColor" /></span>
                   </div>
                 );
               })}
@@ -808,7 +814,7 @@ export default function SeriesScreenTV({ navigation, route }) {
     return (
       <div className="tvl-screen">
         <div className="tvl-topbar">
-          <button className="tvl-topbar-back" onClick={closeGrid}>◀</button>
+          <button className="tvl-topbar-back" onClick={closeGrid}><Icon name="back" size={iconSizes.md} color="currentColor" /></button>
           <button className="tvl-topbar-title tvl-topbar-title--back" onClick={closeGrid}>
             {grid.name}
           </button>
@@ -917,7 +923,7 @@ function PosterCard({ item, isFocused }) {
         {src && !err ? (
           <img src={src} alt="" onError={() => setErr(true)} loading="lazy" />
         ) : (
-          <div className="tvl-card-ph">📺</div>
+          <div className="tvl-card-ph"><Icon name="tv" size={iconSizes.lg} color={colors.border} /></div>
         )}
         {rLabel && <span className="tvl-card-rating">{rLabel}</span>}
       </div>

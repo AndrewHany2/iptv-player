@@ -1,7 +1,10 @@
 import { useState, useEffect, useCallback, useRef, memo } from "react";
 import { FlatList, Image, Modal, Alert, TouchableOpacity, RefreshControl } from "react-native";
 import { YStack, XStack, Text, Input, ScrollView, Spinner } from "../ui/primitives";
-import { colors } from "../ui/tokens";
+import { colors, fonts, fontWeights, iconSizes, accentAlpha } from "../ui/tokens";
+import StatePanel from "../ui/StatePanel";
+import Button from "../ui/Button";
+import Icon from "../ui/Icon";
 import { useApp } from "../context/AppContext";
 import iptvApi from "../services/iptvApi";
 
@@ -44,9 +47,9 @@ const ChannelCard = memo(({ item, epg, onPress, fetchEpg }) => {
         <Text color={colors.text} fontSize={12} fontWeight="600" flex={1} numberOfLines={1}>{item.name}</Text>
         {/* fav toggle — keep as RN TouchableOpacity for hitSlop support */}
         <TouchableOpacity onPress={toggleFav} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={{ color: inFav ? colors.accent : "#555", fontSize: 16, marginRight: 4 }}>{inFav ? "♥" : "♡"}</Text>
+          <Text style={{ color: inFav ? colors.accent : colors.faint, fontSize: 16, marginRight: 4 }}>{inFav ? "♥" : "♡"}</Text>
         </TouchableOpacity>
-        <XStack alignItems="center" gap={4} backgroundColor="rgba(108, 92, 231,0.15)" borderRadius={4} paddingHorizontal={6} paddingVertical={2} borderWidth={1} borderColor="rgba(108, 92, 231,0.3)">
+        <XStack alignItems="center" gap={4} backgroundColor={accentAlpha(0.15)} borderRadius={4} paddingHorizontal={6} paddingVertical={2} borderWidth={1} borderColor={accentAlpha(0.3)}>
           <YStack width={6} height={6} borderRadius={3} backgroundColor={colors.accent} />
           <Text color={colors.accent} fontSize={9} fontWeight="800" letterSpacing={0.5}>LIVE</Text>
         </XStack>
@@ -55,7 +58,7 @@ const ChannelCard = memo(({ item, epg, onPress, fetchEpg }) => {
       <YStack height={3} backgroundColor={colors.border} borderRadius={2} marginTop={10}>
         <YStack width="35%" height="100%" backgroundColor={colors.accent} borderRadius={2} />
       </YStack>
-      <Text color="#666" fontSize={10} marginTop={7} letterSpacing={0.2}>Live · now playing</Text>
+      <Text color={colors.faint} fontSize={10} marginTop={7} letterSpacing={0.2}>Live · now playing</Text>
     </YStack>
   );
 });
@@ -66,9 +69,10 @@ function LiveShelf({ cat, epgCache, fetchEpg, onPress }) {
   if (channels !== null && !channels.length) return null;
   return (
     <YStack paddingTop={8} paddingBottom={20}>
-      <XStack alignItems="baseline" gap={10} paddingHorizontal={16} marginBottom={12}>
-        <Text color={colors.text} fontSize={18} fontWeight="700" letterSpacing={-0.2}>📺 {cat.name}</Text>
-        {channels && <Text color="#555" fontSize={13} fontWeight="500">{channels.length}</Text>}
+      <XStack alignItems="center" gap={8} paddingHorizontal={16} marginBottom={12}>
+        <Icon name="tv" size={iconSizes.md} color={colors.accent2} />
+        <Text color={colors.text} fontFamily={fonts.display} fontSize={18} fontWeight={fontWeights.bold} letterSpacing={-0.2}>{cat.name}</Text>
+        {channels && <Text color={colors.faint} fontSize={13} fontWeight={fontWeights.medium}>{channels.length}</Text>}
       </XStack>
       {channels === null ? (
         <YStack paddingHorizontal={16} paddingVertical={18}><Spinner size="small" color={colors.accent} /></YStack>
@@ -164,47 +168,42 @@ export default function LiveTVScreen({ navigation }) {
     : categories.map((cat) => ({ ...cat, channels: channelsByCategory[cat.id] ?? null }));
 
   if (loading) {
-    return (
-      <YStack flex={1} justifyContent="center" alignItems="center" backgroundColor={colors.bg} padding={24}>
-        <Spinner size="large" color={colors.accent} />
-        <Text color={colors.muted} marginTop={12} fontSize={14}>Loading channels...</Text>
-      </YStack>
-    );
+    return <StatePanel mode="loading" title="Loading channels..." />;
   }
 
   if (!activeUserId) {
     return (
-      <YStack flex={1} justifyContent="center" alignItems="center" backgroundColor={colors.bg} padding={24}>
-        <Text fontSize={48} marginBottom={12}>📡</Text>
-        <Text color={colors.text} fontSize={18} fontWeight="600" marginBottom={8}>No IPTV Account</Text>
-        <Text color={colors.muted} fontSize={14} textAlign="center" marginBottom={20}>Tap "Accounts" to add your IPTV service</Text>
-        <YStack backgroundColor={colors.accent} paddingHorizontal={24} paddingVertical={12} borderRadius={10} cursor="pointer" onPress={() => navigation.navigate("Accounts")} pressStyle={{ opacity: 0.9 }}>
-          <Text color={colors.text} fontWeight="600">Add Account</Text>
-        </YStack>
-      </YStack>
+      <StatePanel
+        mode="empty"
+        icon="tv"
+        title="No IPTV Account"
+        message='Tap "Accounts" to add your IPTV service'
+        cta={() => navigation.navigate("Accounts")}
+        ctaLabel="Add Account"
+      />
     );
   }
 
   if (error) {
     return (
-      <YStack flex={1} justifyContent="center" alignItems="center" backgroundColor={colors.bg} padding={24}>
-        <Text fontSize={48} marginBottom={12}>⚠️</Text>
-        <Text color={colors.danger} fontSize={18} fontWeight="600" marginBottom={8}>Couldn't load channels</Text>
-        <Text color={colors.muted} fontSize={14} textAlign="center" marginBottom={20}>Check your connection and try again.</Text>
-        <YStack backgroundColor={colors.accent} paddingHorizontal={24} paddingVertical={12} borderRadius={10} cursor="pointer" onPress={loadChannels} pressStyle={{ opacity: 0.9 }}>
-          <Text color={colors.text} fontWeight="600">Retry</Text>
-        </YStack>
-      </YStack>
+      <StatePanel
+        mode="error"
+        icon="tv"
+        title="Couldn't load channels"
+        message="Check your connection and try again."
+        onRetry={loadChannels}
+      />
     );
   }
 
   return (
     <YStack flex={1} backgroundColor={colors.bg}>
       <XStack alignItems="center" paddingHorizontal={16} paddingVertical={14} gap={10}>
-        <Input flex={1} placeholder="🔍 Search channels..." placeholderTextColor="#666" value={searchQuery} onChangeText={setSearchQuery} backgroundColor={colors.surface2} color={colors.text} paddingHorizontal={14} paddingVertical={10} borderRadius={10} fontSize={14} borderWidth={1} borderColor={colors.border} />
-        <YStack backgroundColor={colors.accent} borderRadius={10} paddingHorizontal={16} paddingVertical={10} cursor="pointer" onPress={() => setShowAddChannel(true)} pressStyle={{ opacity: 0.9 }}>
-          <Text color={colors.text} fontSize={14} fontWeight="700">+ Add</Text>
-        </YStack>
+        <XStack flex={1} alignItems="center" gap={8} backgroundColor={colors.surface2} borderRadius={10} paddingHorizontal={14} borderWidth={1} borderColor={colors.border}>
+          <Icon name="search" size={iconSizes.sm} color={colors.muted} />
+          <Input flex={1} placeholder="Search channels..." placeholderTextColor={colors.faint} value={searchQuery} onChangeText={setSearchQuery} backgroundColor="transparent" color={colors.text} paddingVertical={10} fontSize={14} />
+        </XStack>
+        <Button variant="primary" icon="plus" onPress={() => setShowAddChannel(true)}>Add</Button>
       </XStack>
 
       <FlatList
@@ -217,7 +216,7 @@ export default function LiveTVScreen({ navigation }) {
           viewableItems.forEach(({ item }) => { if (channelsByCategory[item.id] === undefined) loadChannelCategory(item.id); });
         }}
         viewabilityConfig={{ itemVisiblePercentThreshold: 10 }}
-        ListEmptyComponent={<YStack padding={60} alignItems="center"><Text color="#666" fontSize={15}>No channels found</Text></YStack>}
+        ListEmptyComponent={<YStack padding={60} alignItems="center"><Text color={colors.faint} fontSize={15}>No channels found</Text></YStack>}
         contentContainerStyle={{ paddingBottom: 60 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.accent} colors={[colors.accent]} />}
@@ -227,16 +226,12 @@ export default function LiveTVScreen({ navigation }) {
         <TouchableOpacity style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "flex-end" }} activeOpacity={1} onPress={() => setShowAddChannel(false)}>
           <TouchableOpacity style={{ backgroundColor: colors.surface2, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, borderTopWidth: 1, borderColor: colors.border }} activeOpacity={1}>
             <Text color={colors.text} fontSize={17} fontWeight="700" marginBottom={16}>Add Custom Channel</Text>
-            <Input placeholder="Channel name" placeholderTextColor="#666" value={newChannelName} onChangeText={setNewChannelName} backgroundColor={colors.bg} color={colors.text} borderRadius={10} paddingHorizontal={14} paddingVertical={12} fontSize={14} borderWidth={1} borderColor={colors.border} marginBottom={12} />
-            <Input placeholder="Stream URL (http://... or rtmp://...)" placeholderTextColor="#666" value={newStreamUrl} onChangeText={setNewStreamUrl} autoCapitalize="none" keyboardType="url" backgroundColor={colors.bg} color={colors.text} borderRadius={10} paddingHorizontal={14} paddingVertical={12} fontSize={14} borderWidth={1} borderColor={colors.border} marginBottom={12} />
-            <Text color="#666" fontSize={12} marginBottom={20}>Supported: HLS (.m3u8), DASH (.mpd), direct video</Text>
+            <Input placeholder="Channel name" placeholderTextColor={colors.faint} value={newChannelName} onChangeText={setNewChannelName} backgroundColor={colors.bg} color={colors.text} borderRadius={10} paddingHorizontal={14} paddingVertical={12} fontSize={14} borderWidth={1} borderColor={colors.border} marginBottom={12} />
+            <Input placeholder="Stream URL (http://... or rtmp://...)" placeholderTextColor={colors.faint} value={newStreamUrl} onChangeText={setNewStreamUrl} autoCapitalize="none" keyboardType="url" backgroundColor={colors.bg} color={colors.text} borderRadius={10} paddingHorizontal={14} paddingVertical={12} fontSize={14} borderWidth={1} borderColor={colors.border} marginBottom={12} />
+            <Text color={colors.faint} fontSize={12} marginBottom={20}>Supported: HLS (.m3u8), DASH (.mpd), direct video</Text>
             <XStack gap={12}>
-              <YStack flex={1} backgroundColor={colors.border} paddingVertical={14} borderRadius={10} alignItems="center" cursor="pointer" onPress={() => setShowAddChannel(false)} pressStyle={{ opacity: 0.8 }}>
-                <Text color={colors.muted} fontWeight="600">Cancel</Text>
-              </YStack>
-              <YStack flex={1} backgroundColor={colors.accent} paddingVertical={14} borderRadius={10} alignItems="center" cursor="pointer" onPress={handleAddChannel} pressStyle={{ opacity: 0.9 }}>
-                <Text color={colors.text} fontWeight="700">Add Channel</Text>
-              </YStack>
+              <Button variant="secondary" onPress={() => setShowAddChannel(false)} style={{ flex: 1 }}>Cancel</Button>
+              <Button variant="primary" onPress={handleAddChannel} style={{ flex: 1 }}>Add Channel</Button>
             </XStack>
           </TouchableOpacity>
         </TouchableOpacity>

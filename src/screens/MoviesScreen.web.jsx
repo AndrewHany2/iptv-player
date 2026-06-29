@@ -5,10 +5,14 @@ import { useMovies } from "../domain/hooks/useMovies";
 import { useTVNavigation } from "../hooks/useTVNavigation";
 import { ss, useScale } from "../utils/scaleSize";
 import { colors } from "../ui/tokens";
+import StatePanel from "../ui/StatePanel";
+import Button from "../ui/Button";
 import { getPlatformConfig, detectPlatform } from "../platform/configs/detectPlatform";
 import ContentShelf from "../presentation/components/ContentShelf.web";
 import PosterCard from "../presentation/components/PosterCard.web";
 import DiscoverPills from "../presentation/components/DiscoverPills.web";
+import Hero from "../presentation/components/Hero.web";
+import { selectHeroItem } from "../presentation/heroItem";
 import MovieDetail from "../components/MovieDetail.web";
 
 const _cfg = getPlatformConfig(detectPlatform());
@@ -102,26 +106,24 @@ function CategoryPage({ name, items, onBack, onPlay, onLoadMore, hasRemote, load
   };
 
   return (
-    <YStack flex={1} backgroundColor="#0A0E1A">
-      <XStack alignItems="center" gap={ss(14)} paddingHorizontal={ss(48)} paddingVertical={ss(18)} borderBottomWidth={1} borderBottomColor="#28324E">
-        <YStack paddingVertical={ss(8)} paddingHorizontal={ss(14)} backgroundColor="#1B2236" borderRadius={ss(8)} onPress={onBack}>
-          <Text color="#6C5CE7" fontSize={ss(14)} fontWeight="600">← Back</Text>
-        </YStack>
-        <Text color="#fff" fontSize={ss(22)} fontWeight="700">{name}</Text>
+    <YStack flex={1} backgroundColor={colors.bg}>
+      <XStack alignItems="center" gap={ss(14)} paddingHorizontal={ss(48)} paddingVertical={ss(18)} borderBottomWidth={1} borderBottomColor={colors.border}>
+        <Button variant="ghost" size="sm" icon="back" onPress={onBack}>Back</Button>
+        <Text color={colors.text} fontSize={ss(22)} fontWeight="700">{name}</Text>
         {filtered != null && (
           <YStack backgroundColor="rgba(255,255,255,0.07)" borderRadius={ss(20)} paddingHorizontal={ss(10)} paddingVertical={ss(4)}>
-            <Text color="#7A86A8" fontSize={ss(12)} fontWeight="600">{filtered.length.toLocaleString()}</Text>
+            <Text color={colors.muted} fontSize={ss(12)} fontWeight="600">{filtered.length.toLocaleString()}</Text>
           </YStack>
         )}
         <Input
-          flex={1} placeholder="Search titles..." placeholderTextColor="#555"
+          flex={1} placeholder="Search titles..." placeholderTextColor={colors.faint}
           value={search} onChangeText={setSearch}
-          backgroundColor="#1B2236" color="#fff" borderRadius={ss(10)}
-          paddingHorizontal={ss(14)} paddingVertical={ss(10)} fontSize={ss(14)} borderWidth={1} borderColor="#28324E"
+          backgroundColor={colors.surface2} color={colors.text} borderRadius={ss(10)}
+          paddingHorizontal={ss(14)} paddingVertical={ss(10)} fontSize={ss(14)} borderWidth={1} borderColor={colors.border}
         />
       </XStack>
       {!displayed ? (
-        <YStack flex={1} justifyContent="center" alignItems="center"><Spinner size="large" color="#6C5CE7" /></YStack>
+        <YStack flex={1} justifyContent="center" alignItems="center"><Spinner size="large" color={colors.accent} /></YStack>
       ) : (
         <ScrollView flex={1} minHeight={0} contentContainerStyle={{ paddingHorizontal: ss(48), paddingVertical: ss(32) }} onScroll={handleScroll} scrollEventThrottle={200}>
           <div ref={gridContainerRef} style={{ display: "grid", gridTemplateColumns: `repeat(auto-fill, ${ss(200)}px)`, gap: ss(16), justifyContent: "center", alignItems: "start" }}>
@@ -130,7 +132,7 @@ function CategoryPage({ name, items, onBack, onPlay, onLoadMore, hasRemote, load
             ))}
           </div>
           {(hasMore || loadingMore) && (
-            <YStack alignItems="center" paddingVertical={ss(24)}><Spinner size="small" color="#6C5CE7" /></YStack>
+            <YStack alignItems="center" paddingVertical={ss(24)}><Spinner size="small" color={colors.accent} /></YStack>
           )}
         </ScrollView>
       )}
@@ -155,46 +157,49 @@ export default function MoviesScreen({ navigation }) {
   });
 
   if (loading) {
-    return (
-      <YStack flex={1} justifyContent="center" alignItems="center" backgroundColor="#0A0E1A" padding={ss(24)}>
-        <Spinner size="large" color="#6C5CE7" />
-        <Text color="#7A86A8" marginTop={ss(12)} fontSize={ss(14)}>Loading movies...</Text>
-      </YStack>
-    );
+    return <StatePanel mode="loading" title="Loading movies..." />;
   }
 
   if (error) {
     return (
-      <YStack flex={1} justifyContent="center" alignItems="center" backgroundColor="#0A0E1A" padding={ss(24)}>
-        <Text fontSize={ss(48)} marginBottom={ss(12)}>⚠️</Text>
-        <Text color={colors.danger} fontSize={ss(18)} fontWeight="700" marginBottom={ss(8)}>Couldn't load movies</Text>
-        <Text color="#7A86A8" fontSize={ss(14)} textAlign="center" marginBottom={ss(20)}>Check your connection and try again</Text>
-        <YStack backgroundColor="#6C5CE7" paddingHorizontal={ss(24)} paddingVertical={ss(12)} borderRadius={ss(10)} onPress={reload}>
-          <Text color="#fff" fontWeight="600">Retry</Text>
-        </YStack>
-      </YStack>
+      <StatePanel
+        mode="error"
+        title="Couldn't load movies"
+        message="Check your connection and try again"
+        onRetry={reload}
+        retryLabel="Retry"
+      />
     );
   }
 
   if (!activeUserId) {
     return (
-      <YStack flex={1} justifyContent="center" alignItems="center" backgroundColor="#0A0E1A" padding={ss(24)}>
-        <Text fontSize={ss(48)} marginBottom={ss(12)}>🎬</Text>
-        <Text color="#fff" fontSize={ss(18)} fontWeight="600" marginBottom={ss(8)}>No IPTV Account</Text>
-        <Text color="#7A86A8" fontSize={ss(14)} textAlign="center" marginBottom={ss(20)}>Add your IPTV service from Settings</Text>
-        <YStack backgroundColor="#6C5CE7" paddingHorizontal={ss(24)} paddingVertical={ss(12)} borderRadius={ss(10)} onPress={() => navigation.navigate("Accounts")}>
-          <Text color="#fff" fontWeight="600">Add Account</Text>
-        </YStack>
-      </YStack>
+      <StatePanel
+        mode="empty"
+        icon="film"
+        title="No IPTV Account"
+        message="Add your IPTV service from Settings"
+        cta={() => navigation.navigate("Accounts")}
+        ctaLabel="Add Account"
+      />
     );
   }
 
+  const heroItem = !categoryPage && !selectedMovie
+    ? selectHeroItem(shelves.find((s) => s.items?.length)?.items)
+    : null;
+
   return (
-    <YStack flex={1} backgroundColor="#0A0E1A" position="relative">
+    <YStack flex={1} backgroundColor={colors.bg} position="relative">
       <ScrollView flex={1} minHeight={0} contentContainerStyle={{ paddingBottom: ss(80) }}>
         <YStack maxWidth={MAX_W} width="100%" alignSelf="center">
+        {heroItem && (
+          <YStack paddingHorizontal={ss(48)} paddingTop={ss(24)}>
+            <Hero item={heroItem} onPlay={() => selectMovie(heroItem)} onDetails={() => selectMovie(heroItem)} />
+          </YStack>
+        )}
         <YStack paddingHorizontal={ss(48)} paddingTop={ss(24)} paddingBottom={ss(4)}>
-          <Text color="#fff" fontSize={ss(22)} fontWeight="700" letterSpacing={-0.3} marginBottom={ss(12)}>Discover</Text>
+          <Text color={colors.text} fontSize={ss(22)} fontWeight="700" letterSpacing={-0.3} marginBottom={ss(12)}>Discover</Text>
           <DiscoverPills
             items={discoverItems}
             focusedCol={focusedRow === 0 ? focusedCol : -1}
@@ -215,7 +220,7 @@ export default function MoviesScreen({ navigation }) {
               />
             ))
           ) : (
-            <YStack padding={ss(60)} alignItems="center"><Text color="#666" fontSize={ss(15)}>No movies found</Text></YStack>
+            <StatePanel mode="empty" icon="film" title="No movies found" />
           )}
         </YStack>
         </YStack>

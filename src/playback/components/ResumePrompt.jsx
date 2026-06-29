@@ -10,7 +10,8 @@
  * TV and native with one code path. Aurora palette per the design tokens.
  */
 import { YStack, XStack, Text } from "../../ui/primitives";
-import { colors, radii, space } from "../../ui/tokens";
+import { colors, radii, space, fonts, fontSizes, fontWeights, zIndex, overlay } from "../../ui/tokens";
+import Button from "../../ui/Button";
 
 /** Format seconds as M:SS or H:MM:SS. */
 function formatTime(totalSeconds) {
@@ -44,11 +45,11 @@ export default function ResumePrompt({ visible, resumeTime, percent = 0, onResum
       bottom={0}
       alignItems="center"
       justifyContent="center"
-      backgroundColor="rgba(10,14,26,0.82)"
-      zIndex={1100}
+      backgroundColor={overlay}
+      zIndex={zIndex.modal}
     >
       <YStack
-        backgroundColor={colors.surface}
+        backgroundColor={colors.surface2}
         borderColor={colors.border}
         borderWidth={1}
         borderRadius={radii.lg}
@@ -57,11 +58,16 @@ export default function ResumePrompt({ visible, resumeTime, percent = 0, onResum
         maxWidth={420}
         gap={space.lg}
       >
-        <Text color={colors.text} fontSize={20} fontWeight="700">
+        <Text
+          fontFamily={fonts.display}
+          color={colors.text}
+          fontSize={fontSizes.lg}
+          fontWeight={fontWeights.bold}
+        >
           Resume playback?
         </Text>
 
-        <Text color={colors.muted} fontSize={14}>
+        <Text fontFamily={fonts.body} color={colors.muted} fontSize={fontSizes.sm}>
           {`You stopped at ${formatTime(resumeTime)}.`}
         </Text>
 
@@ -81,42 +87,18 @@ export default function ResumePrompt({ visible, resumeTime, percent = 0, onResum
         </YStack>
 
         <XStack gap={space.md} marginTop={space.xs}>
-          <YStack
-            flex={1}
+          <Button
+            variant="primary"
+            icon="play"
             onPress={onResume}
-            backgroundColor={colors.accent}
-            borderRadius={radii.md}
-            paddingVertical={space.md}
-            paddingHorizontal={space.lg}
-            alignItems="center"
-            justifyContent="center"
-            pressStyle={{ opacity: 0.85 }}
-            hoverStyle={{ opacity: 0.9 }}
-            cursor="pointer"
+            style={{ flex: 1 }}
           >
-            <Text color="#FFFFFF" fontSize={15} fontWeight="600">
-              {`Resume from ${formatTime(resumeTime)}`}
-            </Text>
-          </YStack>
+            {`Resume from ${formatTime(resumeTime)}`}
+          </Button>
 
-          <YStack
-            onPress={onStartOver}
-            backgroundColor={colors.surface2}
-            borderColor={colors.border}
-            borderWidth={1}
-            borderRadius={radii.md}
-            paddingVertical={space.md}
-            paddingHorizontal={space.lg}
-            alignItems="center"
-            justifyContent="center"
-            pressStyle={{ opacity: 0.85 }}
-            hoverStyle={{ opacity: 0.9 }}
-            cursor="pointer"
-          >
-            <Text color={colors.text} fontSize={15} fontWeight="600">
-              Start over
-            </Text>
-          </YStack>
+          <Button variant="secondary" icon="back" onPress={onStartOver}>
+            Start over
+          </Button>
         </XStack>
       </YStack>
     </YStack>

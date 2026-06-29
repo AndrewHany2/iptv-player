@@ -30,6 +30,20 @@ import ResumePrompt from "../playback/components/ResumePrompt";
 import SubtitleSettings from "../playback/components/SubtitleSettings";
 import StatsOverlay from "../playback/components/StatsOverlay";
 import storage from "../utils/storage";
+import Icon from "../ui/Icon";
+import StatePanel from "../ui/StatePanel";
+import Button from "../ui/Button";
+import {
+  colors,
+  accentAlpha,
+  radii,
+  fonts,
+  fontWeights,
+  focusRing,
+  motion,
+  easing,
+  GLOW_WEB,
+} from "../ui/tokens";
 
 /** Namespaced storage key remembering the last live channel stream_id. */
 const LAST_CHANNEL_KEY = "lumen_last_live_channel";
@@ -114,7 +128,8 @@ const S = {
   },
   title: {
     flex: 1,
-    color: "#fff",
+    color: colors.text,
+    fontFamily: fonts.display,
     fontSize: 14,
     fontWeight: 600,
     minWidth: 60,
@@ -138,25 +153,28 @@ const S = {
     display: "block",
   },
   btn: {
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
     backgroundColor: "rgba(255,255,255,0.15)",
     border: "1px solid rgba(255,255,255,0.2)",
-    color: "#fff",
-    borderRadius: 6,
-    padding: "5px 10px",
+    color: colors.text,
+    borderRadius: radii.sm,
+    padding: "6px 10px",
     fontSize: 12,
+    fontFamily: fonts.body,
     fontWeight: 600,
     cursor: "pointer",
     whiteSpace: "nowrap",
+    transition: `box-shadow ${motion.base}ms ${easing}, outline-color ${motion.fast}ms ${easing}`,
   },
   closeBtn: {
-    backgroundColor: "rgba(108, 92, 231,0.9)",
+    backgroundColor: accentAlpha(0.9),
     border: "none",
-    color: "#fff",
+    color: colors.text,
     borderRadius: "50%",
     width: 32,
     height: 32,
-    fontSize: 14,
-    fontWeight: 700,
     cursor: "pointer",
     flexShrink: 0,
     display: "flex",
@@ -164,12 +182,16 @@ const S = {
     justifyContent: "center",
   },
   nextBtn: {
-    backgroundColor: "rgba(108, 92, 231,0.9)",
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: accentAlpha(0.9),
     border: "none",
-    color: "#fff",
-    borderRadius: 6,
-    padding: "5px 12px",
+    color: colors.text,
+    borderRadius: radii.sm,
+    padding: "6px 12px",
     fontSize: 12,
+    fontFamily: fonts.body,
     fontWeight: 600,
     cursor: "pointer",
   },
@@ -178,9 +200,9 @@ const S = {
     position: "absolute",
     top: "110%",
     right: 0,
-    backgroundColor: "#1B2236",
-    border: "1px solid #28324E",
-    borderRadius: 8,
+    backgroundColor: colors.surface2,
+    border: `1px solid ${colors.border}`,
+    borderRadius: radii.sm,
     padding: 4,
     minWidth: 130,
     zIndex: 100,
@@ -191,48 +213,28 @@ const S = {
     display: "block",
     width: "100%",
     textAlign: "left",
-    fontFamily: "inherit",
+    fontFamily: fonts.body,
     border: "none",
     padding: "9px 14px",
-    borderRadius: 6,
+    borderRadius: radii.sm,
     cursor: "pointer",
     fontSize: 14,
-    color: active ? "#6C5CE7" : "#7A86A8",
+    color: active ? colors.accent : colors.muted,
     fontWeight: active ? 700 : 400,
-    backgroundColor: active ? "rgba(108, 92, 231,0.12)" : "transparent",
+    backgroundColor: active ? accentAlpha(0.12) : "transparent",
   }),
-  loadingOverlay: {
+  stateOverlay: {
     position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(0,0,0,0.6)",
-    color: "#fff",
-    gap: 10,
-  },
-  errorOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(0,0,0,0.85)",
-    color: "#fff",
-    gap: 10,
   },
   footer: {
     padding: "4px 12px",
     backgroundColor: "rgba(0,0,0,0.7)",
-    color: "#666",
+    color: colors.faint,
+    fontFamily: fonts.body,
     fontSize: 11,
     flexShrink: 0,
   },
@@ -274,14 +276,12 @@ const TV = {
     flexShrink: 0,
   },
   closeBtn: {
-    background: "rgba(108, 92, 231,0.9)",
+    background: accentAlpha(0.9),
     border: "none",
-    color: "#fff",
+    color: colors.text,
     borderRadius: "50%",
     width: 52,
     height: 52,
-    fontSize: 22,
-    fontWeight: 700,
     cursor: "pointer",
     flexShrink: 0,
     display: "flex",
@@ -291,7 +291,8 @@ const TV = {
   title: {
     flex: 1,
     minWidth: 0,
-    color: "#fff",
+    color: colors.text,
+    fontFamily: fonts.display,
     fontSize: 26,
     fontWeight: 700,
     overflow: "hidden",
@@ -299,10 +300,13 @@ const TV = {
     textOverflow: "ellipsis",
   },
   nextBtn: {
-    background: "rgba(108, 92, 231,0.9)",
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    background: accentAlpha(0.9),
     border: "none",
-    color: "#fff",
-    borderRadius: 8,
+    color: colors.text,
+    borderRadius: radii.sm,
     padding: "12px 24px",
     fontSize: 18,
     fontWeight: 700,
@@ -315,9 +319,10 @@ const TV = {
     flex: 1,
   },
   playIcon: {
-    fontSize: 80,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
     color: "rgba(255,255,255,0.9)",
-    textShadow: "0 0 40px rgba(0,0,0,0.8)",
   },
   bottomBar: {
     padding: "0 48px 32px",
@@ -329,7 +334,7 @@ const TV = {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    color: "#fff",
+    color: colors.text,
     fontSize: 20,
     fontWeight: 600,
   },
@@ -343,7 +348,7 @@ const TV = {
   progressFill: (pct) => ({
     height: "100%",
     width: `${pct}%`,
-    background: "#6C5CE7",
+    background: colors.accent,
     borderRadius: 3,
     transition: "width 0.5s linear",
   }),
@@ -1470,10 +1475,11 @@ export default function VideoPlayerScreen() {
         position: "absolute",
         bottom: isTV ? 48 : 16,
         right: isTV ? 48 : 16,
-        backgroundColor: "rgba(108, 92, 231,0.92)",
-        color: "#fff",
+        backgroundColor: accentAlpha(0.92),
+        color: colors.text,
+        fontFamily: fonts.body,
         padding: isTV ? "12px 22px" : "8px 14px",
-        borderRadius: isTV ? 10 : 8,
+        borderRadius: isTV ? radii.md : radii.sm,
         fontSize: isTV ? 18 : 13,
         fontWeight: 600,
         zIndex: 30,
@@ -1512,13 +1518,13 @@ export default function VideoPlayerScreen() {
         <div style={TV.controls(tvControlsVisible)} onClick={showTvControls}>
           {/* Top bar */}
           <div style={TV.topBar}>
-            <button style={TV.closeBtn} tabIndex={-1} onClick={handleClose}>
-              ✕
+            <button style={TV.closeBtn} tabIndex={-1} onClick={handleClose} aria-label="Close">
+              <Icon name="back" size={26} color={colors.text} />
             </button>
             <span style={TV.title}>
               {currentVideo.name}
               {isLive && nowNext.now && (
-                <span style={{ display: "block", fontSize: 18, fontWeight: 500, color: "#22D3EE" }}>
+                <span style={{ display: "block", fontSize: 18, fontWeight: 500, color: colors.accent2 }}>
                   {`NOW: ${nowNext.now.title}`}
                   {nowNext.next ? `  ·  NEXT: ${nowNext.next.title}` : ""}
                 </span>
@@ -1531,12 +1537,13 @@ export default function VideoPlayerScreen() {
                 tabIndex={-1}
                 onClick={handleStartOver}
               >
-                ↺ Start over
+                <Icon name="back" size={18} color={colors.text} /> Start over
               </button>
             )}
             {nextEpisode && (
               <button style={TV.nextBtn} tabIndex={-1} onClick={handleNextEpisode}>
-                {`Next ▶ S${String(nextEpisode.seasonNum).padStart(2, "0")}E${String(nextEpisode.episode.episode_num).padStart(2, "0")}`}
+                <Icon name="play" size={18} color={colors.text} />
+                {`Next  S${String(nextEpisode.seasonNum).padStart(2, "0")}E${String(nextEpisode.episode.episode_num).padStart(2, "0")}`}
               </button>
             )}
           </div>
@@ -1549,13 +1556,22 @@ export default function VideoPlayerScreen() {
                   width: 64,
                   height: 64,
                   border: "5px solid rgba(255,255,255,0.2)",
-                  borderTopColor: "#6C5CE7",
+                  borderTopColor: colors.accent,
                   borderRadius: "50%",
                   animation: "spin 0.8s linear infinite",
                 }}
               />
             ) : (
-              <span style={TV.playIcon}>{tvPaused ? "▶" : "⏸"}</span>
+              <span style={TV.playIcon}>
+                {tvPaused ? (
+                  <Icon name="play" size={80} color="rgba(255,255,255,0.9)" />
+                ) : (
+                  <span style={{ display: "flex", gap: 14 }}>
+                    <span style={{ width: 22, height: 72, background: "rgba(255,255,255,0.9)", borderRadius: 4 }} />
+                    <span style={{ width: 22, height: 72, background: "rgba(255,255,255,0.9)", borderRadius: 4 }} />
+                  </span>
+                )}
+              </span>
             )}
           </div>
 
@@ -1593,37 +1609,17 @@ export default function VideoPlayerScreen() {
 
         {/* Error */}
         {isFatal && (
-          <div style={{ ...S.errorOverlay, zIndex: 20 }}>
-            <p style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>
-              Failed to load stream
-            </p>
-            <p style={{ margin: 0, color: "#7A86A8", fontSize: 18 }}>{fatalMessage}</p>
-            <div style={{ display: "flex", gap: 16 }}>
-              <button
-                style={{
-                  ...TV.closeBtn,
-                  borderRadius: 10,
-                  width: "auto",
-                  padding: "14px 32px",
-                  fontSize: 18,
-                  background: "rgba(255,255,255,0.15)",
-                }}
-                onClick={handleRetry}
-              >
-                Retry
-              </button>
-              <button
-                style={{
-                  ...TV.closeBtn,
-                  borderRadius: 10,
-                  width: "auto",
-                  padding: "14px 32px",
-                  fontSize: 18,
-                }}
-                onClick={handleClose}
-              >
+          <div style={{ ...S.stateOverlay, zIndex: 20, backgroundColor: "rgba(0,0,0,0.85)", display: "flex", flexDirection: "column" }}>
+            <StatePanel
+              mode="error"
+              title="Failed to load stream"
+              message={fatalMessage}
+              onRetry={handleRetry}
+            />
+            <div style={{ display: "flex", justifyContent: "center", paddingBottom: 48 }}>
+              <Button variant="secondary" size="lg" icon="close" onPress={handleClose}>
                 Close
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -1644,14 +1640,14 @@ export default function VideoPlayerScreen() {
   return (
     <div style={S.overlay}>
       <div style={S.header}>
-        <button style={S.closeBtn} onClick={handleClose} title="Close (Esc)">
-          ✕
+        <button style={S.closeBtn} onClick={handleClose} title="Close (Esc)" aria-label="Close">
+          <Icon name="close" size={16} color={colors.text} />
         </button>
         <span style={S.title}>{currentVideo.name}</span>
 
         <div style={S.dropdown} ref={speedRef}>
           <button style={S.btn} onClick={() => setOpenMenu((m) => m === "speed" ? null : "speed")}>
-            ▶ {playbackRate}x
+            <Icon name="play" size={13} color={colors.text} /> {playbackRate}x
           </button>
           {openMenu === "speed" && (
             <div style={S.menu}>
@@ -1674,7 +1670,7 @@ export default function VideoPlayerScreen() {
         {audioTracks.length > 1 && (
           <div style={S.dropdown} ref={audioRef}>
             <button style={S.btn} onClick={() => setOpenMenu((m) => m === "audio" ? null : "audio")}>
-              ♪ {audioTracks[selectedAudio]?.name || "Audio"}
+              {audioTracks[selectedAudio]?.name || "Audio"}
             </button>
             {openMenu === "audio" && (
               <div style={S.menu}>
@@ -1734,7 +1730,7 @@ export default function VideoPlayerScreen() {
 
         <div style={S.dropdown} ref={aspectRef}>
           <button style={S.btn} onClick={() => setOpenMenu((m) => m === "aspect" ? null : "aspect")}>
-            ⊡ {aspectRatio === "default" ? "Aspect" : aspectRatio}
+            {aspectRatio === "default" ? "Aspect" : aspectRatio}
           </button>
           {openMenu === "aspect" && (
             <div style={S.menu}>
@@ -1757,7 +1753,7 @@ export default function VideoPlayerScreen() {
         {qualityLevels.length > 1 && (
           <div style={S.dropdown} ref={qualityRef}>
             <button style={S.btn} onClick={() => setOpenMenu((m) => m === "quality" ? null : "quality")}>
-              ⚙ {currentQualityLabel}
+              <Icon name="settings" size={13} color={colors.text} /> {currentQualityLabel}
             </button>
             {openMenu === "quality" && (
               <div style={S.menu}>
@@ -1787,34 +1783,34 @@ export default function VideoPlayerScreen() {
         {/* PiP toggle (when the browser supports it). Shortcut: 'p'. */}
         {pipSupported && (
           <button
-            style={S.btn}
+            style={pipActive ? { ...S.btn, color: colors.accent2 } : S.btn}
             onClick={handleTogglePip}
             title="Picture-in-Picture (p)"
           >
-            {pipActive ? "◱ PiP On" : "◰ PiP"}
+            {pipActive ? "PiP On" : "PiP"}
           </button>
         )}
 
         {/* Cast / Remote Playback (when available). */}
         {castSupported && (
           <button style={S.btn} onClick={handleCast} title="Cast / AirPlay">
-            ⧉ Cast
+            Cast
           </button>
         )}
 
         {/* Stats overlay toggle. Shortcut: 'i'. */}
         <button
-          style={{ ...S.btn, color: showStats ? "#22D3EE" : "#fff" }}
+          style={{ ...S.btn, color: showStats ? colors.accent2 : colors.text }}
           onClick={() => setShowStats((v) => !v)}
           title="Stats for nerds (i)"
         >
-          ⓘ
+          Stats
         </button>
 
         {/* More: subtitle/audio tuning + sleep timer. */}
         <div style={S.dropdown} ref={moreRef}>
           <button style={S.btn} onClick={() => setOpenMenu((m) => (m === "more" ? null : "more"))}>
-            ⋯ {sleep.active ? formatRemaining(sleep.secondsLeft) : "More"}
+            {sleep.active ? formatRemaining(sleep.secondsLeft) : "More"}
           </button>
           {openMenu === "more" && (
             <div style={{ ...S.menu, minWidth: 300, padding: 0, maxHeight: 520 }}>
@@ -1824,8 +1820,8 @@ export default function VideoPlayerScreen() {
                 audioOffsetMs={audioOffsetMs}
                 onChange={handleSubtitleSettingsChange}
               />
-              <div style={{ padding: "10px 12px", borderTop: "1px solid #28324E" }}>
-                <div style={{ color: "#7A86A8", fontSize: 13, marginBottom: 8 }}>
+              <div style={{ padding: "10px 12px", borderTop: `1px solid ${colors.border}` }}>
+                <div style={{ color: colors.muted, fontFamily: fonts.body, fontSize: 13, marginBottom: 8 }}>
                   Sleep timer
                 </div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
@@ -1850,7 +1846,7 @@ export default function VideoPlayerScreen() {
                   ))}
                   {sleep.active && (
                     <button
-                      style={{ ...S.menuItem(false), color: "#E5484D" }}
+                      style={{ ...S.menuItem(false), color: colors.danger }}
                       onClick={() => { sleep.cancel(); setOpenMenu(null); }}
                     >
                       Cancel timer
@@ -1868,7 +1864,7 @@ export default function VideoPlayerScreen() {
             onClick={handleNextEpisode}
             title={`Next: S${String(nextEpisode.seasonNum).padStart(2, "0")}E${String(nextEpisode.episode.episode_num).padStart(2, "0")}`}
           >
-            Next ▶
+            Next <Icon name="play" size={13} color={colors.text} />
           </button>
         )}
       </div>
@@ -1881,7 +1877,8 @@ export default function VideoPlayerScreen() {
             gap: 16,
             padding: "4px 12px 8px",
             backgroundColor: "rgba(0,0,0,0.7)",
-            color: "#EAF0FF",
+            color: colors.text,
+            fontFamily: fonts.body,
             fontSize: 12,
             flexShrink: 0,
             alignItems: "center",
@@ -1889,17 +1886,17 @@ export default function VideoPlayerScreen() {
         >
           {nowNext.now && (
             <span style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
-              <strong style={{ color: "#22D3EE" }}>NOW</strong>
+              <strong style={{ color: colors.accent2 }}>NOW</strong>
               <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {nowNext.now.title}
               </span>
               {typeof nowNext.now.progressPct === "number" && (
-                <span style={{ color: "#7A86A8" }}>{nowNext.now.progressPct}%</span>
+                <span style={{ color: colors.muted }}>{nowNext.now.progressPct}%</span>
               )}
             </span>
           )}
           {nowNext.next && (
-            <span style={{ color: "#7A86A8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <span style={{ color: colors.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               <strong>NEXT</strong> {nowNext.next.title}
             </span>
           )}
@@ -1927,31 +1924,22 @@ export default function VideoPlayerScreen() {
           onStartOver={() => resolveResume("startOver")}
         />
         {isLoading && (
-          <div style={S.loadingOverlay}>
-            <div
-              style={{
-                width: 40,
-                height: 40,
-                border: "4px solid rgba(255,255,255,0.2)",
-                borderTopColor: "#6C5CE7",
-                borderRadius: "50%",
-                animation: "spin 0.8s linear infinite",
-              }}
-            />
-            <p style={{ margin: 0 }}>Loading stream...</p>
+          <div style={{ ...S.stateOverlay, backgroundColor: "rgba(0,0,0,0.6)" }}>
+            <StatePanel mode="loading" title="Loading stream..." />
           </div>
         )}
         {isFatal && (
-          <div style={S.errorOverlay}>
-            <p style={{ margin: 0, fontSize: 16 }}>Failed to load stream</p>
-            <p style={{ margin: 0, color: "#7A86A8", fontSize: 13 }}>{fatalMessage}</p>
-            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-              <button style={S.btn} onClick={handleRetry}>
-                Retry
-              </button>
-              <button style={S.btn} onClick={handleClose}>
+          <div style={{ ...S.stateOverlay, backgroundColor: "rgba(0,0,0,0.85)", display: "flex", flexDirection: "column" }}>
+            <StatePanel
+              mode="error"
+              title="Failed to load stream"
+              message={fatalMessage}
+              onRetry={handleRetry}
+            />
+            <div style={{ display: "flex", justifyContent: "center", paddingBottom: 24 }}>
+              <Button variant="secondary" size="md" icon="close" onPress={handleClose}>
                 Close
-              </button>
+              </Button>
             </div>
           </div>
         )}

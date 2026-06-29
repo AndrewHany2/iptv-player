@@ -1,7 +1,10 @@
 import { useState, useEffect, useCallback, useRef, useMemo, memo } from "react";
 import { Modal, Alert, TouchableOpacity } from "react-native";
 import { YStack, XStack, Text, Input, ScrollView, Spinner } from "../ui/primitives";
-import { colors } from "../ui/tokens";
+import { colors, fonts, fontWeights, iconSizes } from "../ui/tokens";
+import StatePanel from "../ui/StatePanel";
+import Button from "../ui/Button";
+import Icon from "../ui/Icon";
 import { useApp } from "../context/AppContext";
 import { useContentService } from "../domain/hooks/useContentService";
 import { ss, useScale } from "../utils/scaleSize";
@@ -116,7 +119,7 @@ const LiveCard = memo(function LiveCard({ item, epg, onPress, fetchEpg }) {
         >
           <Text
             style={{
-              color: inFav ? colors.accent : "#555",
+              color: inFav ? colors.accent : colors.faint,
               fontSize: ss(16),
               marginRight: ss(6),
             }}
@@ -149,7 +152,7 @@ const LiveCard = memo(function LiveCard({ item, epg, onPress, fetchEpg }) {
         />
       </YStack>
       <Text
-        color="#666"
+        color={colors.faint}
         fontSize={ss(11)}
         marginTop={ss(7)}
         letterSpacing={0.2}
@@ -259,21 +262,23 @@ function LiveShelf({ cat, onVisible, epgCache, fetchEpg, onPress }) {
     <YStack paddingTop={ss(28)} paddingBottom={ss(20)} overflow="visible">
       <div ref={sentinelRef} style={{ height: 0 }} />
       <XStack
-        alignItems="baseline"
+        alignItems="center"
         gap={ss(10)}
         paddingHorizontal={ss(48)}
         marginBottom={ss(14)}
       >
+        <Icon name="tv" size={ss(iconSizes.md)} color={colors.accent2} />
         <Text
           color={colors.text}
+          fontFamily={fonts.display}
           fontSize={ss(22)}
-          fontWeight="700"
+          fontWeight={fontWeights.bold}
           letterSpacing={-0.2}
         >
-          📺 {cat.name}
+          {cat.name}
         </Text>
         {channels && (
-          <Text color="#555" fontSize={ss(13)} fontWeight="500">
+          <Text color={colors.faint} fontSize={ss(13)} fontWeight={fontWeights.medium}>
             {channels.length}
           </Text>
         )}
@@ -284,8 +289,14 @@ function LiveShelf({ cat, onVisible, epgCache, fetchEpg, onPress }) {
         </YStack>
       ) : (
         <div style={{ position: "relative" }} className="lumen-shelf-rail">
-          <button className="lumen-shelf-nav" onClick={() => scrollBy(-800)}>
-            ‹
+          <button
+            className="lumen-shelf-nav"
+            onClick={() => scrollBy(-800)}
+            aria-label="Scroll left"
+          >
+            <span style={{ display: "inline-flex", transform: "rotate(180deg)" }}>
+              <Icon name="chevron-right" size={ss(iconSizes.lg)} color={colors.text} />
+            </span>
           </button>
           <div
             ref={railRef}
@@ -317,8 +328,9 @@ function LiveShelf({ cat, onVisible, epgCache, fetchEpg, onPress }) {
           <button
             className="lumen-shelf-nav right"
             onClick={() => scrollBy(800)}
+            aria-label="Scroll right"
           >
-            ›
+            <Icon name="chevron-right" size={ss(iconSizes.lg)} color={colors.text} />
           </button>
         </div>
       )}
@@ -488,109 +500,31 @@ export default function LiveTVScreen({ navigation }) {
   );
 
   if (loading) {
-    return (
-      <YStack
-        flex={1}
-        justifyContent="center"
-        alignItems="center"
-        backgroundColor={colors.bg}
-        padding={ss(24)}
-      >
-        <Spinner size="large" color={colors.accent} />
-        <Text color={colors.muted} marginTop={ss(12)} fontSize={ss(14)}>
-          Loading channels...
-        </Text>
-      </YStack>
-    );
+    return <StatePanel mode="loading" title="Loading channels..." />;
   }
 
   if (error) {
     return (
-      <YStack
-        flex={1}
-        justifyContent="center"
-        alignItems="center"
-        backgroundColor={colors.bg}
-        padding={ss(24)}
-      >
-        <Text fontSize={ss(48)} marginBottom={ss(12)}>
-          ⚠️
-        </Text>
-        <Text
-          color={colors.text}
-          fontSize={ss(18)}
-          fontWeight="600"
-          marginBottom={ss(8)}
-        >
-          Couldn't load channels
-        </Text>
-        <Text
-          color={colors.muted}
-          fontSize={ss(14)}
-          textAlign="center"
-          marginBottom={ss(20)}
-        >
-          Check your connection or IPTV account and try again
-        </Text>
-        <YStack
-          backgroundColor={colors.accent}
-          paddingHorizontal={ss(24)}
-          paddingVertical={ss(12)}
-          borderRadius={ss(10)}
-          cursor="pointer"
-          onPress={loadChannels}
-          pressStyle={{ opacity: 0.9 }}
-        >
-          <Text color={colors.text} fontWeight="600">
-            Retry
-          </Text>
-        </YStack>
-      </YStack>
+      <StatePanel
+        mode="error"
+        icon="tv"
+        title="Couldn't load channels"
+        message="Check your connection or IPTV account and try again"
+        onRetry={loadChannels}
+      />
     );
   }
 
   if (!activeUserId) {
     return (
-      <YStack
-        flex={1}
-        justifyContent="center"
-        alignItems="center"
-        backgroundColor={colors.bg}
-        padding={ss(24)}
-      >
-        <Text fontSize={ss(48)} marginBottom={ss(12)}>
-          📡
-        </Text>
-        <Text
-          color={colors.text}
-          fontSize={ss(18)}
-          fontWeight="600"
-          marginBottom={ss(8)}
-        >
-          No IPTV Account
-        </Text>
-        <Text
-          color={colors.muted}
-          fontSize={ss(14)}
-          textAlign="center"
-          marginBottom={ss(20)}
-        >
-          Tap "Accounts" to add your IPTV service
-        </Text>
-        <YStack
-          backgroundColor={colors.accent}
-          paddingHorizontal={ss(24)}
-          paddingVertical={ss(12)}
-          borderRadius={ss(10)}
-          cursor="pointer"
-          onPress={() => navigation.navigate("Accounts")}
-          pressStyle={{ opacity: 0.9 }}
-        >
-          <Text color={colors.text} fontWeight="600">
-            Add Account
-          </Text>
-        </YStack>
-      </YStack>
+      <StatePanel
+        mode="empty"
+        icon="tv"
+        title="No IPTV Account"
+        message='Tap "Accounts" to add your IPTV service'
+        cta={() => navigation.navigate("Accounts")}
+        ctaLabel="Add Account"
+      />
     );
   }
 
@@ -607,34 +541,32 @@ export default function LiveTVScreen({ navigation }) {
         paddingVertical={ss(20)}
         gap={ss(10)}
       >
-        <Input
+        <XStack
           flex={1}
-          placeholder="🔍 Search channels..."
-          placeholderTextColor="#666"
-          value={searchQuery}
-          onChangeText={setSearchQuery}
+          alignItems="center"
+          gap={ss(8)}
           backgroundColor={colors.surface2}
-          color={colors.text}
-          paddingHorizontal={ss(14)}
-          paddingVertical={ss(10)}
           borderRadius={ss(10)}
-          fontSize={ss(14)}
+          paddingHorizontal={ss(14)}
           borderWidth={1}
           borderColor={colors.border}
-        />
-        <YStack
-          backgroundColor={colors.accent}
-          borderRadius={ss(10)}
-          paddingHorizontal={ss(16)}
-          paddingVertical={ss(10)}
-          cursor="pointer"
-          onPress={() => setShowAddChannel(true)}
-          pressStyle={{ opacity: 0.9 }}
         >
-          <Text color={colors.text} fontSize={ss(14)} fontWeight="700">
-            + Add
-          </Text>
-        </YStack>
+          <Icon name="search" size={ss(iconSizes.sm)} color={colors.muted} />
+          <Input
+            flex={1}
+            placeholder="Search channels..."
+            placeholderTextColor={colors.faint}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            backgroundColor="transparent"
+            color={colors.text}
+            paddingVertical={ss(10)}
+            fontSize={ss(14)}
+          />
+        </XStack>
+        <Button variant="primary" icon="plus" onPress={() => setShowAddChannel(true)}>
+          Add
+        </Button>
       </XStack>
 
       {displayCategories.length > 0 ? (
@@ -650,7 +582,7 @@ export default function LiveTVScreen({ navigation }) {
         ))
       ) : (
         <YStack padding={ss(60)} alignItems="center">
-          <Text color="#666" fontSize={ss(15)}>
+          <Text color={colors.faint} fontSize={ss(15)}>
             No channels found
           </Text>
         </YStack>
@@ -693,7 +625,7 @@ export default function LiveTVScreen({ navigation }) {
             </Text>
             <Input
               placeholder="Channel name"
-              placeholderTextColor="#666"
+              placeholderTextColor={colors.faint}
               value={newChannelName}
               onChangeText={setNewChannelName}
               backgroundColor={colors.bg}
@@ -708,7 +640,7 @@ export default function LiveTVScreen({ navigation }) {
             />
             <Input
               placeholder="Stream URL (http://... or rtmp://...)"
-              placeholderTextColor="#666"
+              placeholderTextColor={colors.faint}
               value={newStreamUrl}
               onChangeText={setNewStreamUrl}
               autoCapitalize="none"
@@ -722,38 +654,24 @@ export default function LiveTVScreen({ navigation }) {
               borderColor={colors.border}
               marginBottom={ss(12)}
             />
-            <Text color="#666" fontSize={ss(12)} marginBottom={ss(20)}>
+            <Text color={colors.faint} fontSize={ss(12)} marginBottom={ss(20)}>
               Supported: HLS (.m3u8), DASH (.mpd), direct video
             </Text>
             <XStack gap={ss(12)}>
-              <YStack
-                flex={1}
-                backgroundColor={colors.border}
-                paddingVertical={ss(14)}
-                borderRadius={ss(10)}
-                alignItems="center"
-                cursor="pointer"
+              <Button
+                variant="secondary"
                 onPress={() => setShowAddChannel(false)}
-                pressStyle={{ opacity: 0.8 }}
+                style={{ flex: 1 }}
               >
-                <Text color={colors.muted} fontWeight="600">
-                  Cancel
-                </Text>
-              </YStack>
-              <YStack
-                flex={1}
-                backgroundColor={colors.accent}
-                paddingVertical={ss(14)}
-                borderRadius={ss(10)}
-                alignItems="center"
-                cursor="pointer"
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
                 onPress={handleAddChannel}
-                pressStyle={{ opacity: 0.9 }}
+                style={{ flex: 1 }}
               >
-                <Text color={colors.text} fontWeight="700">
-                  Add Channel
-                </Text>
-              </YStack>
+                Add Channel
+              </Button>
             </XStack>
           </TouchableOpacity>
         </TouchableOpacity>

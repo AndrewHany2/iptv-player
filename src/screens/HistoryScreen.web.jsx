@@ -1,7 +1,9 @@
 import { useRef, useEffect, useCallback, useState } from "react";
 import { Image, View } from "react-native";
 import { YStack, Text, ScrollView } from "../ui/primitives";
-import { colors } from "../ui/tokens";
+import { colors, fonts, fontWeights, overlay, radii } from "../ui/tokens";
+import Icon from "../ui/Icon";
+import StatePanel from "../ui/StatePanel";
 import { useApp } from "../context/AppContext";
 import { ss, useScale } from "../utils/scaleSize";
 import MovieDetail from "../components/MovieDetail.web";
@@ -115,15 +117,16 @@ function MyListCard({ item, onPress, onRemove }) {
           top={ss(8)}
           right={ss(8)}
           zIndex={4}
-          backgroundColor="rgba(0,0,0,0.65)"
+          backgroundColor={overlay}
           borderRadius={ss(4)}
           paddingHorizontal={ss(5)}
           paddingVertical={ss(2)}
         >
           <Text
             color={colors.muted}
+            fontFamily={fonts.body}
             fontSize={ss(9)}
-            fontWeight="700"
+            fontWeight={fontWeights.bold}
             letterSpacing={0.5}
           >
             HD
@@ -134,7 +137,7 @@ function MyListCard({ item, onPress, onRemove }) {
           top={ss(8)}
           left={ss(8)}
           zIndex={5}
-          backgroundColor="rgba(0,0,0,0.6)"
+          backgroundColor={overlay}
           borderRadius={ss(12)}
           width={ss(22)}
           height={ss(22)}
@@ -147,15 +150,14 @@ function MyListCard({ item, onPress, onRemove }) {
           }}
           pressStyle={{ opacity: 0.7 }}
         >
-          <Text color={colors.text} fontSize={ss(9)} fontWeight="700">
-            ✕
-          </Text>
+          <Icon name="close" size={ss(11)} color={colors.text} />
         </YStack>
       </YStack>
       <Text
         color={colors.text}
+        fontFamily={fonts.body}
         fontSize={ss(13)}
-        fontWeight="600"
+        fontWeight={fontWeights.medium}
         marginTop={ss(8)}
         lineHeight={ss(17)}
         numberOfLines={2}
@@ -165,6 +167,7 @@ function MyListCard({ item, onPress, onRemove }) {
       {epLabel && (
         <Text
           color={colors.muted}
+          fontFamily={fonts.body}
           fontSize={ss(10)}
           marginTop={ss(5)}
           letterSpacing={0.3}
@@ -223,7 +226,7 @@ function CWCard({ item, onPress, onRemove }) {
         />
         {seasonBadge && (
           <YStack position="absolute" top={ss(10)} left={ss(12)} zIndex={4}>
-            <Text color={colors.text} fontSize={ss(13)} fontWeight="700">
+            <Text color={colors.text} fontFamily={fonts.display} fontSize={ss(13)} fontWeight={fontWeights.bold}>
               {seasonBadge}
             </Text>
           </YStack>
@@ -233,7 +236,7 @@ function CWCard({ item, onPress, onRemove }) {
           top={ss(8)}
           left={ss(8)}
           zIndex={5}
-          backgroundColor="rgba(0,0,0,0.6)"
+          backgroundColor={overlay}
           borderRadius={ss(12)}
           width={ss(22)}
           height={ss(22)}
@@ -246,11 +249,11 @@ function CWCard({ item, onPress, onRemove }) {
           }}
           pressStyle={{ opacity: 0.7 }}
         >
-          <Text color={colors.text} fontSize={ss(9)} fontWeight="700">
-            ✕
-          </Text>
+          <Icon name="close" size={ss(11)} color={colors.text} />
         </YStack>
-        <div className="lumen-cw-play">▶</div>
+        <div className="lumen-cw-play">
+          <Icon name="play" size={ss(28)} color={colors.text} />
+        </div>
         <YStack
           position="absolute"
           left={0}
@@ -258,9 +261,10 @@ function CWCard({ item, onPress, onRemove }) {
           bottom={0}
           zIndex={4}
           paddingHorizontal={ss(12)}
+          paddingBottom={ss(10)}
         >
           <View
-            style={{ height: ss(3), backgroundColor: "rgba(255,255,255,0.18)" }}
+            style={{ height: ss(3), borderRadius: ss(2), backgroundColor: colors.border, overflow: "hidden" }}
           >
             <View
               style={{
@@ -275,8 +279,9 @@ function CWCard({ item, onPress, onRemove }) {
       <YStack paddingTop={ss(10)} paddingHorizontal={ss(2)}>
         <Text
           color={colors.text}
+          fontFamily={fonts.body}
           fontSize={ss(13)}
-          fontWeight="600"
+          fontWeight={fontWeights.medium}
           marginBottom={ss(2)}
           numberOfLines={1}
         >
@@ -285,6 +290,7 @@ function CWCard({ item, onPress, onRemove }) {
         {(epLabel || epTitle) && (
           <Text
             color={colors.muted}
+            fontFamily={fonts.body}
             fontSize={ss(12)}
             marginBottom={ss(2)}
             numberOfLines={1}
@@ -293,7 +299,7 @@ function CWCard({ item, onPress, onRemove }) {
           </Text>
         )}
         {timeLeft && (
-          <Text color={colors.muted} fontSize={ss(12)}>
+          <Text color={colors.muted} fontFamily={fonts.body} fontSize={ss(12)}>
             {timeLeft}
           </Text>
         )}
@@ -359,28 +365,12 @@ export default function HistoryScreen({ navigation }) {
 
   if (myList.length === 0 && watchedHistory.length === 0) {
     return (
-      <YStack
-        flex={1}
-        justifyContent="center"
-        alignItems="center"
-        backgroundColor={colors.bg}
-        padding={ss(24)}
-      >
-        <Text fontSize={ss(48)} marginBottom={ss(12)}>
-          🎬
-        </Text>
-        <Text
-          color={colors.text}
-          fontSize={ss(20)}
-          fontWeight="700"
-          marginBottom={ss(8)}
-        >
-          Nothing here yet
-        </Text>
-        <Text color={colors.muted} fontSize={ss(14)} textAlign="center">
-          Start watching something and it will appear here
-        </Text>
-      </YStack>
+      <StatePanel
+        mode="empty"
+        icon="film"
+        title="Nothing here yet"
+        message="Start watching something and it will appear here"
+      />
     );
   }
 
@@ -395,8 +385,9 @@ export default function HistoryScreen({ navigation }) {
         <YStack paddingBottom={ss(48)}>
           <Text
             color={colors.text}
+            fontFamily={fonts.display}
             fontSize={ss(26)}
-            fontWeight="700"
+            fontWeight={fontWeights.bold}
             letterSpacing={-0.5}
             paddingHorizontal={ss(48)}
             marginBottom={ss(20)}
@@ -407,8 +398,9 @@ export default function HistoryScreen({ navigation }) {
             <button
               className="lumen-shelf-nav"
               onClick={() => fav$.scrollBy(-800)}
+              aria-label="Scroll left"
             >
-              ‹
+              <Icon name="back" size={ss(22)} color={colors.text} />
             </button>
             <div
               ref={fav$.railRef}
@@ -435,8 +427,9 @@ export default function HistoryScreen({ navigation }) {
             <button
               className="lumen-shelf-nav right"
               onClick={() => fav$.scrollBy(800)}
+              aria-label="Scroll right"
             >
-              ›
+              <Icon name="chevron-right" size={ss(22)} color={colors.text} />
             </button>
           </div>
         </YStack>
@@ -446,8 +439,9 @@ export default function HistoryScreen({ navigation }) {
         <YStack paddingBottom={ss(48)}>
           <Text
             color={colors.text}
+            fontFamily={fonts.display}
             fontSize={ss(26)}
-            fontWeight="700"
+            fontWeight={fontWeights.bold}
             letterSpacing={-0.5}
             paddingHorizontal={ss(48)}
             marginBottom={ss(20)}
@@ -458,8 +452,9 @@ export default function HistoryScreen({ navigation }) {
             <button
               className="lumen-shelf-nav"
               onClick={() => cw$.scrollBy(-800)}
+              aria-label="Scroll left"
             >
-              ‹
+              <Icon name="back" size={ss(22)} color={colors.text} />
             </button>
             <div
               ref={cw$.railRef}
@@ -486,8 +481,9 @@ export default function HistoryScreen({ navigation }) {
             <button
               className="lumen-shelf-nav right"
               onClick={() => cw$.scrollBy(800)}
+              aria-label="Scroll right"
             >
-              ›
+              <Icon name="chevron-right" size={ss(22)} color={colors.text} />
             </button>
           </div>
         </YStack>

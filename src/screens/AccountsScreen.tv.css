@@ -56,6 +56,9 @@
 }
 .tvl-acc-host { font-size: 12px; color: #7A86A8; margin-top: 3px; }
 .tvl-acc-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-size: 11px;
   font-weight: 700;
   color: #22D3EE;

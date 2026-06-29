@@ -4,6 +4,9 @@ import { useMovies } from "../domain/hooks/useMovies";
 import { useTVInput } from "../hooks/useTVInput";
 import { yieldFocusToNav } from "../platform/adapters/input/keys";
 import { VirtualGridTV } from "../presentation/components/VirtualGrid.tv";
+import StatePanel from "../ui/StatePanel";
+import Icon from "../ui/Icon";
+import { colors, iconSizes } from "../ui/tokens";
 import "../styles/tvl.css";
 import "../styles/tvResponsiveScaling.css";
 import "../styles/tvRemoteFocus.css";
@@ -266,16 +269,20 @@ export default function MoviesScreenTV({ navigation, route }) {
 
   // ── Render ────────────────────────────────────────────────────────────────
   if (loading) {
-    return <div className="tvl-screen"><div className="tvl-center"><div className="tvl-spinner" /><p>Loading…</p></div></div>;
+    return <div className="tvl-screen"><StatePanel mode="loading" title="Loading…" /></div>;
   }
 
   if (!activeUserId) {
     return (
       <div className="tvl-screen">
-        <div className="tvl-center">
-          <p className="tvl-empty-msg">No IPTV Account</p>
-          <button className="tvl-btn" onClick={() => navigation.navigate("Accounts")}>Add Account</button>
-        </div>
+        <StatePanel
+          mode="empty"
+          icon="film"
+          title="No IPTV Account"
+          message="Add your IPTV service from Settings"
+          cta={() => navigation.navigate("Accounts")}
+          ctaLabel="Add Account"
+        />
       </div>
     );
   }
@@ -291,10 +298,10 @@ export default function MoviesScreenTV({ navigation, route }) {
     const resume = (watchHistory || []).find((h) => (h.type === "movies" || h.type === "movie") && String(h.streamId) === String(streamId));
     const inFav = isInMyList("movies", streamId);
     const buttons = [
-      { label: resume?.currentTime > 0 ? "▶  Continue" : "▶  Play", type: "play" },
-      ...(resume?.currentTime > 0 ? [{ label: "↺  From Start", type: "restart" }] : []),
-      ...(trailer ? [{ label: showTrailer ? "✕  Close Trailer" : "🎬  Trailer", type: "trailer" }] : []),
-      { label: inFav ? "♥  Saved" : "♡  Add to Favorites", type: "fav" },
+      { label: resume?.currentTime > 0 ? "Continue" : "Play", icon: "play", type: "play" },
+      ...(resume?.currentTime > 0 ? [{ label: "From Start", icon: "back", type: "restart" }] : []),
+      ...(trailer ? [{ label: showTrailer ? "Close Trailer" : "Trailer", icon: showTrailer ? "close" : "film", type: "trailer" }] : []),
+      { label: inFav ? "Saved" : "Add to Favorites", icon: "star", type: "fav" },
     ];
     const btnClass = (i, type) => [
       "tvl-det-hero-btn",
@@ -306,7 +313,7 @@ export default function MoviesScreenTV({ navigation, route }) {
     return (
       <div className="tvl-screen">
         <div className="tvl-topbar">
-          <button className="tvl-topbar-back" onClick={closeDetail}>◀</button>
+          <button className="tvl-topbar-back" onClick={closeDetail}><Icon name="back" size={iconSizes.md} color="currentColor" /></button>
           <button className="tvl-topbar-title tvl-topbar-title--back" onClick={closeDetail}>{item.name}</button>
         </div>
         <div className="tvl-det-hero">
@@ -315,14 +322,14 @@ export default function MoviesScreenTV({ navigation, route }) {
         </div>
         <div className="tvl-det-content">
           <div className="tvl-det-hero-thumb">
-            {poster ? <img src={poster} alt="" /> : <div className="tvl-det-hero-thumb-ph">🎬</div>}
+            {poster ? <img src={poster} alt="" /> : <div className="tvl-det-hero-thumb-ph"><Icon name="film" size={iconSizes.lg} color={colors.border} /></div>}
           </div>
           <div className="tvl-det-hero-info">
             <div className="tvl-det-hero-title">{item.name}</div>
             <div className="tvl-det-hero-meta">
               {year && <span className="tvl-det-tag">{year}</span>}
               {data.genre && <span className="tvl-det-tag">{data.genre.split(",")[0].trim()}</span>}
-              {data.rating && <span className="tvl-det-rating">⭐ {Number.parseFloat(data.rating).toFixed(1)}</span>}
+              {data.rating && <span className="tvl-det-rating" style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><Icon name="star" size={iconSizes.sm} color={colors.rating} /> {Number.parseFloat(data.rating).toFixed(1)}</span>}
               {data.age && <span className="tvl-det-tag tvl-det-tag--alert">{data.age}</span>}
               {data.duration && <span className="tvl-det-tag">{data.duration}</span>}
             </div>
@@ -344,7 +351,10 @@ export default function MoviesScreenTV({ navigation, route }) {
                       }
                     }}
                   >
-                    {btn.label}
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
+                      <Icon name={btn.icon} size={iconSizes.md} color="currentColor" />
+                      {btn.label}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -374,7 +384,7 @@ export default function MoviesScreenTV({ navigation, route }) {
     return (
       <div className="tvl-screen">
         <div className="tvl-topbar">
-          <button className="tvl-topbar-back" onClick={closePage}>◀</button>
+          <button className="tvl-topbar-back" onClick={closePage}><Icon name="back" size={iconSizes.md} color="currentColor" /></button>
           <button className="tvl-topbar-title tvl-topbar-title--back" onClick={closePage}>{page.name}</button>
           {filteredItems && <span className="tvl-topbar-count">{filteredItems.length.toLocaleString()}</span>}
         </div>
@@ -443,7 +453,7 @@ function MovieCard({ item, isFocused }) {
   return (
     <div className={isFocused ? "tvl-card tvl-card--on" : "tvl-card"}>
       <div className="tvl-card-img">
-        {src && !err ? <img src={src} alt="" onError={() => setErr(true)} loading="lazy" /> : <div className="tvl-card-ph">▶</div>}
+        {src && !err ? <img src={src} alt="" onError={() => setErr(true)} loading="lazy" /> : <div className="tvl-card-ph"><Icon name="play" size={iconSizes.lg} color={colors.border} /></div>}
         {rLabel && <span className="tvl-card-rating">{rLabel}</span>}
       </div>
       <div className="tvl-card-title">{item.name}</div>

@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useApp } from "../context/AppContext";
 import iptvApi from "../services/iptvApi";
+import Icon from "../ui/Icon";
+import { colors, iconSizes } from "../ui/tokens";
 import "../styles/tvl.css";
 import "../styles/tvResponsiveScaling.css";
 import "../styles/tvRemoteFocus.css";
@@ -242,11 +244,11 @@ export default function AccountsScreenTV({ navigation }) {
     return (
       <div className="tvl-screen">
         <div className="tvl-topbar">
-          <button className="tvl-topbar-back" onClick={() => setView("list")}>◀</button>
+          <button className="tvl-topbar-back" onClick={() => setView("list")} aria-label="Back"><Icon name="back" size={iconSizes.md} color={colors.accent} /></button>
           <span className="tvl-topbar-title">{editId ? "Edit Account" : "Add Account"}</span>
         </div>
         <div className="tvl-form">
-          {error && <div className="tvl-acc-error"><span>⚠</span><span>{error}</span></div>}
+          {error && <div className="tvl-acc-error"><Icon name="warning" size={iconSizes.sm} color={colors.danger} /><span>{error}</span></div>}
 
           {fields.map((f, i) => (
             <div
@@ -295,7 +297,7 @@ export default function AccountsScreenTV({ navigation }) {
   return (
     <div className="tvl-screen">
       <div className="tvl-topbar"><span className="tvl-topbar-title">Accounts</span></div>
-      {error && <div className="tvl-acc-error" style={{ margin: "0 48px" }}><span>⚠</span><span>{error}</span></div>}
+      {error && <div className="tvl-acc-error" style={{ margin: "0 48px" }}><Icon name="warning" size={iconSizes.sm} color={colors.danger} /><span>{error}</span></div>}
       {loading && <div className="tvl-center" style={{ flex: "0 0 auto", padding: "20px" }}><div className="tvl-spinner" /></div>}
       <div className="tvl-scroll">
         <div className="tvl-acc-list">
@@ -304,7 +306,8 @@ export default function AccountsScreenTV({ navigation }) {
             className={focus === 0 ? "tvl-acc-add tvl-acc-add--on" : "tvl-acc-add"}
             onClick={openAddForm}
           >
-            + Add IPTV Account
+            <Icon name="plus" size={iconSizes.md} color={colors.danger} />
+            <span>Add IPTV Account</span>
           </button>
 
           {users.map((user, i) => {
@@ -321,7 +324,7 @@ export default function AccountsScreenTV({ navigation }) {
                 <div className="tvl-acc-info">
                   <div className="tvl-acc-name">{user.nickname || `${user.username}@${user.host}`}</div>
                   <div className="tvl-acc-host">{user.host}</div>
-                  {activeUserId === user.id && <div className="tvl-acc-badge">✓ Active</div>}
+                  {activeUserId === user.id && <div className="tvl-acc-badge"><Icon name="check" size={iconSizes.sm} color={colors.accent2} /><span>Active</span></div>}
                 </div>
                 <div className="tvl-acc-actions">
                   <button className="tvl-acc-btn" onClick={(e) => { e.stopPropagation(); openEditForm(user); }}>Edit</button>

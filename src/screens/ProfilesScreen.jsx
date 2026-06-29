@@ -10,11 +10,21 @@ import {
   Text,
   Input,
   ScrollView,
-  Spinner,
 } from "../ui/primitives";
-import { colors } from "../ui/tokens";
+import { colors, fonts, fontWeights, radii, accentAlpha } from "../ui/tokens";
+
+// Danger (colors.danger #E5484D → rgb 229,72,77) at 0.18 alpha — the confirm-delete
+// wash. Mirrors the token; kept local since tokens.js exposes no dangerAlpha helper.
+const dangerAlpha18 = "rgba(229,72,77,0.18)";
+import { ss } from "../utils/scaleSize";
+import Button from "../ui/Button";
+import Icon from "../ui/Icon";
+import StatePanel from "../ui/StatePanel";
 import { useApp } from "../context/AppContext";
 
+// Avatar choices are profile *identity data* (persisted as p.avatar), not UI
+// chrome — so these stay as glyphs. All UI-chrome emoji elsewhere are replaced
+// with the Icon set.
 const AVATARS = [
   "👤", "👨", "👩", "👦", "👧", "👴", "👵", "🧑",
   "🎮", "🎬", "🍿", "⚽", "🎵", "🦸", "🎨", "🐱",
@@ -131,23 +141,29 @@ export default function ProfilesScreen() {
     return (
       <YStack flex={1} backgroundColor={colors.bg} paddingTop={insets.top} paddingBottom={insets.bottom}>
         <ScrollView flex={1}>
-          <YStack padding={24}>
-            <Text fontSize={22} fontWeight="700" color={colors.text} marginBottom={24}>
+          <YStack padding={ss(24)}>
+            <Text
+              fontFamily={fonts.display}
+              fontSize={ss(22)}
+              fontWeight={fontWeights.bold}
+              color={colors.text}
+              marginBottom={ss(24)}
+            >
               {editingId ? "Edit Profile" : "New Profile"}
             </Text>
 
             {!!error && (
-              <Text color={colors.danger} fontSize={13} marginTop={8} textAlign="center">
+              <Text color={colors.danger} fontFamily={fonts.body} fontSize={ss(13)} marginTop={ss(8)} textAlign="center">
                 {error}
               </Text>
             )}
 
-            <Text fontSize={13} color={colors.muted} marginBottom={6} marginTop={16}>
+            <Text fontFamily={fonts.body} fontSize={ss(13)} color={colors.muted} marginBottom={ss(6)} marginTop={ss(16)}>
               Name *
             </Text>
             <Input
               placeholder="e.g. Dad, Kids…"
-              placeholderTextColor="#666"
+              placeholderTextColor={colors.faint}
               value={formData.name}
               onChangeText={(v) => setFormData({ ...formData, name: v })}
               autoCapitalize="words"
@@ -155,71 +171,59 @@ export default function ProfilesScreen() {
               backgroundColor={colors.surface2}
               borderColor={colors.border}
               color={colors.text}
-              borderRadius={10}
-              paddingHorizontal={14}
-              paddingVertical={12}
-              fontSize={15}
+              borderRadius={radii.card}
+              paddingHorizontal={ss(14)}
+              paddingVertical={ss(12)}
+              fontSize={ss(15)}
               borderWidth={1}
             />
 
-            <Text fontSize={13} color={colors.muted} marginBottom={6} marginTop={16}>
+            <Text fontFamily={fonts.body} fontSize={ss(13)} color={colors.muted} marginBottom={ss(6)} marginTop={ss(16)}>
               Avatar
             </Text>
-            <XStack flexWrap="wrap" gap={10} marginTop={8}>
-              {AVATARS.map((emoji) => (
-                <YStack
-                  key={emoji}
-                  width={52}
-                  height={52}
-                  borderRadius={10}
-                  backgroundColor={formData.avatar === emoji ? "rgba(108, 92, 231,0.15)" : colors.surface2}
-                  borderWidth={2}
-                  borderColor={formData.avatar === emoji ? colors.accent : "transparent"}
-                  justifyContent="center"
-                  alignItems="center"
-                  cursor="pointer"
-                  onPress={() => setFormData({ ...formData, avatar: emoji })}
-                  pressStyle={{ opacity: 0.8 }}
-                >
-                  <Text fontSize={26}>{emoji}</Text>
-                </YStack>
-              ))}
+            <XStack flexWrap="wrap" gap={ss(10)} marginTop={ss(8)}>
+              {AVATARS.map((emoji) => {
+                const selected = formData.avatar === emoji;
+                return (
+                  <YStack
+                    key={emoji}
+                    width={ss(52)}
+                    height={ss(52)}
+                    borderRadius={radii.card}
+                    backgroundColor={selected ? accentAlpha(0.15) : colors.surface2}
+                    borderWidth={2}
+                    borderColor={selected ? colors.accent : "transparent"}
+                    justifyContent="center"
+                    alignItems="center"
+                    cursor="pointer"
+                    onPress={() => setFormData({ ...formData, avatar: emoji })}
+                    pressStyle={{ opacity: 0.8 }}
+                  >
+                    <Text fontSize={ss(26)}>{emoji}</Text>
+                  </YStack>
+                );
+              })}
             </XStack>
 
-            <XStack gap={12} marginTop={32}>
-              <YStack
-                flex={1}
-                backgroundColor={colors.border}
-                borderRadius={10}
-                paddingVertical={13}
-                alignItems="center"
-                cursor="pointer"
+            <XStack gap={ss(12)} marginTop={ss(32)}>
+              <Button
+                variant="secondary"
+                size="md"
+                disabled={loading}
                 onPress={loading ? undefined : resetForm}
-                pressStyle={{ opacity: 0.8 }}
+                style={{ flex: 1 }}
               >
-                <Text color={colors.muted} fontSize={15} fontWeight="600">
-                  Cancel
-                </Text>
-              </YStack>
-              <YStack
-                flex={1}
-                backgroundColor={colors.accent}
-                borderRadius={10}
-                paddingVertical={13}
-                alignItems="center"
-                opacity={loading || !formData.name.trim() ? 0.5 : 1}
-                cursor={loading || !formData.name.trim() ? "not-allowed" : "pointer"}
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                size="md"
+                disabled={loading || !formData.name.trim()}
                 onPress={loading || !formData.name.trim() ? undefined : handleSave}
-                pressStyle={{ opacity: 0.9 }}
+                style={{ flex: 1 }}
               >
-                {loading ? (
-                  <Spinner color={colors.text} />
-                ) : (
-                  <Text color={colors.text} fontSize={15} fontWeight="600">
-                    {editingId ? "Save Changes" : "Create Profile"}
-                  </Text>
-                )}
-              </YStack>
+                {loading ? "Saving…" : editingId ? "Save Changes" : "Create Profile"}
+              </Button>
             </XStack>
           </YStack>
         </ScrollView>
@@ -234,149 +238,127 @@ export default function ProfilesScreen() {
         <XStack
           alignItems="center"
           justifyContent="space-between"
-          paddingHorizontal={16}
-          paddingTop={insets.top + 20}
-          paddingBottom={12}
+          paddingHorizontal={ss(16)}
+          paddingTop={insets.top + ss(20)}
+          paddingBottom={ss(12)}
         >
           <XStack
-            padding={4}
+            alignItems="center"
+            gap={ss(6)}
+            padding={ss(4)}
             cursor="pointer"
             onPress={() => { setView("select"); setError(null); setConfirmDeleteId(null); }}
             pressStyle={{ opacity: 0.7 }}
           >
-            <Text color={colors.accent} fontSize={15} fontWeight="600">
-              ← Back
+            <Icon name="back" size={ss(18)} color={colors.accent} />
+            <Text color={colors.accent} fontFamily={fonts.body} fontSize={ss(15)} fontWeight={fontWeights.medium}>
+              Back
             </Text>
           </XStack>
-          <Text color={colors.text} fontSize={18} fontWeight="700">
+          <Text color={colors.text} fontFamily={fonts.display} fontSize={ss(18)} fontWeight={fontWeights.bold}>
             Manage Profiles
           </Text>
-          <YStack
-            backgroundColor={colors.accent}
-            borderRadius={8}
-            paddingHorizontal={14}
-            paddingVertical={7}
-            cursor="pointer"
+          <Button
+            variant="primary"
+            size="sm"
+            icon="plus"
+            disabled={loading}
             onPress={loading ? undefined : openAdd}
-            pressStyle={{ opacity: 0.9 }}
           >
-            <Text color={colors.text} fontSize={14} fontWeight="600">
-              + Add
-            </Text>
-          </YStack>
+            Add
+          </Button>
         </XStack>
 
         {!!error && (
-          <Text color={colors.danger} fontSize={13} marginHorizontal={20} textAlign="center">
+          <Text color={colors.danger} fontFamily={fonts.body} fontSize={ss(13)} marginHorizontal={ss(20)} textAlign="center">
             {error}
           </Text>
         )}
 
         {appProfiles.length === 0 ? (
-          <YStack flex={1} justifyContent="center" alignItems="center" gap={16}>
-            <Text color={colors.muted} fontSize={16}>
-              No profiles yet.
-            </Text>
-            <YStack
-              backgroundColor={colors.accent}
-              borderRadius={10}
-              paddingHorizontal={24}
-              paddingVertical={12}
-              cursor="pointer"
-              onPress={openAdd}
-              pressStyle={{ opacity: 0.9 }}
-            >
-              <Text color={colors.text} fontSize={15} fontWeight="600">
-                Create First Profile
-              </Text>
-            </YStack>
-          </YStack>
+          <StatePanel
+            mode="empty"
+            icon="film"
+            title="No profiles yet"
+            message="Create your first profile to personalize what you watch."
+            cta={openAdd}
+            ctaLabel="Create First Profile"
+          />
         ) : (
           <ScrollView flex={1}>
-            <YStack paddingHorizontal={16} paddingBottom={20}>
-              {appProfiles.map((p) => (
-                <XStack
-                  key={p.id}
-                  alignItems="center"
-                  justifyContent="space-between"
-                  backgroundColor={colors.surface2}
-                  borderRadius={12}
-                  padding={14}
-                  marginBottom={10}
-                  borderWidth={1}
-                  borderColor={activeProfileId === p.id ? colors.accent : colors.border}
-                >
-                  <XStack alignItems="center" gap={12} flex={1}>
-                    <Text fontSize={32}>{p.avatar}</Text>
-                    <YStack>
-                      <Text color={colors.text} fontSize={15} fontWeight="600">
-                        {p.name}
-                      </Text>
-                      {activeProfileId === p.id && (
-                        <Text color={colors.accent2} fontSize={12} marginTop={2} fontWeight="600">
-                          ✓ Active
+            <YStack paddingHorizontal={ss(16)} paddingBottom={ss(20)}>
+              {appProfiles.map((p) => {
+                const active = activeProfileId === p.id;
+                const confirming = confirmDeleteId === p.id;
+                return (
+                  <XStack
+                    key={p.id}
+                    alignItems="center"
+                    justifyContent="space-between"
+                    backgroundColor={colors.surface2}
+                    borderRadius={radii.md}
+                    padding={ss(14)}
+                    marginBottom={ss(10)}
+                    borderWidth={1}
+                    borderColor={active ? colors.accent : colors.border}
+                  >
+                    <XStack alignItems="center" gap={ss(12)} flex={1}>
+                      <Text fontSize={ss(32)}>{p.avatar}</Text>
+                      <YStack>
+                        <Text color={colors.text} fontFamily={fonts.body} fontSize={ss(15)} fontWeight={fontWeights.medium}>
+                          {p.name}
                         </Text>
-                      )}
-                      {confirmDeleteId === p.id && (
-                        <Text color={colors.danger} fontSize={11} marginTop={2}>
-                          Tap Delete again to confirm
-                        </Text>
-                      )}
-                    </YStack>
-                  </XStack>
-                  <XStack gap={8}>
-                    {activeProfileId !== p.id && (
-                      <YStack
-                        backgroundColor={colors.accent}
-                        borderRadius={8}
-                        paddingHorizontal={12}
-                        paddingVertical={7}
-                        justifyContent="center"
-                        cursor="pointer"
-                        onPress={loading ? undefined : () => { switchProfile(p.id); setView("select"); }}
-                        pressStyle={{ opacity: 0.9 }}
-                      >
-                        <Text color={colors.text} fontSize={13} fontWeight="600">
-                          Switch
-                        </Text>
+                        {active && (
+                          <XStack alignItems="center" gap={ss(4)} marginTop={ss(2)}>
+                            <Icon name="check" size={ss(12)} color={colors.accent2} />
+                            <Text color={colors.accent2} fontFamily={fonts.body} fontSize={ss(12)} fontWeight={fontWeights.medium}>
+                              Active
+                            </Text>
+                          </XStack>
+                        )}
+                        {confirming && (
+                          <Text color={colors.danger} fontFamily={fonts.body} fontSize={ss(11)} marginTop={ss(2)}>
+                            Tap Delete again to confirm
+                          </Text>
+                        )}
                       </YStack>
-                    )}
-                    <YStack
-                      width={36}
-                      height={36}
-                      backgroundColor={colors.surface}
-                      borderRadius={8}
-                      justifyContent="center"
-                      alignItems="center"
-                      cursor="pointer"
-                      onPress={loading ? undefined : () => openEdit(p)}
-                      pressStyle={{ opacity: 0.7 }}
-                      hitSlop={8}
-                    >
-                      <Text fontSize={16}>✏️</Text>
-                    </YStack>
-                    <YStack
-                      backgroundColor={confirmDeleteId === p.id ? "rgba(229,72,77,0.18)" : colors.surface}
-                      borderRadius={8}
-                      borderWidth={confirmDeleteId === p.id ? 1 : 0}
-                      borderColor={confirmDeleteId === p.id ? colors.danger : "transparent"}
-                      paddingHorizontal={confirmDeleteId === p.id ? 10 : 0}
-                      width={confirmDeleteId === p.id ? undefined : 36}
-                      height={36}
-                      justifyContent="center"
-                      alignItems="center"
-                      cursor="pointer"
-                      onPress={loading ? undefined : () => handleDelete(p.id)}
-                      pressStyle={{ opacity: 0.7 }}
-                      hitSlop={8}
-                    >
-                      <Text fontSize={13} color={colors.danger} fontWeight="600">
-                        {confirmDeleteId === p.id ? "Confirm" : "🗑️"}
-                      </Text>
-                    </YStack>
+                    </XStack>
+                    <XStack gap={ss(8)} alignItems="center">
+                      {!active && (
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          disabled={loading}
+                          onPress={loading ? undefined : () => { switchProfile(p.id); setView("select"); }}
+                        >
+                          Switch
+                        </Button>
+                      )}
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        disabled={loading}
+                        onPress={loading ? undefined : () => openEdit(p)}
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        variant={confirming ? "secondary" : "ghost"}
+                        size="sm"
+                        disabled={loading}
+                        onPress={loading ? undefined : () => handleDelete(p.id)}
+                        style={
+                          confirming
+                            ? { backgroundColor: dangerAlpha18, borderColor: colors.danger, color: colors.danger }
+                            : { color: colors.danger }
+                        }
+                      >
+                        {confirming ? "Confirm" : "Delete"}
+                      </Button>
+                    </XStack>
                   </XStack>
-                </XStack>
-              ))}
+                );
+              })}
             </YStack>
           </ScrollView>
         )}
@@ -388,39 +370,39 @@ export default function ProfilesScreen() {
   return (
     <YStack flex={1} backgroundColor={colors.bg} paddingTop={insets.top}>
       {/* Vertically centered main area */}
-      <YStack flex={1} justifyContent="center" alignItems="center" gap={48}>
-        <Text color={colors.text} fontSize={32} fontWeight="700" textAlign="center">
+      <YStack flex={1} justifyContent="center" alignItems="center" gap={ss(48)}>
+        <Text color={colors.text} fontFamily={fonts.display} fontSize={ss(32)} fontWeight={fontWeights.bold} textAlign="center">
           Who's watching?
         </Text>
 
-        <XStack flexWrap="wrap" justifyContent="center" gap={24} paddingHorizontal={20}>
+        <XStack flexWrap="wrap" justifyContent="center" gap={ss(24)} paddingHorizontal={ss(20)}>
           {appProfiles.map((p, idx) => {
             const focused = focusedRow === 0 && focusedCol === idx;
             return (
               <YStack
                 key={p.id}
                 alignItems="center"
-                width={110}
+                width={ss(110)}
                 cursor="pointer"
                 onPress={() => switchProfile(p.id)}
                 pressStyle={{ opacity: 0.8 }}
                 {...(!isNative && { hoverStyle: { scale: 1.05 }, animation: "quick" })}
               >
                 <YStack
-                  width={90}
-                  height={90}
-                  borderRadius={12}
+                  width={ss(90)}
+                  height={ss(90)}
+                  borderRadius={radii.md}
                   backgroundColor={colors.surface2}
                   justifyContent="center"
                   alignItems="center"
                   borderWidth={2}
                   borderColor={focused ? colors.accent2 : colors.border}
-                  marginBottom={10}
+                  marginBottom={ss(10)}
                   {...(!isNative && { scale: focused ? 1.08 : 1, hoverStyle: { borderColor: colors.accent2, backgroundColor: colors.surface2 }, animation: "quick" })}
                 >
-                  <Text fontSize={44}>{p.avatar}</Text>
+                  <Text fontSize={ss(44)}>{p.avatar}</Text>
                 </YStack>
-                <Text color={focused ? colors.text : colors.muted} fontSize={14} textAlign="center" fontWeight="500" numberOfLines={1}>
+                <Text color={focused ? colors.text : colors.muted} fontFamily={fonts.body} fontSize={ss(14)} textAlign="center" fontWeight={fontWeights.medium} numberOfLines={1}>
                   {p.name}
                 </Text>
               </YStack>
@@ -432,7 +414,7 @@ export default function ProfilesScreen() {
             return (
               <YStack
                 alignItems="center"
-                width={110}
+                width={ss(110)}
                 opacity={focused ? 1 : 0.7}
                 cursor="pointer"
                 onPress={openAdd}
@@ -440,21 +422,21 @@ export default function ProfilesScreen() {
                 {...(!isNative && { hoverStyle: { scale: 1.05, opacity: 1 }, animation: "quick" })}
               >
                 <YStack
-                  width={90}
-                  height={90}
-                  borderRadius={12}
+                  width={ss(90)}
+                  height={ss(90)}
+                  borderRadius={radii.md}
                   backgroundColor={colors.surface2}
                   justifyContent="center"
                   alignItems="center"
                   borderWidth={2}
                   borderColor={focused ? colors.accent2 : colors.border}
                   borderStyle="dashed"
-                  marginBottom={10}
+                  marginBottom={ss(10)}
                   {...(!isNative && { scale: focused ? 1.08 : 1, hoverStyle: { borderColor: colors.accent2 }, animation: "quick" })}
                 >
-                  <Text fontSize={36} color={focused ? colors.accent2 : colors.muted}>+</Text>
+                  <Icon name="plus" size={ss(34)} color={focused ? colors.accent2 : colors.muted} />
                 </YStack>
-                <Text color={focused ? colors.text : colors.muted} fontSize={14} textAlign="center" fontWeight="500">
+                <Text color={focused ? colors.text : colors.muted} fontFamily={fonts.body} fontSize={ss(14)} textAlign="center" fontWeight={fontWeights.medium}>
                   Add Profile
                 </Text>
               </YStack>
@@ -463,12 +445,12 @@ export default function ProfilesScreen() {
         </XStack>
       </YStack>
 
-      <XStack justifyContent="center" alignItems="center" gap={32} paddingBottom={insets.bottom + 40}>
+      <XStack justifyContent="center" alignItems="center" gap={ss(32)} paddingBottom={insets.bottom + ss(40)}>
         {appProfiles.length > 0 && (() => {
           const focused = focusedRow === 1 && focusedCol === 0;
           return (
             <XStack
-              padding={10}
+              padding={ss(10)}
               cursor="pointer"
               onPress={() => setView("manage")}
               pressStyle={{ opacity: 0.7 }}
@@ -476,7 +458,7 @@ export default function ProfilesScreen() {
               borderColor={focused ? colors.accent2 : "transparent"}
               {...(!isNative && { hoverStyle: { opacity: 1 }, animation: "quick" })}
             >
-              <Text color={focused ? colors.text : colors.muted} fontSize={14} fontWeight={focused ? "700" : "400"}>
+              <Text color={focused ? colors.text : colors.muted} fontFamily={fonts.body} fontSize={ss(14)} fontWeight={focused ? fontWeights.bold : fontWeights.regular}>
                 Manage Profiles
               </Text>
             </XStack>
@@ -488,7 +470,7 @@ export default function ProfilesScreen() {
           const focused = focusedRow === 1 && focusedCol === col;
           return (
             <XStack
-              padding={10}
+              padding={ss(10)}
               cursor="pointer"
               onPress={signOut}
               pressStyle={{ opacity: 0.7 }}
@@ -496,7 +478,7 @@ export default function ProfilesScreen() {
               borderColor={focused ? colors.accent2 : "transparent"}
               {...(!isNative && { hoverStyle: { opacity: 1 }, animation: "quick" })}
             >
-              <Text color={focused ? colors.text : colors.accent2} fontSize={14} fontWeight="600">
+              <Text color={focused ? colors.text : colors.accent2} fontFamily={fonts.body} fontSize={ss(14)} fontWeight={fontWeights.medium}>
                 Sign Out
               </Text>
             </XStack>
