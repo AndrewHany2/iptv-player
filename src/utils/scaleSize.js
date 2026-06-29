@@ -17,8 +17,21 @@ const IS_REACTIVE =
 // Do NOT divide by PixelRatio — Dimensions already returns CSS logical pixels
 // on web (DPR is handled by the browser). On LG TV (DPR=1, viewport=1280)
 // and on native (where PixelRatio may vary), this gives the right result.
+// Native phones/tablets are NOT 1920-wide: scaling the 1920×1080 design against
+// a ~390pt phone yields ~0.2×, which shrinks every ss()-sized shared screen
+// (Auth, Profiles, Accounts, detail overlays) to an unreadable ~20%. So on
+// native we scale against a mobile reference width instead, clamped to a sane
+// band so the design-time pixel sizes render ~1× on a typical phone and adapt
+// gently for small (SE) / large (Pro Max / tablet) screens. Web + webOS TV keep
+// the 1920×1080 reference (large-screen UIs authored at that resolution).
+const MOBILE_REF_WIDTH = 420;
+
 function computeScale() {
   const { width, height } = Dimensions.get('window');
+  if (Platform.OS !== 'web') {
+    const s = width / MOBILE_REF_WIDTH;
+    return Math.min(Math.max(s, 0.85), 1.3);
+  }
   return Math.min(width / DESIGN_WIDTH, height / DESIGN_HEIGHT);
 }
 
