@@ -1523,6 +1523,40 @@ export default function VideoPlayerScreen() {
     </div>
   );
 
+  // TV: while recovering/buffering, show a centred loading spinner over the
+  // video's frozen last frame (the <video> element holds the last decoded
+  // frame) instead of the "Reconnecting" text pill.
+  const recoveryLoading = isRecovering && !isFatal && (
+    <div
+      style={{
+        position: "absolute",
+        inset: 0,
+        zIndex: 15,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 18,
+        backgroundColor: "rgba(0,0,0,0.28)",
+        pointerEvents: "none",
+      }}
+    >
+      <div
+        style={{
+          width: 72,
+          height: 72,
+          border: "6px solid rgba(255,255,255,0.22)",
+          borderTopColor: colors.accent2,
+          borderRadius: "50%",
+          animation: "spin 0.8s linear infinite",
+        }}
+      />
+      <span style={{ color: colors.text, fontFamily: fonts.body, fontSize: 18, fontWeight: 600 }}>
+        Loading…
+      </span>
+    </div>
+  );
+
   const fatalMessage =
     fatalReason === "GONE"
       ? "This stream is no longer available."
@@ -1658,7 +1692,7 @@ export default function VideoPlayerScreen() {
           </div>
         )}
 
-        {liveToast}
+        {recoveryLoading}
 
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
