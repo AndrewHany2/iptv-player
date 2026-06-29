@@ -45,6 +45,54 @@ const result = babel.transformSync(code, {
 fs.writeFileSync(bundlePath, result.code, "utf8");
 console.log("✓ Transpiled for older webOS Chromium");
 
+// ── Inline CSS custom properties (var(--a-*)) to literal values ──────────────
+// webOS/Tizen Chromium honours standalone var() (e.g. `background:var(--x)`) but
+// DROPS the whole declaration when a var() sits inside a multi-value shorthand
+// (e.g. `padding:24px var(--a-inset)`), collapsing every screen inset to 0. The
+// source keeps the `--a-*` token layer for one-source-of-truth authoring; here
+// we resolve them to literals at build time so the device never sees a var().
+const cssDir = path.join(distDir, "_expo/static/css");
+if (fs.existsSync(cssDir)) {
+  const cssFiles = fs.readdirSync(cssDir).filter((f) => f.endsWith(".css"));
+  // Build the --a-* token map from the :root block(s) across all CSS files.
+  const tokens = {};
+  for (const f of cssFiles) {
+    const css = fs.readFileSync(path.join(cssDir, f), "utf8");
+    const rootMatch = css.match(/:root\s*\{([^}]*)\}/g) || [];
+    for (const block of rootMatch) {
+      const decls = block.replace(/^:root\s*\{/, "").replace(/\}$/, "");
+      for (const decl of decls.split(";")) {
+        const m = decl.match(/^\s*(--a-[a-z0-9-]+)\s*:\s*(.+)\s*$/i);
+        if (m) tokens[m[1]] = m[2].trim();
+      }
+    }
+  }
+  const tokenCount = Object.keys(tokens).length;
+  let patchedFiles = 0;
+  let replaced = 0;
+  // Resolve var(--a-name) and var(--a-name, fallback) to the literal value.
+  // Loop until stable in case a token value itself references another var().
+  const resolve = (css) => {
+    let prev;
+    do {
+      prev = css;
+      css = css.replace(/var\(\s*(--a-[a-z0-9-]+)\s*(?:,[^)]*)?\)/gi, (full, name) => {
+        if (tokens[name] != null) { replaced++; return tokens[name]; }
+        return full;
+      });
+    } while (css !== prev);
+    return css;
+  };
+  for (const f of cssFiles) {
+    const p = path.join(cssDir, f);
+    const css = fs.readFileSync(p, "utf8");
+    if (!css.includes("var(--a-")) continue;
+    const out = resolve(css);
+    if (out !== css) { fs.writeFileSync(p, out, "utf8"); patchedFiles++; }
+  }
+  console.log(`✓ Inlined ${replaced} var(--a-*) refs (${tokenCount} tokens) across ${patchedFiles} CSS file(s) for older webOS Chromium`);
+}
+
 // Patch index.html for LG TV
 let html = fs.readFileSync(indexPath, "utf8");
 
