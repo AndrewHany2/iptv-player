@@ -5,7 +5,7 @@
   grid-template-columns: repeat(8, 1fr);
   gap: 12px;
   /* ~5% title-safe horizontal inset (overscan) */
-  padding: 24px 64px;
+  padding: 24px var(--a-inset);
 }
 
 /* Virtualized channel grid (VirtualGridTV): the window IS the scroller, so it
@@ -13,30 +13,23 @@
 .tvl-ch-grid-window {
   flex: 1;
   min-height: 0;
-  padding: 24px 64px;
+  padding: 24px var(--a-inset);
 }
 
 .tvl-ch-card {
   border: 2px solid transparent;
-  border-radius: 14px;
+  border-radius: var(--a-radius);
   cursor: pointer;
   overflow: hidden;
-  background: #141A2E;
+  background: var(--a-surface);
   contain: layout style;
-}
-/* Cyan focus ring + bg tint (no transform — janks on old TV Chromium) */
-.tvl-ch-card--on {
-  border-color: #22D3EE;
-  outline: 2px solid #22D3EE;
-  outline-offset: 2px;
-  background: rgba(34, 211, 238, 0.12);
 }
 
 .tvl-ch-logo {
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
-  background: #0A0E1A;
+  background: var(--a-bg);
   overflow: hidden;
   display: flex;
   align-items: center;
@@ -49,13 +42,13 @@
   display: block;
   padding: 8px;
 }
-.tvl-ch-ph { font-size: 22px; color: #28324E; }
+.tvl-ch-ph { font-size: 22px; color: var(--a-border); }
 
 .tvl-ch-live {
   position: absolute;
   top: 4px;
   left: 4px;
-  background: #6C5CE7;
+  background: var(--a-indigo);
   color: #fff;
   font-size: 8px;
   font-weight: 700;
@@ -68,7 +61,7 @@
   padding: 6px 6px 4px;
   font-size: 12px;
   font-weight: 600;
-  color: #EAF0FF;
+  color: var(--a-text);
   line-height: 1.3;
   overflow: hidden;
   text-overflow: ellipsis;
