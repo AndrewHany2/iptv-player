@@ -62,10 +62,9 @@ function PosterCardWeb({ item, onPress, isFocused, width = 200 }) {
         width,
         cursor: "pointer",
         borderRadius: radii.md,
-        // Focus ring is interaction-only (instant cyan; allowed on TV). Hover ring
-        // comes from the global `.lumen-poster-card:hover` rule.
-        outline: isFocused ? `${focusRing.width}px solid ${focusRing.color}` : "none",
-        outlineOffset: 3,
+        // No OUTER ring. Focus/hover is shown ONLY by the inner poster-box border
+        // + glow below. The old outer outline (outline-offset:3) wrapped the whole
+        // card incl. the title and got cropped by the shelf rail's overflow:hidden.
       }}
     >
       <div

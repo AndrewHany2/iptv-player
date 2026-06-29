@@ -61,8 +61,9 @@ if (typeof document !== "undefined") {
       transition: transform 0.2s ease, box-shadow 0.2s ease;
       cursor: pointer !important; overflow: hidden !important;
     }
-    .lumen-poster-card { transition: outline-color 0.12s ease; }
-    body:not(.keyboard-nav) .lumen-poster-card:hover { outline: 2px solid #22D3EE !important; outline-offset: 3px; }
+    /* No OUTER hover ring on poster cards — the hover border + glow live on the
+       inner .lumen-poster-box (injected in PosterCard.web). The old outer outline
+       wrapped the whole card incl. the title and got cropped by the rail overflow. */
     body:not(.keyboard-nav) .lumen-poster:hover { transform: scale(1.05); z-index: 2; box-shadow: 0 0 0 1.5px #6C5CE7, 0 ${ss(8)}px ${ss(28)}px rgba(0,0,0,0.6); }
     .lumen-live-card { transition: border-color 0.15s ease, background-color 0.15s ease; cursor: pointer !important; }
     body:not(.keyboard-nav) .lumen-live-card:hover { border-color: #6C5CE7 !important; background-color: #1B2236 !important; }
@@ -502,7 +503,7 @@ export default function AppNavigator() {
   const ContentComponent = CONTENT_MAP[activeTab] || LiveTVScreen;
 
   return (
-    <YStack flex={1} backgroundColor={colors.bg} position="relative">
+    <YStack flex={1} minHeight={0} backgroundColor={colors.bg} position="relative">
       <TopNav
         active={activeTab}
         onSelect={(tab) => {

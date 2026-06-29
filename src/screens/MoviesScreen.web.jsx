@@ -106,7 +106,7 @@ function CategoryPage({ name, items, onBack, onPlay, onLoadMore, hasRemote, load
   };
 
   return (
-    <YStack flex={1} backgroundColor={colors.bg}>
+    <YStack flex={1} minHeight={0} backgroundColor={colors.bg}>
       <XStack alignItems="center" gap={ss(14)} paddingHorizontal={ss(48)} paddingVertical={ss(18)} borderBottomWidth={1} borderBottomColor={colors.border}>
         <Button variant="ghost" size="sm" icon="back" onPress={onBack}>Back</Button>
         <Text color={colors.text} fontSize={ss(22)} fontWeight="700">{name}</Text>
@@ -190,7 +190,7 @@ export default function MoviesScreen({ navigation }) {
     : null;
 
   return (
-    <YStack flex={1} backgroundColor={colors.bg} position="relative">
+    <YStack flex={1} minHeight={0} backgroundColor={colors.bg} position="relative">
       <ScrollView flex={1} minHeight={0} contentContainerStyle={{ paddingBottom: ss(80) }}>
         <YStack maxWidth={MAX_W} width="100%" alignSelf="center">
         {heroItem && (

@@ -16,7 +16,8 @@ import {
 import { ss } from "../utils/scaleSize";
 import { useApp } from "../context/AppContext";
 
-const isTV = () => typeof globalThis !== "undefined" && globalThis.__TV__ === true;
+const isTV = () =>
+  typeof globalThis !== "undefined" && globalThis.__TV__ === true;
 
 export default function AuthScreen() {
   const { signIn, signUp } = useApp();
@@ -45,7 +46,9 @@ export default function AuthScreen() {
       return;
     }
     if (mode === "register" && !/^[a-zA-Z0-9_]{3,30}$/.test(username.trim())) {
-      setError("Username must be 3–30 characters: letters, numbers, underscores only.");
+      setError(
+        "Username must be 3–30 characters: letters, numbers, underscores only.",
+      );
       return;
     }
     if (password.length < 6) {
@@ -70,13 +73,26 @@ export default function AuthScreen() {
       }
     } catch (err) {
       const msg = err.message || "";
-      if (msg.toLowerCase().includes("rate limit") || msg.toLowerCase().includes("email rate limit")) {
-        setError("Too many sign-up attempts. Please wait a few minutes and try again.");
+      if (
+        msg.toLowerCase().includes("rate limit") ||
+        msg.toLowerCase().includes("email rate limit")
+      ) {
+        setError(
+          "Too many sign-up attempts. Please wait a few minutes and try again.",
+        );
       } else if (msg.toLowerCase().includes("email not confirmed")) {
-        setError("Please check your email and confirm your account before signing in.");
-      } else if (msg.toLowerCase().includes("invalid login credentials") || msg.toLowerCase().includes("invalid username or password")) {
+        setError(
+          "Please check your email and confirm your account before signing in.",
+        );
+      } else if (
+        msg.toLowerCase().includes("invalid login credentials") ||
+        msg.toLowerCase().includes("invalid email or password")
+      ) {
         setError("Invalid username/email or password.");
-      } else if (msg.toLowerCase().includes("already registered") || msg.toLowerCase().includes("already been registered")) {
+      } else if (
+        msg.toLowerCase().includes("already registered") ||
+        msg.toLowerCase().includes("already been registered")
+      ) {
         setError("This email is already registered. Please sign in instead.");
       } else {
         setError(msg);
@@ -122,10 +138,22 @@ export default function AuthScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: colors.bg, paddingTop: insets.top, paddingBottom: insets.bottom }}
+      style={{
+        flex: 1,
+        backgroundColor: colors.bg,
+        paddingTop: insets.top,
+        paddingBottom: insets.bottom,
+      }}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
-      <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: "center", padding: ss(20) }} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={{
+          flexGrow: 1,
+          justifyContent: "center",
+          padding: ss(20),
+        }}
+        keyboardShouldPersistTaps="handled"
+      >
         <YStack
           backgroundColor={colors.surface2}
           borderRadius={radii.lg}
@@ -159,13 +187,19 @@ export default function AuthScreen() {
           >
             IPTV Player
           </Text>
-          <Text fontSize={ss(14)} fontFamily={fonts.body} color={colors.muted} textAlign="center" marginBottom={ss(24)}>
+          <Text
+            fontSize={ss(14)}
+            fontFamily={fonts.body}
+            color={colors.muted}
+            textAlign="center"
+            marginBottom={ss(24)}
+          >
             {mode === "login" ? "Sign in to your account" : "Create an account"}
           </Text>
 
-          <Text {...labelStyle}>{mode === "login" ? "Username or Email" : "Username"}</Text>
+          <Text {...labelStyle}>{mode === "login" ? "Email" : "Username"}</Text>
           <Input
-            placeholder={mode === "login" ? "your_username or you@example.com" : "your_username"}
+            placeholder={mode === "login" ? "you@example.com" : "your_username"}
             placeholderTextColor={colors.faint}
             value={username}
             onChangeText={setUsername}
@@ -231,8 +265,17 @@ export default function AuthScreen() {
               borderColor={colors.danger}
               backgroundColor={colors.surface}
             >
-              <Icon name="warning" size={ss(iconSizes.sm)} color={colors.danger} />
-              <Text color={colors.danger} fontFamily={fonts.body} fontSize={ss(13)} flex={1}>
+              <Icon
+                name="warning"
+                size={ss(iconSizes.sm)}
+                color={colors.danger}
+              />
+              <Text
+                color={colors.danger}
+                fontFamily={fonts.body}
+                fontSize={ss(13)}
+                flex={1}
+              >
                 {error}
               </Text>
             </XStack>
@@ -248,14 +291,26 @@ export default function AuthScreen() {
             {submitLabel}
           </Button>
 
-          <XStack justifyContent="center" alignItems="center" marginTop={ss(16)}>
-            <Text color={colors.muted} fontFamily={fonts.body} fontSize={ss(14)}>
-              {mode === "login" ? "Don't have an account?" : "Already have an account?"}
+          <XStack
+            justifyContent="center"
+            alignItems="center"
+            marginTop={ss(16)}
+          >
+            <Text
+              color={colors.muted}
+              fontFamily={fonts.body}
+              fontSize={ss(14)}
+            >
+              {mode === "login"
+                ? "Don't have an account?"
+                : "Already have an account?"}
             </Text>
             <Button
               variant="ghost"
               size="sm"
-              onPress={() => switchMode(mode === "login" ? "register" : "login")}
+              onPress={() =>
+                switchMode(mode === "login" ? "register" : "login")
+              }
             >
               {mode === "login" ? "Register" : "Sign In"}
             </Button>

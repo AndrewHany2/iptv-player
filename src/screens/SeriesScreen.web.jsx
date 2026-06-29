@@ -388,7 +388,7 @@ function CategoryPage({
   };
 
   return (
-    <YStack flex={1} backgroundColor={colors.bg}>
+    <YStack flex={1} minHeight={0} backgroundColor={colors.bg}>
       <XStack
         alignItems="center"
         gap={ss(14)}
@@ -829,8 +829,8 @@ export default function SeriesScreen({ navigation }) {
   const heroItem = heroShelf ? selectHeroItem(heroShelf.items) : null;
 
   return (
-    <YStack flex={1} backgroundColor={colors.bg} position="relative">
-      <ScrollView flex={1} contentContainerStyle={{ paddingBottom: ss(80) }}>
+    <YStack flex={1} minHeight={0} backgroundColor={colors.bg} position="relative">
+      <ScrollView flex={1} minHeight={0} contentContainerStyle={{ paddingBottom: ss(80) }}>
         <YStack maxWidth={MAX_W} width="100%" alignSelf="center">
         {heroItem && (
           <YStack paddingHorizontal={ss(48)} paddingTop={ss(24)}>
