@@ -25,18 +25,33 @@ class ContentService {
     return this._configured === true;
   }
 
+  // Reuse normalized arrays by raw-array identity. iptvApi returns cache-stable
+  // raw arrays within its TTL and normalize* is pure, so the same raw array
+  // always maps to the same output — re-running .map(normalize) (one object
+  // allocation per row) on every cache hit is wasted work. Mirrors tmdbApi's
+  // _streamMapCache reuse-by-identity pattern. Lazy-init avoids class fields.
+  _normalizeCached(raw, fn) {
+    if (!Array.isArray(raw)) return [];
+    this._normCache ??= new WeakMap();
+    const hit = this._normCache.get(raw);
+    if (hit) return hit;
+    const out = raw.map(fn);
+    this._normCache.set(raw, out);
+    return out;
+  }
+
   // ── Live TV ──────────────────────────────────────────────────────────────
 
   async getLiveCategories() {
     const raw = await iptvApi.getLiveCategories();
-    return (raw ?? []).map(normalizeCategory);
+    return this._normalizeCached(raw, normalizeCategory);
   }
 
   async getLiveChannels(categoryId) {
     const raw = categoryId
       ? await iptvApi.getLiveStreamsByCategory(categoryId)
       : await iptvApi.getLiveStreams();
-    return (raw ?? []).map(normalizeChannel);
+    return this._normalizeCached(raw, normalizeChannel);
   }
 
   async getAllLiveChannels() {
@@ -51,17 +66,17 @@ class ContentService {
 
   async getMovieCategories() {
     const raw = await iptvApi.getVODCategories();
-    return (raw ?? []).map(normalizeCategory);
+    return this._normalizeCached(raw, normalizeCategory);
   }
 
   async getMoviesByCategory(categoryId) {
     const raw = await iptvApi.getVODStreams(categoryId);
-    return (raw ?? []).map(normalizeMovie);
+    return this._normalizeCached(raw, normalizeMovie);
   }
 
   async getAllMovies() {
     const raw = await iptvApi.getAllVODStreamsRobust();
-    return (raw ?? []).map(normalizeMovie);
+    return this._normalizeCached(raw, normalizeMovie);
   }
 
   async getMovieInfo(movieId) {
@@ -83,17 +98,17 @@ class ContentService {
 
   async getSeriesCategories() {
     const raw = await iptvApi.getSeriesCategories();
-    return (raw ?? []).map(normalizeCategory);
+    return this._normalizeCached(raw, normalizeCategory);
   }
 
   async getSeriesByCategory(categoryId) {
     const raw = await iptvApi.getSeries(categoryId);
-    return (raw ?? []).map(normalizeSeries);
+    return this._normalizeCached(raw, normalizeSeries);
   }
 
   async getAllSeries() {
     const raw = await iptvApi.getAllSeriesRobust();
-    return (raw ?? []).map(normalizeSeries);
+    return this._normalizeCached(raw, normalizeSeries);
   }
 
   async getSeriesInfo(seriesId) {

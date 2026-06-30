@@ -78,6 +78,18 @@ export function useMovies({ navigation } = {}) {
     } catch { return null; }
   }, [contentService]);
 
+  // Defer the (expensive) top-rated prefetch — getAllMovies() over the whole VOD
+  // catalog + up to 5 concurrent TMDB calls — off the initial-mount critical
+  // path so it doesn't compete with the visible shelves' category fetches.
+  // Consumers still `await` this promise; the work just starts when the main
+  // thread is idle (capped at 2s) instead of synchronously inside load().
+  const schedulePrefetch = useCallback(() => new Promise((resolve) => {
+    const run = () => resolve(prefetchTopRated());
+    const ric = typeof globalThis !== "undefined" ? globalThis.requestIdleCallback : null;
+    if (typeof ric === "function") ric(run, { timeout: 2000 });
+    else setTimeout(run, 200);
+  }), [prefetchTopRated]);
+
   const kickoffPrefetch = useCallback((cursor) => {
     if (!cursor || cursor.prefetch) return;
     const fromPage = cursor.page + 1;
@@ -110,14 +122,14 @@ export function useMovies({ navigation } = {}) {
         id: c.id, name: c.name, items: null, totalCount: null,
         hasMore: false, loadingMore: false, manual: false,
       })));
-      prefetchRef.current = { topRated: prefetchTopRated() };
+      prefetchRef.current = { topRated: schedulePrefetch() };
     } catch (err) {
       console.error("useMovies.load:", err);
       setError(true);
     } finally {
       setLoading(false);
     }
-  }, [activeUser, contentService, prefetchTopRated]);
+  }, [activeUser, contentService, schedulePrefetch]);
 
   useEffect(() => { if (activeUserId) load(); }, [activeUserId, load]);
 
