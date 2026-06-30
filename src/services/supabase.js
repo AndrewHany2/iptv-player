@@ -17,28 +17,41 @@ const authConfig =
       }
     : {};
 
-export const supabase =
-  SUPABASE_URL && SUPABASE_ANON_KEY
-    ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY, authConfig)
-    : null;
+// Lazily create the Supabase client on FIRST use rather than at module import,
+// so createClient() runs off the synchronous cold-start path (Tier 6 "cheap
+// intermediate" — works even under web.output:single). The null result is
+// memoized too, so an unconfigured app never re-checks. isSupabaseConfigured()
+// stays a pure env check and never instantiates the client.
+let _client;
+let _clientInit = false;
+function client() {
+  if (!_clientInit) {
+    _clientInit = true;
+    _client =
+      SUPABASE_URL && SUPABASE_ANON_KEY
+        ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY, authConfig)
+        : null;
+  }
+  return _client;
+}
 
-export const isSupabaseConfigured = () => !!supabase;
+export const isSupabaseConfigured = () => !!(SUPABASE_URL && SUPABASE_ANON_KEY);
 
 export async function getSession() {
-  if (!supabase) return null;
-  const { data } = await supabase.auth.getSession();
+  if (!client()) return null;
+  const { data } = await client().auth.getSession();
   return data.session;
 }
 
 export async function signUp(username, password, email) {
-  const { data: existing } = await supabase
+  const { data: existing } = await client()
     .from("profiles")
     .select("username")
     .eq("username", username.toLowerCase())
     .maybeSingle();
   if (existing) throw new Error("Username is already taken.");
 
-  const { data, error } = await supabase.auth.signUp({
+  const { data, error } = await client().auth.signUp({
     email: email.toLowerCase(),
     password,
     options: { data: { username: username.toLowerCase() } },
@@ -61,9 +74,9 @@ export async function signUp(username, password, email) {
 }
 
 export async function upsertProfile(userId, username, email) {
-  if (!supabase) return;
+  if (!client()) return;
   try {
-    const { error } = await supabase
+    const { error } = await client()
       .from("profiles")
       .upsert({ user_id: userId, username, email }, { onConflict: "user_id" });
     if (error) console.error("[Supabase] upsertProfile:", error.message);
@@ -80,7 +93,7 @@ export async function signIn(usernameOrEmail, password) {
   if (usernameOrEmail.includes("@")) {
     email = usernameOrEmail.toLowerCase();
   } else {
-    const { data: profileRow, error: lookupError } = await supabase
+    const { data: profileRow, error: lookupError } = await client()
       .from("profiles")
       .select("email")
       .eq("username", usernameOrEmail.toLowerCase())
@@ -94,7 +107,7 @@ export async function signIn(usernameOrEmail, password) {
     email = profileRow.email;
   }
 
-  const { data, error } = await supabase.auth.signInWithPassword({
+  const { data, error } = await client().auth.signInWithPassword({
     email,
     password,
   });
@@ -119,21 +132,21 @@ export async function signIn(usernameOrEmail, password) {
 }
 
 export async function signOut() {
-  const { error } = await supabase.auth.signOut();
+  const { error } = await client().auth.signOut();
   if (error) throw new Error(error.message);
 }
 
 export function onAuthStateChange(callback) {
-  if (!supabase) return () => {};
-  const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+  if (!client()) return () => {};
+  const { data } = client().auth.onAuthStateChange((_event, session) => {
     callback(session?.user ?? null);
   });
   return () => data.subscription.unsubscribe();
 }
 
 export async function fetchProfile(userId) {
-  if (!supabase) return null;
-  const { data, error } = await supabase
+  if (!client()) return null;
+  const { data, error } = await client()
     .from("profiles")
     .select("username, email")
     .eq("user_id", userId)
@@ -145,8 +158,8 @@ export async function fetchProfile(userId) {
 // ─── App Profiles ────────────────────────────────────────────────────────────
 
 export async function fetchAppProfiles(userId) {
-  if (!supabase) return [];
-  const { data, error } = await supabase
+  if (!client()) return [];
+  const { data, error } = await client()
     .from("app_profiles")
     .select("id, name, avatar, created_at")
     .eq("user_id", userId)
@@ -159,8 +172,8 @@ export async function fetchAppProfiles(userId) {
 }
 
 export async function insertAppProfile(userId, { name, avatar = "👤" }) {
-  if (!supabase) return null;
-  const { data, error } = await supabase
+  if (!client()) return null;
+  const { data, error } = await client()
     .from("app_profiles")
     .insert({ user_id: userId, name: name.trim(), avatar })
     .select()
@@ -173,8 +186,8 @@ export async function insertAppProfile(userId, { name, avatar = "👤" }) {
 }
 
 export async function updateAppProfile(profileId, { name, avatar }) {
-  if (!supabase) return;
-  const { error } = await supabase
+  if (!client()) return;
+  const { error } = await client()
     .from("app_profiles")
     .update({ name: name.trim(), avatar })
     .eq("id", profileId);
@@ -182,8 +195,8 @@ export async function updateAppProfile(profileId, { name, avatar }) {
 }
 
 export async function deleteAppProfile(profileId) {
-  if (!supabase) return;
-  const { error } = await supabase
+  if (!client()) return;
+  const { error } = await client()
     .from("app_profiles")
     .delete()
     .eq("id", profileId);
@@ -193,8 +206,8 @@ export async function deleteAppProfile(profileId) {
 // ─── IPTV Accounts ───────────────────────────────────────────────────────────
 
 export async function fetchIptvAccounts(profileId) {
-  if (!supabase) return [];
-  const { data, error } = await supabase
+  if (!client()) return [];
+  const { data, error } = await client()
     .from("iptv_accounts")
     .select("*")
     .eq("profile_id", profileId)
@@ -213,8 +226,8 @@ export async function fetchIptvAccounts(profileId) {
 }
 
 export async function insertIptvAccount(userId, profileId, account) {
-  if (!supabase) return null;
-  const { data, error } = await supabase
+  if (!client()) return null;
+  const { data, error } = await client()
     .from("iptv_accounts")
     .insert({
       user_id: userId,
@@ -234,8 +247,8 @@ export async function insertIptvAccount(userId, profileId, account) {
 }
 
 export async function updateIptvAccount(accountId, account) {
-  if (!supabase) return;
-  const { error } = await supabase
+  if (!client()) return;
+  const { error } = await client()
     .from("iptv_accounts")
     .update({
       nickname: account.nickname || null,
@@ -248,8 +261,8 @@ export async function updateIptvAccount(accountId, account) {
 }
 
 export async function deleteIptvAccount(accountId) {
-  if (!supabase) return;
-  const { error } = await supabase
+  if (!client()) return;
+  const { error } = await client()
     .from("iptv_accounts")
     .delete()
     .eq("id", accountId);
@@ -262,8 +275,8 @@ export async function deleteIptvAccount(accountId) {
 export const MAX_HISTORY = 20;
 
 export async function fetchRemoteHistory(userKey) {
-  if (!supabase) return [];
-  const { data, error } = await supabase
+  if (!client()) return [];
+  const { data, error } = await client()
     .from("watch_history")
     .select("entry")
     .eq("user_key", userKey)
@@ -277,8 +290,8 @@ export async function fetchRemoteHistory(userKey) {
 }
 
 export async function upsertHistoryEntry(userKey, entry) {
-  if (!supabase) return { ok: false, error: new Error("Supabase not configured") };
-  const { error } = await supabase
+  if (!client()) return { ok: false, error: new Error("Supabase not configured") };
+  const { error } = await client()
     .from("watch_history")
     .upsert(
       {
@@ -300,8 +313,8 @@ export async function upsertHistoryEntry(userKey, entry) {
 }
 
 export async function deleteHistoryEntry(userKey, entryId) {
-  if (!supabase) return { ok: false, error: new Error("Supabase not configured") };
-  const { error } = await supabase
+  if (!client()) return { ok: false, error: new Error("Supabase not configured") };
+  const { error } = await client()
     .from("watch_history")
     .delete()
     .eq("user_key", userKey)
@@ -316,8 +329,8 @@ export async function deleteHistoryEntry(userKey, entryId) {
 // ─── Favorites ────────────────────────────────────────────────────────────────
 
 export async function fetchFavorites(userKey) {
-  if (!supabase) return [];
-  const { data, error } = await supabase
+  if (!client()) return [];
+  const { data, error } = await client()
     .from("favorites")
     .select("entry")
     .eq("user_key", userKey)
@@ -330,8 +343,8 @@ export async function fetchFavorites(userKey) {
 }
 
 export async function upsertFavorite(userKey, entry) {
-  if (!supabase) return { ok: false, error: new Error("Supabase not configured") };
-  const { error } = await supabase
+  if (!client()) return { ok: false, error: new Error("Supabase not configured") };
+  const { error } = await client()
     .from("favorites")
     .upsert(
       { user_key: userKey, entry_id: entry.id, entry, added_at: entry.addedAt },
@@ -345,8 +358,8 @@ export async function upsertFavorite(userKey, entry) {
 }
 
 export async function deleteFavorite(userKey, entryId) {
-  if (!supabase) return { ok: false, error: new Error("Supabase not configured") };
-  const { error } = await supabase
+  if (!client()) return { ok: false, error: new Error("Supabase not configured") };
+  const { error } = await client()
     .from("favorites")
     .delete()
     .eq("user_key", userKey)
