@@ -35,3 +35,34 @@ export function back(history) {
 export function canGoBack(history) {
   return history.stack.length > 0;
 }
+
+/**
+ * Decide what the remote Back key should do, given the current UI state. Pure so
+ * AppNavigator can dispatch on the result and the precedence stays unit-tested.
+ *
+ * Precedence (highest first): an open exit prompt cancels itself, then the
+ * Settings / Accounts modals close, then a non-empty tab stack pops one entry,
+ * and finally — at the true root with nothing open and no history — Back asks
+ * to exit the app. The key property is that there is NO silent no-op: every
+ * Back press yields an action.
+ *
+ * @param {{ showExitPrompt?: boolean, showSettings?: boolean,
+ *           showAccounts?: boolean, stack?: string[], activeTab?: string }} state
+ * @returns {{ type: "closeExit" }
+ *   | { type: "closeSettings" }
+ *   | { type: "closeAccounts" }
+ *   | { type: "popTab", activeTab: string, stack: string[] }
+ *   | { type: "exitPrompt" }}
+ */
+export function resolveBack(state) {
+  const { showExitPrompt, showSettings, showAccounts, stack = [], activeTab } =
+    state || {};
+  if (showExitPrompt) return { type: "closeExit" };
+  if (showSettings) return { type: "closeSettings" };
+  if (showAccounts) return { type: "closeAccounts" };
+  if (stack.length > 0) {
+    const next = back({ activeTab, stack });
+    return { type: "popTab", activeTab: next.activeTab, stack: next.stack };
+  }
+  return { type: "exitPrompt" };
+}

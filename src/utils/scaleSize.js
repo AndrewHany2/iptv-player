@@ -5,13 +5,14 @@ import { Dimensions, Platform } from 'react-native';
 const DESIGN_WIDTH  = 1920;
 const DESIGN_HEIGHT = 1080;
 
-// TVs never resize and native screens are effectively fixed for our purposes, so
-// there we keep the original snapshot-on-startup behaviour (no listener churn,
-// no per-frame work in a grid of hundreds of cards). Only web/desktop, where the
-// user can drag the window edge, recompute the scale on resize.
-const IS_REACTIVE =
-  Platform.OS === 'web' &&
-  !(typeof globalThis !== 'undefined' && globalThis.__TV__ === true);
+// Web — INCLUDING webOS TV — recomputes the scale when the window size changes;
+// native is effectively fixed so it keeps the snapshot taken at module load.
+// webOS must NOT be excluded here: it can report a 0×0 window at module-load time
+// (the app window is sized AFTER the deferred bundle starts executing). Freezing
+// that snapshot collapses every ss()-scaled size to 0px permanently — a blank UI.
+// TVs don't drag-resize, so the listener fires ~once at startup: no per-frame
+// churn, just the one correction that turns the frozen 0 into the real scale.
+const IS_REACTIVE = Platform.OS === 'web';
 
 // Uniform scale factor: whichever axis is the tighter fit governs.
 // Do NOT divide by PixelRatio — Dimensions already returns CSS logical pixels
@@ -26,20 +27,41 @@ const IS_REACTIVE =
 // the 1920×1080 reference (large-screen UIs authored at that resolution).
 const MOBILE_REF_WIDTH = 420;
 
+// Read the window size, falling back to live DOM measurements when RN-Web's
+// Dimensions cache is still 0. On webOS the cache can be stale (0×0) at the
+// instant the bundle evaluates; window.innerWidth / clientWidth are usually
+// populated by then, so try them before giving up.
+function readWindow() {
+  let { width, height } = Dimensions.get('window');
+  if ((!width || !height) && typeof window !== 'undefined') {
+    width = width || window.innerWidth || 0;
+    height = height || window.innerHeight || 0;
+  }
+  if ((!width || !height) && typeof document !== 'undefined' && document.documentElement) {
+    width = width || document.documentElement.clientWidth || 0;
+    height = height || document.documentElement.clientHeight || 0;
+  }
+  return { width, height };
+}
+
 function computeScale() {
-  const { width, height } = Dimensions.get('window');
+  const { width, height } = readWindow();
   if (Platform.OS !== 'web') {
     const s = width / MOBILE_REF_WIDTH;
     return Math.min(Math.max(s, 0.85), 1.3);
   }
+  // Dimensions not ready yet (webOS cold start, before the window is sized):
+  // render at design size rather than collapsing every size to 0 — the resize
+  // listener / kicks below recompute the moment real dimensions arrive.
+  if (!width || !height) return 1;
   return Math.min(width / DESIGN_WIDTH, height / DESIGN_HEIGHT);
 }
 
-// Live scale. On native/TV this is frozen at module load; on web it is updated
-// by the listeners wired below. `ss(n)` always reads this latest value.
+// Live scale. On native this is frozen at module load; on web (incl. webOS TV)
+// it is updated by the listeners/kicks wired below. `ss(n)` always reads latest.
 let SCALE = computeScale();
 
-// Subscribers re-rendered when SCALE changes (web/desktop only). Kept in a Set so
+// Subscribers re-rendered when SCALE changes (web/desktop/TV). Kept in a Set so
 // useScale() instances can register/unregister cleanly.
 const subscribers = new Set();
 
@@ -50,14 +72,21 @@ function recompute() {
   for (const notify of subscribers) notify(SCALE);
 }
 
-if (IS_REACTIVE) {
+if (IS_REACTIVE && typeof window !== 'undefined') {
   // RN-Web maps Dimensions 'change' onto window resize, but we also listen on
   // window directly as a belt-and-braces guard for environments (Electron) where
   // the RN shim's debounce can lag.
   Dimensions.addEventListener('change', recompute);
-  if (typeof window !== 'undefined' && window.addEventListener) {
-    window.addEventListener('resize', recompute);
-  }
+  if (window.addEventListener) window.addEventListener('resize', recompute);
+
+  // Cold-start safety net: if the window was 0×0 at module load (webOS sizes its
+  // app window AFTER the deferred bundle runs) a resize event may never follow, so
+  // actively re-check once layout settles. recompute() is a no-op when unchanged,
+  // and on the correcting tick it notifies subscribers so the tree reflows off 0.
+  if (window.requestAnimationFrame) window.requestAnimationFrame(recompute);
+  if (window.addEventListener) window.addEventListener('load', recompute);
+  setTimeout(recompute, 0);
+  setTimeout(recompute, 300);
 }
 
 /**

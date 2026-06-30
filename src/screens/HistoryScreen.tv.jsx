@@ -392,13 +392,17 @@ export default function HistoryScreenTV({ navigation }) {
         closeMovieDetail();
         break;
       case KEY_UP:
+        // btnIdx === -1 → topbar back icon (between first button and navbar).
         if (d.btnIdx > 0) updMovieDetail({ ...d, btnIdx: d.btnIdx - 1 });
+        else if (d.btnIdx === 0) updMovieDetail({ ...d, btnIdx: -1 });
         else focusNav();
         break;
       case KEY_DOWN:
-        if (d.btnIdx < maxBtn) updMovieDetail({ ...d, btnIdx: d.btnIdx + 1 });
+        if (d.btnIdx === -1) updMovieDetail({ ...d, btnIdx: 0 });
+        else if (d.btnIdx < maxBtn) updMovieDetail({ ...d, btnIdx: d.btnIdx + 1 });
         break;
       case KEY_ENTER: {
+        if (d.btnIdx === -1) { closeMovieDetail(); break; }
         const btn = buttons[d.btnIdx];
         if (btn?.type === "play") playMovie(d, resume?.currentTime || 0);
         else if (btn?.type === "restart") playMovie(d, 0);
@@ -480,6 +484,10 @@ export default function HistoryScreenTV({ navigation }) {
   };
 
   const seriesOnUp = (d) => {
+    if (d.section === "back") {
+      focusNav();
+      return;
+    }
     if (d.trailerFocus) {
       focusNav();
       return;
@@ -490,11 +498,16 @@ export default function HistoryScreenTV({ navigation }) {
     } else if (d.section === "seasons") {
       updSeriesDetail({ ...d, section: "actions", actionIdx: 0 });
     } else {
-      focusNav();
+      // section === "actions" → topbar back icon.
+      updSeriesDetail({ ...d, section: "back" });
     }
   };
 
   const seriesOnDown = (d) => {
+    if (d.section === "back") {
+      updSeriesDetail({ ...d, section: "actions", actionIdx: 0 });
+      return;
+    }
     if (d.trailerFocus) {
       updSeriesDetail({ ...d, trailerFocus: false, section: "episodes", epIdx: 0 });
       return;
@@ -511,6 +524,10 @@ export default function HistoryScreenTV({ navigation }) {
   };
 
   const seriesOnEnter = (d) => {
+    if (d.section === "back") {
+      closeSeriesDetail();
+      return;
+    }
     if (d.trailerFocus) {
       updSeriesDetail({ ...d, showTrailer: !d.showTrailer });
       return;
@@ -602,7 +619,7 @@ export default function HistoryScreenTV({ navigation }) {
     return (
       <div className="tvl-screen">
         <div className="tvl-topbar">
-          <button className="tvl-topbar-back" onClick={closeMovieDetail}><Icon name="back" size={20} color={colors.text} /></button>
+          <button className={btnIdx === -1 ? "tvl-topbar-back tvl-topbar-back--focused" : "tvl-topbar-back"} onClick={closeMovieDetail}><Icon name="back" size={20} color={colors.text} /></button>
           <button className="tvl-topbar-title tvl-topbar-title--back" onClick={closeMovieDetail}>
             {item.name}
           </button>
@@ -700,7 +717,7 @@ export default function HistoryScreenTV({ navigation }) {
     return (
       <div className="tvl-screen">
         <div className="tvl-topbar">
-          <button className="tvl-topbar-back" onClick={closeSeriesDetail}><Icon name="back" size={20} color={colors.text} /></button>
+          <button className={section === "back" ? "tvl-topbar-back tvl-topbar-back--focused" : "tvl-topbar-back"} onClick={closeSeriesDetail}><Icon name="back" size={20} color={colors.text} /></button>
           <button className="tvl-topbar-title tvl-topbar-title--back" onClick={closeSeriesDetail}>
             {item.name}
           </button>

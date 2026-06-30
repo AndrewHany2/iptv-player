@@ -67,6 +67,9 @@ export default function SeriesScreenTV({ navigation, route }) {
   const snElRef = useRef(null);
   const actionElRef = useRef(null);
   const navActiveRef = useRef(false);
+  // Mirror of navActiveRef as state so the grid focus ring re-renders (and
+  // clears) the moment the remote hands focus up to the top navbar.
+  const [navActive, setNavActive] = useState(false);
 
   const [filterZone, setFilterZone] = useState("grid");
   const filterZoneRef = useRef("grid");
@@ -92,6 +95,7 @@ export default function SeriesScreenTV({ navigation, route }) {
 
   const focusNav = () => {
     navActiveRef.current = true;
+    setNavActive(true);
     globalThis.dispatchEvent(new CustomEvent("tv-nav-focus"));
   };
 
@@ -339,6 +343,7 @@ export default function SeriesScreenTV({ navigation, route }) {
     };
     const onNavBlur = () => {
       navActiveRef.current = false;
+      setNavActive(false);
     };
     document.addEventListener("keydown", onKey);
     globalThis.addEventListener("tv-nav-blur", onNavBlur);
@@ -482,13 +487,27 @@ export default function SeriesScreenTV({ navigation, route }) {
   const handleGridSearchKey = (k) => {
     switch (k) {
       case KEY_UP:
-        filterZoneRef.current = "grid"; setFilterZone("grid"); focusNav();
+        filterZoneRef.current = "back"; setFilterZone("back");
         break;
       case KEY_DOWN:
         filterZoneRef.current = "filter"; setFilterZone("filter");
         break;
       case KEY_ENTER:
         gridSearchInputRef.current?.focus();
+        break;
+    }
+  };
+  // Topbar back-icon zone (above the search bar, below the global navbar).
+  const handleGridBackKey = (k) => {
+    switch (k) {
+      case KEY_UP:
+        filterZoneRef.current = "grid"; setFilterZone("grid"); focusNav();
+        break;
+      case KEY_DOWN:
+        filterZoneRef.current = "search"; setFilterZone("search");
+        break;
+      case KEY_ENTER:
+        closeGrid();
         break;
     }
   };
@@ -528,6 +547,7 @@ export default function SeriesScreenTV({ navigation, route }) {
       }
       return;
     }
+    if (filterZoneRef.current === "back") { handleGridBackKey(k); return; }
     if (filterZoneRef.current === "search") { handleGridSearchKey(k); return; }
     if (filterZoneRef.current === "filter") {
       switch (k) {
@@ -561,11 +581,12 @@ export default function SeriesScreenTV({ navigation, route }) {
       updDetail({ ...d, trailerFocus: false, seasonIdx: d.seasons.length - 1 });
     } else if (d.section === "actions" && d.actionIdx > 0) {
       updDetail({ ...d, actionIdx: d.actionIdx - 1 });
-    } else if (d.section === "actions" && d.actionIdx === 0) {
-      closeDetail();
     } else if (d.section === "seasons" && d.seasonIdx > 0) {
       updDetail({ ...d, seasonIdx: d.seasonIdx - 1, epIdx: 0 });
     }
+    // Left on the first action button is a no-op — only Back closes the detail
+    // (matches MoviesScreen). Previously this called closeDetail(), so a single
+    // Left press on "Continue" felt like an unwanted history-back in Series only.
   };
   const onDetailRight = (d) => {
     const trailer = getTrailerUrl(d.info?.info?.youtube_trailer);
@@ -584,6 +605,10 @@ export default function SeriesScreenTV({ navigation, route }) {
     }
   };
   const onDetailUp = (d) => {
+    if (d.section === "back") {
+      focusNav();
+      return;
+    }
     if (d.trailerFocus) {
       focusNav();
       return;
@@ -594,10 +619,16 @@ export default function SeriesScreenTV({ navigation, route }) {
     } else if (d.section === "seasons") {
       updDetail({ ...d, section: "actions", actionIdx: 0 });
     } else {
-      focusNav(); // section === "actions"
+      // section === "actions" → focus the topbar back icon (sits between the
+      // action buttons and the global navbar).
+      updDetail({ ...d, section: "back" });
     }
   };
   const onDetailDown = (d) => {
+    if (d.section === "back") {
+      updDetail({ ...d, section: "actions", actionIdx: 0 });
+      return;
+    }
     if (d.trailerFocus) {
       updDetail({ ...d, trailerFocus: false, section: "episodes", epIdx: 0 });
       return;
@@ -612,6 +643,10 @@ export default function SeriesScreenTV({ navigation, route }) {
     }
   };
   const onDetailEnter = (d) => {
+    if (d.section === "back") {
+      closeDetail();
+      return;
+    }
     if (d.trailerFocus) {
       updDetail({ ...d, showTrailer: !d.showTrailer });
       return;
@@ -667,10 +702,10 @@ export default function SeriesScreenTV({ navigation, route }) {
         onDetailEnter(d);
         break;
       default:
-        if (KEY_BACK.has(k)) {
-          closeDetail();
-          navigation.goBack?.();
-        }
+        // Back in the detail view only closes the detail (one level). It must
+        // NOT also call navigation.goBack() — that double-pops (closes the
+        // detail AND navigates back a tab) on a single press.
+        if (KEY_BACK.has(k)) closeDetail();
     }
   };
 
@@ -760,7 +795,7 @@ export default function SeriesScreenTV({ navigation, route }) {
     return (
       <div className="tvl-screen">
         <div className="tvl-topbar">
-          <button className="tvl-topbar-back" onClick={closeDetail}><Icon name="back" size={iconSizes.md} color="currentColor" /></button>
+          <button className={section === "back" ? "tvl-topbar-back tvl-topbar-back--focused" : "tvl-topbar-back"} onClick={closeDetail}><Icon name="back" size={iconSizes.md} color="currentColor" /></button>
           <button className="tvl-topbar-title tvl-topbar-title--back" onClick={closeDetail}>
             {item.name}
           </button>
@@ -896,7 +931,7 @@ export default function SeriesScreenTV({ navigation, route }) {
     return (
       <div className="tvl-screen">
         <div className="tvl-topbar">
-          <button className="tvl-topbar-back" onClick={closeGrid}><Icon name="back" size={iconSizes.md} color="currentColor" /></button>
+          <button className={filterZone === "back" ? "tvl-topbar-back tvl-topbar-back--focused" : "tvl-topbar-back"} onClick={closeGrid}><Icon name="back" size={iconSizes.md} color="currentColor" /></button>
           <button className="tvl-topbar-title tvl-topbar-title--back" onClick={closeGrid}>
             {grid.name}
           </button>
@@ -964,7 +999,7 @@ export default function SeriesScreenTV({ navigation, route }) {
                 <PosterCard
                   key={String(item.series_id)}
                   item={item}
-                  isFocused={i === grid.focus}
+                  isFocused={filterZone === "grid" && !navActive && i === grid.focus}
                 />
               )}
             />
@@ -981,7 +1016,7 @@ export default function SeriesScreenTV({ navigation, route }) {
         <span className="tvl-topbar-title">Series</span>
       </div>
       <div className="tvl-scroll">
-        <div className={catZone === "search" ? "tvl-cat-search tvl-cat-search--on" : "tvl-cat-search"}>
+        <div className={catZone === "search" && !navActive ? "tvl-cat-search tvl-cat-search--on" : "tvl-cat-search"}>
           <span className="tvl-cat-search-icon"><Icon name="search" size={iconSizes.md} color="currentColor" /></span>
           <input
             ref={searchInputRef}

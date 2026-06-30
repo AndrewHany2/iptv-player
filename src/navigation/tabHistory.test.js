@@ -1,7 +1,7 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 
-import { createHistory, go, back, canGoBack } from "./tabHistory.js";
+import { createHistory, go, back, canGoBack, resolveBack } from "./tabHistory.js";
 
 describe("createHistory", () => {
   test("defaults to live with empty stack", () => {
@@ -93,5 +93,45 @@ describe("scenarios", () => {
     h = back(h); assert.equal(h.activeTab, "live");
     h = back(h); assert.equal(h.activeTab, "movies");
     h = back(h); assert.equal(h.activeTab, "live");
+  });
+});
+
+describe("resolveBack", () => {
+  test("at the true root (no modal, empty stack) asks to exit — never a no-op", () => {
+    assert.deepEqual(
+      resolveBack({ stack: [], activeTab: "live" }),
+      { type: "exitPrompt" },
+    );
+    // Defensive: missing/empty state still yields an action.
+    assert.deepEqual(resolveBack(), { type: "exitPrompt" });
+    assert.deepEqual(resolveBack({}), { type: "exitPrompt" });
+  });
+
+  test("an open exit prompt cancels itself first", () => {
+    assert.deepEqual(
+      resolveBack({ showExitPrompt: true, showSettings: true, stack: ["live"] }),
+      { type: "closeExit" },
+    );
+  });
+
+  test("Settings closes before Accounts and before popping", () => {
+    assert.deepEqual(
+      resolveBack({ showSettings: true, showAccounts: true, stack: ["live"] }),
+      { type: "closeSettings" },
+    );
+  });
+
+  test("Accounts closes before popping the tab stack", () => {
+    assert.deepEqual(
+      resolveBack({ showAccounts: true, stack: ["live"] }),
+      { type: "closeAccounts" },
+    );
+  });
+
+  test("with a non-empty stack and no modal, pops the previous tab", () => {
+    assert.deepEqual(
+      resolveBack({ stack: ["live", "movies"], activeTab: "series" }),
+      { type: "popTab", activeTab: "movies", stack: ["live"] },
+    );
   });
 });

@@ -46,6 +46,9 @@ export default function LiveTVScreenTV({ navigation }) {
   const allItemsRef = useRef(new Map());
   const catElRef = useRef(null);
   const navActiveRef = useRef(false);
+  // State mirror of navActiveRef so search/zone highlights re-render (and clear)
+  // the moment the remote hands focus up to the global navbar.
+  const [navActive, setNavActive] = useState(false);
   const catZoneRef = useRef("grid");
   const searchInputRef = useRef(null);
   const gridZoneRef = useRef("grid");
@@ -54,6 +57,7 @@ export default function LiveTVScreenTV({ navigation }) {
 
   const focusNav = () => {
     navActiveRef.current = true;
+    setNavActive(true);
     globalThis.dispatchEvent(new CustomEvent("tv-nav-focus"));
   };
 
@@ -161,15 +165,14 @@ export default function LiveTVScreenTV({ navigation }) {
   useEffect(() => {
     const onKey = (e) => {
       const k = e.keyCode || e.which;
-      // TEMP DIAGNOSTIC: log every keydown reaching the LiveTV screen handler.
-      console.log("[LiveTV onKey]", "keyCode=", k, "navActive=", navActiveRef.current, "currentVideo=", !!currentVideoRef.current, "page=", !!pageRef.current, "active=", document.activeElement?.tagName);
-      if (navActiveRef.current) { console.log("[LiveTV onKey] BAILED: nav active"); return; }
-      if (currentVideoRef.current) { console.log("[LiveTV onKey] BAILED: video open"); return; }
+      if (navActiveRef.current) return;
+      if (currentVideoRef.current) return;
       if (pageRef.current) handleChKey(k, e);
       else handleCatKey(k, e);
     };
     const onNavBlur = () => {
       navActiveRef.current = false;
+      setNavActive(false);
     };
     document.addEventListener("keydown", onKey);
     globalThis.addEventListener("tv-nav-blur", onNavBlur);
@@ -286,9 +289,18 @@ export default function LiveTVScreenTV({ navigation }) {
   const gridInputFocused = () => document.activeElement === gridSearchInputRef.current;
   const handleGridSearchKey = (k) => {
     switch (k) {
-      case KEY_UP: focusNav(); break;
+      case KEY_UP: setGridZoneBoth("back"); break;
       case KEY_DOWN: setGridZoneBoth("grid"); break;
       case KEY_ENTER: gridSearchInputRef.current?.focus(); break;
+    }
+  };
+
+  // Topbar back-icon zone (above the search bar, below the global navbar).
+  const handleGridBackKey = (k) => {
+    switch (k) {
+      case KEY_UP: focusNav(); break;
+      case KEY_DOWN: setGridZoneBoth("search"); break;
+      case KEY_ENTER: closePage(); break;
     }
   };
 
@@ -309,6 +321,7 @@ export default function LiveTVScreenTV({ navigation }) {
       closePage();
       return;
     }
+    if (gridZoneRef.current === "back") { handleGridBackKey(k); return; }
     if (gridZoneRef.current === "search") { handleGridSearchKey(k); return; }
     if (!pg?.items) return;
     switch (k) {
@@ -363,7 +376,7 @@ export default function LiveTVScreenTV({ navigation }) {
     return (
       <div className="tvl-screen">
         <div className="tvl-topbar">
-          <button className="tvl-topbar-back" onClick={closePage} aria-label="Back">
+          <button className={gridZone === "back" ? "tvl-topbar-back tvl-topbar-back--focused" : "tvl-topbar-back"} onClick={closePage} aria-label="Back">
             <span style={{ display: "inline-flex", transform: "rotate(180deg)" }}>
               <Icon name="chevron-right" size={ss(iconSizes.md)} color={colors.text} />
             </span>
@@ -431,7 +444,7 @@ export default function LiveTVScreenTV({ navigation }) {
         <span className="tvl-topbar-title">Live TV</span>
       </div>
       <div className="tvl-scroll">
-        <div className={catZone === "search" ? "tvl-cat-search tvl-cat-search--on" : "tvl-cat-search"}>
+        <div className={catZone === "search" && !navActive ? "tvl-cat-search tvl-cat-search--on" : "tvl-cat-search"}>
           <span className="tvl-cat-search-icon"><Icon name="search" size={ss(iconSizes.md)} color="currentColor" /></span>
           <input
             ref={searchInputRef}

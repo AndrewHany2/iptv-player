@@ -91,6 +91,13 @@
   cursor: pointer;
   font-family: inherit;
 }
+/* Remote-focus ring for the header Back arrow (reached by pressing Up). */
+.tvl-topbar-back--focused {
+  outline: 2px solid var(--a-focus-ring);
+  outline-offset: 4px;
+  border-radius: 8px;
+  background: var(--a-focus-fill);
+}
 .tvl-topbar-title {
   font-size: 28px;
   font-weight: 700;

@@ -112,6 +112,58 @@ html = html.replace(
   '<meta name="viewport" content="width=1280,initial-scale=1,viewport-fit=cover">',
 );
 
+// ── Statically declare + warm the Aurora webfonts ───────────────────────────
+// expo-font registers @font-face only at runtime, after the JS bundle mounts,
+// with the default font-display:auto. On webOS the page loads from file:// and
+// Chromium's "slow network" effective-connection-type heuristic then forces a
+// fallback-first repaint (the "[Intervention] … Fallback font will be used"
+// warnings) plus a late font swap once React mounts. We pre-empt both here, in
+// the HTML the device parses first: declare each font statically in <head> with
+// font-display:optional, then warm it with document.fonts.load() so the (local,
+// bundled) .ttf is fetched at parse time and ready before first paint — the real
+// font renders immediately, no swap, no warning. (App.js mirrors
+// font-display:optional on the runtime face under __TV__ so the two @font-face
+// rules agree rather than re-introducing `auto`.)
+//
+// NB: we deliberately do NOT use <link rel="preload" as="font" crossorigin>.
+// On file:// the @font-face request is not made in CORS/anonymous mode, so a
+// crossorigin preload never matches it ("credentials mode does not match" /
+// "preloaded but not used") — it double-fetches and warns. document.fonts.load()
+// triggers the face's own request, so it warms the exact resource the page uses.
+const TV_FONTS = [
+  { family: "SpaceGrotesk", dir: "assets/node_modules/@expo-google-fonts/space-grotesk/500Medium" },
+  { family: "Inter", dir: "assets/node_modules/@expo-google-fonts/inter/400Regular" },
+];
+const faceRules = [];
+const warmFamilies = [];
+for (const { family, dir } of TV_FONTS) {
+  let ttf = null;
+  try {
+    ttf = fs.readdirSync(path.join(distDir, dir)).find((f) => f.toLowerCase().endsWith(".ttf"));
+  } catch {
+    /* dir missing — fall through to the warning below */
+  }
+  if (!ttf) {
+    console.warn(`⚠ Font asset for "${family}" not found under ${dir} — skipping @font-face`);
+    continue;
+  }
+  const href = `./${dir}/${ttf}`;
+  faceRules.push(`@font-face{font-family:"${family}";src:url("${href}") format("truetype");font-display:optional}`);
+  warmFamilies.push(family);
+}
+if (faceRules.length) {
+  // The face declares no font-weight, so it defaults to 400 — warm at 1em with
+  // the default weight so the load request matches the registered face.
+  const warm = warmFamilies.map((f) => `document.fonts.load('1em "${f}"')`).join(";");
+  const fontHead =
+    `<style id="tv-static-fonts">${faceRules.join("")}</style>` +
+    `<script>try{${warm};}catch(e){}</script>`;
+  // Inject right after the viewport meta so the faces exist and the warm-up runs
+  // before the (large) CSS/JS — the fonts are in cache by first paint.
+  html = html.replace(/(<meta name="viewport"[^>]*>)/, "$1" + fontHead);
+  console.log(`✓ Statically declared + warmed ${faceRules.length} TV webfont(s) (font-display:optional)`);
+}
+
 // Patch CSSStyleSheet.insertRule to handle :focus-visible — webOS Chromium <86
 // rejects this pseudo-class, causing hundreds of thrown errors per page load
 // which burns CPU and prevents those style rules from applying (missing margins).

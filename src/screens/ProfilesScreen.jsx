@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTVNavigation } from "../hooks/useTVNavigation";
@@ -16,7 +16,7 @@ import { colors, fonts, fontWeights, radii, accentAlpha } from "../ui/tokens";
 // Danger (colors.danger #E5484D → rgb 229,72,77) at 0.18 alpha — the confirm-delete
 // wash. Mirrors the token; kept local since tokens.js exposes no dangerAlpha helper.
 const dangerAlpha18 = "rgba(229,72,77,0.18)";
-import { ss } from "../utils/scaleSize";
+import { ss, useScale } from "../utils/scaleSize";
 import Button from "../ui/Button";
 import Icon from "../ui/Icon";
 import StatePanel from "../ui/StatePanel";
@@ -31,6 +31,7 @@ const AVATARS = [
 ];
 
 export default function ProfilesScreen() {
+  useScale(); // re-render + recompute ss() when the scale corrects (webOS cold start)
   const {
     appProfiles,
     activeProfileId,
@@ -74,6 +75,60 @@ export default function ProfilesScreen() {
             },
           }]
         : []),
+    ],
+  });
+
+  const nameInputRef = useRef(null);
+
+  // Per-profile action layout — drives both the Manage-view D-pad rows and the
+  // focus-highlight mapping in render. Switch is omitted for the active profile.
+  const profileActions = (p) => [
+    ...(activeProfileId === p.id ? [] : ["switch"]),
+    "edit",
+    "delete",
+  ];
+
+  // ── Manage-view D-pad grid ────────────────────────────────────────────────
+  const { focusedRow: mRow, focusedCol: mCol } = useTVNavigation({
+    active: view === "manage",
+    rows: [
+      {
+        items: [{ kind: "back" }, { kind: "add" }],
+        onSelect: (_, item) => {
+          if (item.kind === "back") { setView("select"); setError(null); setConfirmDeleteId(null); }
+          else openAdd();
+        },
+      },
+      ...appProfiles.map((p) => ({
+        items: profileActions(p).map((kind) => ({ kind, p })),
+        onSelect: (_, item) => {
+          if (loading) return;
+          if (item.kind === "switch") { switchProfile(p.id); setView("select"); }
+          else if (item.kind === "edit") openEdit(p);
+          else if (item.kind === "delete") handleDelete(p.id);
+        },
+      })),
+    ],
+  });
+
+  // ── Form-view D-pad grid (back · name · avatars · cancel/save) ─────────────
+  const { focusedRow: fRow, focusedCol: fCol } = useTVNavigation({
+    active: view === "form",
+    rows: [
+      { items: [{ kind: "back" }], onSelect: () => { if (!loading) resetForm(); } },
+      { items: [{ kind: "name" }], onSelect: () => nameInputRef.current?.focus() },
+      {
+        items: AVATARS.map((a) => ({ kind: "avatar", a })),
+        onSelect: (_, item) => setFormData((f) => ({ ...f, avatar: item.a })),
+      },
+      {
+        items: [{ kind: "cancel" }, { kind: "save" }],
+        onSelect: (_, item) => {
+          if (loading) return;
+          if (item.kind === "cancel") resetForm();
+          else if (formData.name.trim()) handleSave();
+        },
+      },
     ],
   });
 
@@ -138,20 +193,47 @@ export default function ProfilesScreen() {
 
   // ── Form view (add / edit) ────────────────────────────────────────────────
   if (view === "form") {
+    const backFocused = fRow === 0;
+    const nameFocused = fRow === 1;
     return (
       <YStack flex={1} backgroundColor={colors.bg} paddingTop={insets.top} paddingBottom={insets.bottom}>
-        <ScrollView flex={1}>
-          <YStack padding={ss(24)}>
-            <Text
-              fontFamily={fonts.display}
-              fontSize={ss(22)}
-              fontWeight={fontWeights.bold}
-              color={colors.text}
-              marginBottom={ss(24)}
-            >
-              {editingId ? "Edit Profile" : "New Profile"}
+        {/* Header with focusable back icon + title */}
+        <XStack
+          alignItems="center"
+          gap={ss(8)}
+          paddingHorizontal={ss(16)}
+          paddingTop={ss(20)}
+          paddingBottom={ss(8)}
+        >
+          <XStack
+            alignItems="center"
+            gap={ss(6)}
+            padding={ss(6)}
+            borderRadius={radii.sm}
+            cursor="pointer"
+            onPress={() => { if (!loading) resetForm(); }}
+            pressStyle={{ opacity: 0.7 }}
+            borderWidth={2}
+            borderColor={backFocused ? colors.accent2 : "transparent"}
+            backgroundColor={backFocused ? accentAlpha(0.15) : "transparent"}
+          >
+            <Icon name="back" size={ss(18)} color={colors.accent} />
+            <Text color={colors.accent} fontFamily={fonts.body} fontSize={ss(15)} fontWeight={fontWeights.medium}>
+              Back
             </Text>
+          </XStack>
+          <Text
+            fontFamily={fonts.display}
+            fontSize={ss(20)}
+            fontWeight={fontWeights.bold}
+            color={colors.text}
+          >
+            {editingId ? "Edit Profile" : "New Profile"}
+          </Text>
+        </XStack>
 
+        <ScrollView flex={1}>
+          <YStack padding={ss(24)} paddingTop={ss(8)}>
             {!!error && (
               <Text color={colors.danger} fontFamily={fonts.body} fontSize={ss(13)} marginTop={ss(8)} textAlign="center">
                 {error}
@@ -162,6 +244,7 @@ export default function ProfilesScreen() {
               Name *
             </Text>
             <Input
+              ref={nameInputRef}
               placeholder="e.g. Dad, Kids…"
               placeholderTextColor={colors.faint}
               value={formData.name}
@@ -169,21 +252,22 @@ export default function ProfilesScreen() {
               autoCapitalize="words"
               disabled={loading}
               backgroundColor={colors.surface2}
-              borderColor={colors.border}
+              borderColor={nameFocused ? colors.accent2 : colors.border}
               color={colors.text}
               borderRadius={radii.card}
               paddingHorizontal={ss(14)}
               paddingVertical={ss(12)}
               fontSize={ss(15)}
-              borderWidth={1}
+              borderWidth={2}
             />
 
             <Text fontFamily={fonts.body} fontSize={ss(13)} color={colors.muted} marginBottom={ss(6)} marginTop={ss(16)}>
               Avatar
             </Text>
             <XStack flexWrap="wrap" gap={ss(10)} marginTop={ss(8)}>
-              {AVATARS.map((emoji) => {
+              {AVATARS.map((emoji, idx) => {
                 const selected = formData.avatar === emoji;
+                const focused = fRow === 2 && fCol === idx;
                 return (
                   <YStack
                     key={emoji}
@@ -192,7 +276,7 @@ export default function ProfilesScreen() {
                     borderRadius={radii.card}
                     backgroundColor={selected ? accentAlpha(0.15) : colors.surface2}
                     borderWidth={2}
-                    borderColor={selected ? colors.accent : "transparent"}
+                    borderColor={focused ? colors.accent2 : selected ? colors.accent : "transparent"}
                     justifyContent="center"
                     alignItems="center"
                     cursor="pointer"
@@ -209,6 +293,7 @@ export default function ProfilesScreen() {
               <Button
                 variant="secondary"
                 size="md"
+                isFocused={fRow === 3 && fCol === 0}
                 disabled={loading}
                 onPress={loading ? undefined : resetForm}
                 style={{ flex: 1 }}
@@ -218,6 +303,7 @@ export default function ProfilesScreen() {
               <Button
                 variant="primary"
                 size="md"
+                isFocused={fRow === 3 && fCol === 1}
                 disabled={loading || !formData.name.trim()}
                 onPress={loading || !formData.name.trim() ? undefined : handleSave}
                 style={{ flex: 1 }}
@@ -245,10 +331,14 @@ export default function ProfilesScreen() {
           <XStack
             alignItems="center"
             gap={ss(6)}
-            padding={ss(4)}
+            padding={ss(6)}
+            borderRadius={radii.sm}
             cursor="pointer"
             onPress={() => { setView("select"); setError(null); setConfirmDeleteId(null); }}
             pressStyle={{ opacity: 0.7 }}
+            borderWidth={2}
+            borderColor={mRow === 0 && mCol === 0 ? colors.accent2 : "transparent"}
+            backgroundColor={mRow === 0 && mCol === 0 ? accentAlpha(0.15) : "transparent"}
           >
             <Icon name="back" size={ss(18)} color={colors.accent} />
             <Text color={colors.accent} fontFamily={fonts.body} fontSize={ss(15)} fontWeight={fontWeights.medium}>
@@ -262,6 +352,7 @@ export default function ProfilesScreen() {
             variant="primary"
             size="sm"
             icon="plus"
+            isFocused={mRow === 0 && mCol === 1}
             disabled={loading}
             onPress={loading ? undefined : openAdd}
           >
@@ -287,9 +378,11 @@ export default function ProfilesScreen() {
         ) : (
           <ScrollView flex={1}>
             <YStack paddingHorizontal={ss(16)} paddingBottom={ss(20)}>
-              {appProfiles.map((p) => {
+              {appProfiles.map((p, i) => {
                 const active = activeProfileId === p.id;
                 const confirming = confirmDeleteId === p.id;
+                const acts = profileActions(p);
+                const rowFocused = mRow === i + 1;
                 return (
                   <XStack
                     key={p.id}
@@ -328,6 +421,7 @@ export default function ProfilesScreen() {
                         <Button
                           variant="primary"
                           size="sm"
+                          isFocused={rowFocused && mCol === acts.indexOf("switch")}
                           disabled={loading}
                           onPress={loading ? undefined : () => { switchProfile(p.id); setView("select"); }}
                         >
@@ -337,6 +431,7 @@ export default function ProfilesScreen() {
                       <Button
                         variant="secondary"
                         size="sm"
+                        isFocused={rowFocused && mCol === acts.indexOf("edit")}
                         disabled={loading}
                         onPress={loading ? undefined : () => openEdit(p)}
                       >
@@ -345,6 +440,7 @@ export default function ProfilesScreen() {
                       <Button
                         variant={confirming ? "secondary" : "ghost"}
                         size="sm"
+                        isFocused={rowFocused && mCol === acts.indexOf("delete")}
                         disabled={loading}
                         onPress={loading ? undefined : () => handleDelete(p.id)}
                         style={

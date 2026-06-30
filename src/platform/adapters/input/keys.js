@@ -20,8 +20,20 @@ export const KEY_NAMES = {
   Escape: "back", Meta: "back",
 };
 
+/**
+ * True if the event is the Mac ⌘ (Command) modifier. It shares keyCode 91 / key
+ * "Meta" with this deployment's remote Back button, but uniquely reports code
+ * "MetaLeft"/"MetaRight" (a TV remote never does). We use this to ignore ⌘ while
+ * testing in the webOS simulator on a Mac keyboard, so it doesn't trigger Back —
+ * without affecting the real remote, which never sends those codes.
+ */
+export function isMacCommand(e) {
+  return e.code === "MetaLeft" || e.code === "MetaRight";
+}
+
 /** Resolve a keydown event to a logical action, or null. */
 export function resolveAction(e) {
+  if (isMacCommand(e)) return null;
   return KEY_NAMES[e.key] ?? KEY_CODES[e.keyCode] ?? KEY_CODES[e.which] ?? null;
 }
 

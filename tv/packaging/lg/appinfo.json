@@ -9,5 +9,6 @@
   "largeIcon": "largeIcon.png",
   "bgImage": "bgImage.png",
   "requiredPermissions": ["internet", "network.state"],
-  "allowCrossDomain": true
+  "allowCrossDomain": true,
+  "disableBackHistoryAPI": true
 }

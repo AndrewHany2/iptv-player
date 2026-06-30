@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from "react";
 import { YStack, XStack, Text } from "../ui/primitives";
 import Icon from "../ui/Icon";
-import { colors, accentAlpha } from "../ui/tokens";
+import Button from "../ui/Button";
+import { colors, accentAlpha, fonts } from "../ui/tokens";
 import { useApp } from "../context/AppContext";
 import { isSupabaseConfigured } from "../services/supabase";
 import { ss } from "../utils/scaleSize";
+import { isMacCommand } from "../platform/adapters/input/keys";
 
 import AuthScreen from "../screens/AuthScreen";
 import ProfilesScreen from "../screens/ProfilesScreen";
@@ -24,7 +26,7 @@ import AccountsScreen from "../screens/AccountsScreen";
 import VideoPlayerScreen from "../screens/VideoPlayerScreen";
 import SettingsScreen from "../screens/SettingsScreen.web";
 import { usePlatform } from "../platform/PlatformProvider";
-import { go as historyGo, back as historyBack } from "./tabHistory";
+import { go as historyGo, resolveBack } from "./tabHistory";
 
 
 // ── Global CSS injected once ──────────────────────────────────────────────────
@@ -347,12 +349,47 @@ export default function AppNavigator() {
   const [activeTab, setActiveTab] = useState("live");
   const [showAccounts, setShowAccounts] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showExitPrompt, setShowExitPrompt] = useState(false);
+  const [exitFocus, setExitFocus] = useState("cancel"); // "cancel" | "exit"
   const [navFocused, setNavFocused] = useState(false);
   const [focusedNavIdx, setFocusedNavIdx] = useState(0);
   const navIdxRef = useRef(0);
   // Tab navigation history so the remote Back key can go "history -1" (return
   // to the previously-viewed tab) once the active screen is at its root.
   const tabHistoryRef = useRef([]);
+
+  // Mirror the modal/tab state into refs so `goBack` (captured once by each
+  // screen's keydown effect at mount) always reads the latest values.
+  const activeTabRef = useRef(activeTab);
+  const showAccountsRef = useRef(showAccounts);
+  const showSettingsRef = useRef(showSettings);
+  const showExitPromptRef = useRef(showExitPrompt);
+  useEffect(() => { activeTabRef.current = activeTab; }, [activeTab]);
+  useEffect(() => { showAccountsRef.current = showAccounts; }, [showAccounts]);
+  useEffect(() => { showSettingsRef.current = showSettings; }, [showSettings]);
+  useEffect(() => { showExitPromptRef.current = showExitPrompt; }, [showExitPrompt]);
+
+  // Set true while we're deliberately exiting so the popstate guard below stops
+  // re-pushing the sentinel and lets webOS unwind history → close the app.
+  const exitingRef = useRef(false);
+
+  // Drop nav focus AND notify screens. Screens reset their per-screen
+  // navActiveRef/navHasFocus flag on `tv-nav-blur`; clearing focus without
+  // dispatching it would leave them stuck and bailing on every key (incl. Back).
+  const clearNavFocus = () => {
+    setNavFocused(false);
+    globalThis.dispatchEvent(new CustomEvent("tv-nav-blur"));
+  };
+
+  // Exit the app (TV). webOS closes the app when history underflows on Back; the
+  // popstate guard normally prevents that, so we lift the guard first.
+  const exitApp = () => {
+    exitingRef.current = true;
+    try { window.close(); } catch { /* no-op */ }
+    // Fallback for runtimes where window.close() is a no-op: underflow history.
+    try { window.history.back(); } catch { /* no-op */ }
+  };
+
   const goToTab = (tab) => {
     setActiveTab((prev) => {
       const next = historyGo({ activeTab: prev, stack: tabHistoryRef.current }, tab);
@@ -385,12 +422,12 @@ export default function AppNavigator() {
   useEffect(() => {
     if (!isTV) return;
     const onBack = (e) => {
-      // TEMP DIAGNOSTIC: log EVERY keydown the document sees (capture phase).
-      console.log("[keydown capture]", "keyCode=", e.keyCode, "key=", JSON.stringify(e.key), "repeat=", e.repeat);
+      if (isMacCommand(e)) return; // Mac ⌘ shares keyCode 91 — ignore in the simulator
       if (e.keyCode === 461 || e.keyCode === 10009 || e.keyCode === 91) e.preventDefault();
     };
     const onPop = () => {
-      console.log("[popstate] re-pushing sentinel"); // TEMP DIAGNOSTIC
+      // While exiting we WANT history to underflow so webOS closes the app.
+      if (exitingRef.current) return;
       window.history.pushState(null, "", window.location.href);
     };
     document.addEventListener("keydown", onBack, true);
@@ -429,6 +466,7 @@ export default function AppNavigator() {
       globalThis.dispatchEvent(new CustomEvent("tv-nav-blur"));
     };
     const handler = (e) => {
+      if (isMacCommand(e)) return; // Mac ⌘ shares keyCode 91 — ignore in the simulator
       if (e.key === "ArrowRight" || e.keyCode === 39) {
         e.preventDefault();
         const next = Math.min(navIdxRef.current + 1, NAV_TOTAL - 1);
@@ -461,7 +499,6 @@ export default function AppNavigator() {
         e.keyCode === 91
       ) {
         e.preventDefault();
-        console.log("[navFocused] Back/Down consumed by nav blur — this press did NOT navigate back"); // TEMP DIAGNOSTIC
         blurNav();
       }
     };
@@ -472,6 +509,7 @@ export default function AppNavigator() {
   useEffect(() => {
     if (!showAccounts) return;
     const handler = (e) => {
+      if (isMacCommand(e)) return; // Mac ⌘ shares keyCode 91 — ignore in the simulator
       if (e.key === "Escape" || e.keyCode === 461 || e.keyCode === 10009 || e.keyCode === 91) {
         e.preventDefault();
         setShowAccounts(false);
@@ -484,6 +522,7 @@ export default function AppNavigator() {
   useEffect(() => {
     if (!showSettings) return;
     const handler = (e) => {
+      if (isMacCommand(e)) return; // Mac ⌘ shares keyCode 91 — ignore in the simulator
       if (e.key === "Escape" || e.keyCode === 461 || e.keyCode === 10009 || e.keyCode === 91) {
         e.preventDefault();
         setShowSettings(false);
@@ -492,6 +531,30 @@ export default function AppNavigator() {
     globalThis.addEventListener("keydown", handler);
     return () => globalThis.removeEventListener("keydown", handler);
   }, [showSettings]);
+
+  // Exit-confirm prompt owns all keys while open (capture phase + stop
+  // propagation) so arrows/Enter never leak to the screen behind it.
+  useEffect(() => {
+    if (!showExitPrompt) return;
+    const handler = (e) => {
+      if (isMacCommand(e)) return; // Mac ⌘ shares keyCode 91 — ignore in the simulator
+      if (e.repeat) { e.preventDefault(); e.stopImmediatePropagation(); return; }
+      const k = e.keyCode;
+      if (e.key === "ArrowLeft" || e.key === "ArrowRight" || k === 37 || k === 39) {
+        e.preventDefault(); e.stopImmediatePropagation();
+        setExitFocus((f) => (f === "cancel" ? "exit" : "cancel"));
+      } else if (e.key === "Enter" || k === 13) {
+        e.preventDefault(); e.stopImmediatePropagation();
+        if (exitFocus === "exit") exitApp();
+        else setShowExitPrompt(false);
+      } else if (e.key === "Escape" || k === 27 || k === 461 || k === 10009 || k === 91 || k === 8) {
+        e.preventDefault(); e.stopImmediatePropagation();
+        setShowExitPrompt(false);
+      }
+    };
+    document.addEventListener("keydown", handler, true);
+    return () => document.removeEventListener("keydown", handler, true);
+  }, [showExitPrompt, exitFocus]);
 
   const [routeParams, setRouteParams] = useState({});
 
@@ -518,18 +581,31 @@ export default function AppNavigator() {
       }
     },
     goBack: () => {
-      // TEMP DIAGNOSTIC
-      console.log("[goBack]", "stack=", JSON.stringify(tabHistoryRef.current), "showAccounts=", showAccounts, "showSettings=", showSettings);
-      // Modals first (their own key handlers also close them, but content
-      // screens funnel here too).
-      if (showSettings) { setShowSettings(false); return; }
-      if (showAccounts) { setShowAccounts(false); return; }
-      // History -1: return to the previously-viewed tab.
-      if (tabHistoryRef.current.length) {
-        const next = historyBack({ activeTab, stack: tabHistoryRef.current });
-        tabHistoryRef.current = next.stack;
-        setActiveTab(next.activeTab);
-        setNavFocused(false);
+      // Single source of truth for what Back does — never a silent no-op.
+      // Reads refs (not render-scope state) because each screen captures this
+      // closure once at mount. See resolveBack() in tabHistory.js.
+      const action = resolveBack({
+        showExitPrompt: showExitPromptRef.current,
+        showSettings: showSettingsRef.current,
+        showAccounts: showAccountsRef.current,
+        stack: tabHistoryRef.current,
+        activeTab: activeTabRef.current,
+      });
+      switch (action.type) {
+        case "closeExit": setShowExitPrompt(false); return;
+        case "closeSettings": setShowSettings(false); return;
+        case "closeAccounts": setShowAccounts(false); return;
+        case "popTab":
+          tabHistoryRef.current = action.stack;
+          setActiveTab(action.activeTab);
+          clearNavFocus();
+          return;
+        case "exitPrompt":
+          // True root: confirm before exiting (the prompt owns its own keys).
+          setExitFocus("cancel");
+          setShowExitPrompt(true);
+          return;
+        default: return;
       }
     },
     getParent: () => webNavigation,
@@ -562,7 +638,7 @@ export default function AppNavigator() {
         onSelect={(tab) => {
           if (tab !== activeTab) setSearchQuery("");
           goToTab(tab);
-          setNavFocused(false);
+          clearNavFocus();
         }}
         activeProfile={activeProfile}
         onAccounts={() => setShowAccounts(true)}
@@ -716,6 +792,59 @@ export default function AppNavigator() {
             </div>
             <SettingsScreen />
           </dialog>
+        </div>
+      )}
+
+      {showExitPrompt && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "rgba(0,0,0,0.7)",
+            zIndex: 300,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <div
+            style={{
+              width: ss(440),
+              maxWidth: "90vw",
+              backgroundColor: colors.surface2,
+              borderRadius: ss(16),
+              padding: `${ss(28)}px ${ss(28)}px ${ss(24)}px`,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: ss(8),
+            }}
+          >
+            <span style={{ color: colors.text, fontFamily: fonts.display, fontSize: ss(22), fontWeight: 700 }}>
+              Exit app?
+            </span>
+            <span style={{ color: "#aaa", fontFamily: fonts.body, fontSize: ss(15), textAlign: "center" }}>
+              You’ll leave the app and return to the home screen.
+            </span>
+            <XStack gap={ss(12)} marginTop={ss(20)}>
+              <Button
+                variant="ghost"
+                size="md"
+                isFocused={exitFocus === "cancel"}
+                onPress={() => setShowExitPrompt(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                size="md"
+                isFocused={exitFocus === "exit"}
+                onPress={exitApp}
+              >
+                Exit
+              </Button>
+            </XStack>
+          </div>
         </div>
       )}
     </YStack>

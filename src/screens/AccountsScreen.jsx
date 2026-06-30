@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { FlatList, Alert, KeyboardAvoidingView, Platform } from "react-native";
 import { YStack, XStack, Text, Input, ScrollView } from "../ui/primitives";
 import { colors, fonts, fontWeights, radii, accentAlpha } from "../ui/tokens";
-import { ss } from "../utils/scaleSize";
+import { ss, useScale } from "../utils/scaleSize";
 import Button from "../ui/Button";
 import Icon from "../ui/Icon";
 import PasswordInput from "../ui/PasswordInput";
@@ -11,6 +11,7 @@ import { useApp } from "../context/AppContext";
 import iptvApi from "../services/iptvApi";
 
 export default function AccountsScreen({ navigation }) {
+  useScale(); // re-render + recompute ss() when the scale corrects (webOS cold start)
   const { users, activeUserId, setActiveUserId, saveUsers, addUser, updateUser, removeUser, setChannels, authUser, profile, signOut } = useApp();
 
   const [showForm, setShowForm] = useState(false);

@@ -53,6 +53,9 @@ export default function MoviesScreenTV({ navigation, route }) {
 
   const [filterZone, setFilterZone] = useState("grid");
   const filterZoneRef = useRef("grid");
+  // True while the top navbar holds the remote, so the grid focus ring clears
+  // instead of lingering on a card the cursor has left.
+  const [navActive, setNavActive] = useState(false);
   const [filterIdx, setFilterIdx] = useState(0);
   const filterIdxRef = useRef(0);
   const [filterLetter, setFilterLetter] = useState("all");
@@ -207,9 +210,17 @@ export default function MoviesScreenTV({ navigation, route }) {
 
   // Grid search-bar zone (above the alpha-filter letter bar).
   const gridInputFocused = () => document.activeElement === gridSearchInputRef.current;
-  const onGridSearchUp = () => { filterZoneRef.current = "grid"; setFilterZone("grid"); yieldFocusToNav(); };
+  // Up from the search bar lands on the header Back arrow (its visual position,
+  // at the very top) rather than jumping straight to the global nav.
+  const onGridSearchUp = () => { filterZoneRef.current = "back"; setFilterZone("back"); };
   const onGridSearchDown = () => { filterZoneRef.current = "filter"; setFilterZone("filter"); };
   const onGridSearchEnter = () => gridSearchInputRef.current?.focus();
+
+  // Header Back-arrow zone (topmost). Up yields to the global nav; Down returns to
+  // the search bar; Enter closes the page (same as clicking the arrow / Back key).
+  const onBackZoneUp = () => { filterZoneRef.current = "grid"; setFilterZone("grid"); yieldFocusToNav(); };
+  const onBackZoneDown = () => { filterZoneRef.current = "search"; setFilterZone("search"); };
+  const onBackZoneEnter = () => closePage();
   const onFilterEnter = () => {
     const letter = ALPHA[filterIdxRef.current] === "ALL" ? "all" : ALPHA[filterIdxRef.current].toLowerCase();
     filterLetterRef.current = letter; setFilterLetter(letter);
@@ -234,7 +245,10 @@ export default function MoviesScreenTV({ navigation, route }) {
       {
         left: () => {
           if (currentVideoRef.current || inputFocused()) return;
-          if (detailRef.current) closeDetail();
+          // In the detail view the action buttons are vertical (up/down), so
+          // Left is a no-op — only Back closes the detail. Route it like the
+          // other directions instead of closing.
+          if (detailRef.current) handleDetailDir("left");
           else if (pageRef.current) onMovOrFilter("left");
           else onCatLeft();
         },
@@ -243,8 +257,6 @@ export default function MoviesScreenTV({ navigation, route }) {
         down: () => { if (!currentVideoRef.current && !inputFocused()) routeDir("down"); },
         enter: () => { if (!currentVideoRef.current && !inputFocused()) routeDir("enter"); },
         back: () => {
-          // TEMP DIAGNOSTIC
-          console.log("[Movies.back]", "video=", !!currentVideoRef.current, "gridInput=", gridInputFocused(), "input=", inputFocused(), "detail=", !!detailRef.current, "page=", !!pageRef.current, "filterZone=", filterZoneRef.current);
           if (currentVideoRef.current) return;
           if (gridInputFocused()) { gridSearchInputRef.current?.blur(); filterZoneRef.current = "search"; setFilterZone("search"); return; }
           if (inputFocused()) { searchInputRef.current?.blur(); setCatZoneBoth("search"); return; }
@@ -260,6 +272,18 @@ export default function MoviesScreenTV({ navigation, route }) {
     // routeDir/onMov* close over stable refs; register reads handlers fresh per key.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [register]);
+
+  // Track navbar focus so the grid ring clears while the top nav has the remote.
+  useEffect(() => {
+    const onNavFocus = () => setNavActive(true);
+    const onNavBlur = () => setNavActive(false);
+    globalThis.addEventListener("tv-nav-focus", onNavFocus);
+    globalThis.addEventListener("tv-nav-blur", onNavBlur);
+    return () => {
+      globalThis.removeEventListener("tv-nav-focus", onNavFocus);
+      globalThis.removeEventListener("tv-nav-blur", onNavBlur);
+    };
+  }, []);
 
   // Direction dispatch across the three zones.
   const routeDir = (dir) => {
@@ -279,6 +303,12 @@ export default function MoviesScreenTV({ navigation, route }) {
   };
 
   const onMovOrFilter = (dir) => {
+    if (filterZoneRef.current === "back") {
+      if (dir === "up") return onBackZoneUp();
+      if (dir === "down") return onBackZoneDown();
+      if (dir === "enter") return onBackZoneEnter();
+      return;
+    }
     if (filterZoneRef.current === "search") {
       if (dir === "up") return onGridSearchUp();
       if (dir === "down") return onGridSearchDown();
@@ -315,9 +345,16 @@ export default function MoviesScreenTV({ navigation, route }) {
       { type: "fav" },
     ];
     const maxBtn = buttons.length - 1;
-    if (dir === "up") { if (d.btnIdx > 0) updDetail({ ...d, btnIdx: d.btnIdx - 1 }); else yieldFocusToNav(); }
+    // btnIdx === -1 represents the topbar back icon, focused between the first
+    // action button and the global navbar.
+    if (dir === "up") {
+      if (d.btnIdx > 0) updDetail({ ...d, btnIdx: d.btnIdx - 1 });
+      else if (d.btnIdx === 0) updDetail({ ...d, btnIdx: -1 });
+      else yieldFocusToNav();
+    }
     else if (dir === "down") { if (d.btnIdx < maxBtn) updDetail({ ...d, btnIdx: d.btnIdx + 1 }); }
     else if (dir === "enter") {
+      if (d.btnIdx === -1) { closeDetail(); return; }
       const btn = buttons[d.btnIdx];
       if (btn?.type === "play") play(d, resume?.currentTime || 0);
       else if (btn?.type === "restart") play(d, 0);
@@ -379,7 +416,7 @@ export default function MoviesScreenTV({ navigation, route }) {
     return (
       <div className="tvl-screen">
         <div className="tvl-topbar">
-          <button className="tvl-topbar-back" onClick={closeDetail}><Icon name="back" size={iconSizes.md} color="currentColor" /></button>
+          <button className={btnIdx === -1 ? "tvl-topbar-back tvl-topbar-back--focused" : "tvl-topbar-back"} onClick={closeDetail}><Icon name="back" size={iconSizes.md} color="currentColor" /></button>
           <button className="tvl-topbar-title tvl-topbar-title--back" onClick={closeDetail}>{item.name}</button>
         </div>
         <div className="tvl-det-hero">
@@ -450,7 +487,7 @@ export default function MoviesScreenTV({ navigation, route }) {
     return (
       <div className="tvl-screen">
         <div className="tvl-topbar">
-          <button className="tvl-topbar-back" onClick={closePage}><Icon name="back" size={iconSizes.md} color="currentColor" /></button>
+          <button className={filterZone === "back" ? "tvl-topbar-back tvl-topbar-back--focused" : "tvl-topbar-back"} onClick={closePage}><Icon name="back" size={iconSizes.md} color="currentColor" /></button>
           <button className="tvl-topbar-title tvl-topbar-title--back" onClick={closePage}>{page.name}</button>
           {filteredItems && <span className="tvl-topbar-count">{filteredItems.length.toLocaleString()}</span>}
         </div>
@@ -493,7 +530,7 @@ export default function MoviesScreenTV({ navigation, route }) {
               focusIndex={page.focus}
               className="tvl-mov-vgrid"
               renderItem={(item, i) => (
-                <MovieCard key={String(item.stream_id)} item={item} isFocused={i === page.focus} />
+                <MovieCard key={String(item.stream_id)} item={item} isFocused={filterZone === "grid" && !navActive && i === page.focus} />
               )}
             />
           </div>
@@ -507,7 +544,7 @@ export default function MoviesScreenTV({ navigation, route }) {
     <div className="tvl-screen">
       <div className="tvl-topbar"><span className="tvl-topbar-title">Movies</span></div>
       <div className="tvl-scroll">
-        <div className={catZone === "search" ? "tvl-cat-search tvl-cat-search--on" : "tvl-cat-search"}>
+        <div className={catZone === "search" && !navActive ? "tvl-cat-search tvl-cat-search--on" : "tvl-cat-search"}>
           <span className="tvl-cat-search-icon"><Icon name="search" size={iconSizes.md} color="currentColor" /></span>
           <input
             ref={searchInputRef}

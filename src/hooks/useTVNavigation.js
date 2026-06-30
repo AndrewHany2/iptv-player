@@ -56,6 +56,19 @@ export function useTVNavigation({ rows, active = true }) {
 
     const handleKey = (e) => {
       if (navHasFocusRef.current) return;
+
+      // While a text field has focus, let the keys drive the caret instead of
+      // moving the grid. Enter/Escape blurs the field, handing control back to
+      // D-pad navigation at the same row.
+      const ae = document.activeElement;
+      if (ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA")) {
+        if (e.key === "Enter" || e.keyCode === 13 || e.key === "Escape" || e.keyCode === 27) {
+          e.preventDefault();
+          ae.blur();
+        }
+        return;
+      }
+
       const { row, col } = ref.current;
       const currentItems = rows[row]?.items ?? [];
 

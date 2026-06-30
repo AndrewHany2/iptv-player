@@ -14,13 +14,14 @@ import {
   shadows,
   accentAlpha,
 } from "../ui/tokens";
-import { ss } from "../utils/scaleSize";
+import { ss, useScale } from "../utils/scaleSize";
 import { useApp } from "../context/AppContext";
 
 const isTV = () =>
   typeof globalThis !== "undefined" && globalThis.__TV__ === true;
 
 export default function AuthScreen() {
+  useScale(); // re-render + recompute ss() when the scale corrects (webOS cold start)
   const { signIn, signUp } = useApp();
   const insets = useSafeAreaInsets();
   const [mode, setMode] = useState("login");

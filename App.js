@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { useFonts } from 'expo-font';
+import { useFonts, FontDisplay } from 'expo-font';
 import { colors } from './src/ui/tokens';
 import { AppProvider } from './src/context/AppContext';
 import { PlatformProvider } from './src/platform/PlatformProvider';
@@ -14,9 +14,26 @@ export default function App() {
   // clean family names so tokens/CSS can reference "SpaceGrotesk" / "Inter".
   // Not gated on load — the UI renders immediately with the system fallback and
   // swaps in the webfonts when ready (so TV never shows a blank screen).
+  //
+  // On the webOS TV build the page loads from file:// and Chromium's slow-network
+  // font intervention forces a fallback-first repaint with the default
+  // font-display:auto. The TV build (tv/patch-index.js) preloads these fonts and
+  // declares them statically in <head> with font-display:optional; we mirror
+  // optional here so expo-font's runtime @font-face matches that static rule
+  // instead of re-introducing `auto`. __TV__ is set synchronously in the patched
+  // index.html <head>, before this component mounts. Other platforms keep the
+  // default (display omitted → auto on web, ignored on native).
+  const isTV = typeof globalThis !== 'undefined' && globalThis.__TV__ === true;
+  const tvFontDisplay = isTV ? FontDisplay.OPTIONAL : undefined;
   useFonts({
-    SpaceGrotesk: require('@expo-google-fonts/space-grotesk/500Medium/SpaceGrotesk_500Medium.ttf'),
-    Inter: require('@expo-google-fonts/inter/400Regular/Inter_400Regular.ttf'),
+    SpaceGrotesk: {
+      uri: require('@expo-google-fonts/space-grotesk/500Medium/SpaceGrotesk_500Medium.ttf'),
+      display: tvFontDisplay,
+    },
+    Inter: {
+      uri: require('@expo-google-fonts/inter/400Regular/Inter_400Regular.ttf'),
+      display: tvFontDisplay,
+    },
   });
 
   // Phones run portrait everywhere except the video player (which locks to
