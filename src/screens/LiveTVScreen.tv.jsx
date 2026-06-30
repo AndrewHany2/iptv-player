@@ -477,7 +477,7 @@ function ChannelCard({ item, isFocused }) {
     >
       <div className="tvl-ch-logo">
         {src && !err ? (
-          <img src={src} alt="" onError={() => setErr(true)} loading="lazy" />
+          <img src={src} alt="" onError={() => setErr(true)} loading="lazy" decoding="async" />
         ) : (
           <div className="tvl-ch-ph">
             <Icon name="tv" size={ss(iconSizes.lg)} color={colors.border} />

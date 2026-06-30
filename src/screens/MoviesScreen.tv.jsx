@@ -548,7 +548,7 @@ function MovieCard({ item, isFocused }) {
   return (
     <div className={isFocused ? "tvl-card tvl-card--on" : "tvl-card"}>
       <div className="tvl-card-img">
-        {src && !err ? <img src={src} alt="" onError={() => setErr(true)} loading="lazy" /> : <div className="tvl-card-ph"><Icon name="play" size={iconSizes.lg} color={colors.border} /></div>}
+        {src && !err ? <img src={src} alt="" onError={() => setErr(true)} loading="lazy" decoding="async" /> : <div className="tvl-card-ph"><Icon name="play" size={iconSizes.lg} color={colors.border} /></div>}
         {rLabel && <span className="tvl-card-rating">{rLabel}</span>}
       </div>
       <div className="tvl-card-title">{item.name}</div>

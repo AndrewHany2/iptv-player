@@ -1032,7 +1032,7 @@ function PosterCard({ item, isFocused }) {
     >
       <div className="tvl-card-img">
         {src && !err ? (
-          <img src={src} alt="" onError={() => setErr(true)} loading="lazy" />
+          <img src={src} alt="" onError={() => setErr(true)} loading="lazy" decoding="async" />
         ) : (
           <div className="tvl-card-ph"><Icon name="tv" size={iconSizes.lg} color={colors.border} /></div>
         )}
