@@ -29,7 +29,8 @@ tv/packaging/lg/metadata.json
 *.ipa
 
 # IDE
-.vscode/
+.vscode/*
+!.vscode/tasks.json
 .idea/
 
 # OS
@@ -44,3 +45,36 @@ yarn-error.log*
 *.tmp
 *.temp
 .cache/
+
+# Editor swap / backup files
+*.swp
+*.swo
+*~
+*.orig
+*.bak
+
+# Local tool workspaces
+.superpowers/
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Test coverage
+coverage/
+
+# Extra Expo web output
+web-build/
+
+# Local env variants
+.env*.local
+
+# Secrets / signing keys (keep the standard Android debug keystore)
+*.pem
+*.keystore
+*.jks
+!android/app/debug.keystore
+
+# macOS extras
+._*
+.AppleDouble
+.LSOverride

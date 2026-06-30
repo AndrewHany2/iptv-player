@@ -388,9 +388,12 @@ export default function AppNavigator() {
   useEffect(() => {
     if (!isTV) return;
     const onBack = (e) => {
+      // TEMP DIAGNOSTIC: log EVERY keydown the document sees (capture phase).
+      console.log("[keydown capture]", "keyCode=", e.keyCode, "key=", JSON.stringify(e.key), "repeat=", e.repeat);
       if (e.keyCode === 461 || e.keyCode === 10009 || e.keyCode === 91) e.preventDefault();
     };
     const onPop = () => {
+      console.log("[popstate] re-pushing sentinel"); // TEMP DIAGNOSTIC
       window.history.pushState(null, "", window.location.href);
     };
     document.addEventListener("keydown", onBack, true);
@@ -461,6 +464,7 @@ export default function AppNavigator() {
         e.keyCode === 91
       ) {
         e.preventDefault();
+        console.log("[navFocused] Back/Down consumed by nav blur — this press did NOT navigate back"); // TEMP DIAGNOSTIC
         blurNav();
       }
     };

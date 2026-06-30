@@ -160,9 +160,11 @@ export default function LiveTVScreenTV({ navigation }) {
 
   useEffect(() => {
     const onKey = (e) => {
-      if (navActiveRef.current) return;
-      if (currentVideoRef.current) return;
       const k = e.keyCode || e.which;
+      // TEMP DIAGNOSTIC: log every keydown reaching the LiveTV screen handler.
+      console.log("[LiveTV onKey]", "keyCode=", k, "navActive=", navActiveRef.current, "currentVideo=", !!currentVideoRef.current, "page=", !!pageRef.current, "active=", document.activeElement?.tagName);
+      if (navActiveRef.current) { console.log("[LiveTV onKey] BAILED: nav active"); return; }
+      if (currentVideoRef.current) { console.log("[LiveTV onKey] BAILED: video open"); return; }
       if (pageRef.current) handleChKey(k, e);
       else handleCatKey(k, e);
     };
