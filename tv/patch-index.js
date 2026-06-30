@@ -120,15 +120,25 @@ html = html.replace(
 html = html.replace("</head>", `<script>
 (function(){
   /* ── 1. insertRule patches ─────────────────────────────────────────────── */
-  var orig = CSSStyleSheet.prototype.insertRule;
-  CSSStyleSheet.prototype.insertRule = function(rule, index) {
-    try {
-      var r = rule
-        .replace(/:focus-visible/g, ":focus")
-        .replace(/\bgap:([^;}"]+)/g, "column-gap:$1;row-gap:$1");
-      return orig.call(this, r, index);
-    } catch(e) { return 0; }
-  };
+  /* Gate the per-rule regex rewrites: skip them entirely on a Chromium new    */
+  /* enough to support :focus-visible natively (>=86), which also implies      */
+  /* native flex-gap (>=84). The selector() test itself needs >=83; any older  */
+  /* engine — or a thrown check — falls through to applying the patches, so    */
+  /* the unsupported-webOS path is unchanged. Avoids two .replace() passes on  */
+  /* the hundreds of rules react-native-web inserts at mount on new targets.   */
+  var nativeFocusVisible = false;
+  try { nativeFocusVisible = !!(window.CSS && CSS.supports && CSS.supports('selector(:focus-visible)')); } catch(e) { nativeFocusVisible = false; }
+  if (!nativeFocusVisible) {
+    var orig = CSSStyleSheet.prototype.insertRule;
+    CSSStyleSheet.prototype.insertRule = function(rule, index) {
+      try {
+        var r = rule
+          .replace(/:focus-visible/g, ":focus")
+          .replace(/\bgap:([^;}"]+)/g, "column-gap:$1;row-gap:$1");
+        return orig.call(this, r, index);
+      } catch(e) { return 0; }
+    };
+  }
   window.__TV__ = true;
 
   /* ── 2. Flex-gap DOM polyfill ──────────────────────────────────────────── *
@@ -201,6 +211,30 @@ html = html.replace("</head>", `<script>
 html = html.replaceAll('src="/_expo/', 'src="./_expo/');
 html = html.replaceAll('href="/_expo/', 'href="./_expo/');
 html = html.replaceAll('href="/favicon.ico"', 'href="./favicon.ico"');
+
+// ── Strip redundant CSS preload hints ──────────────────────────────────────
+// expo emits a `<link rel="preload" as="style">` paired with every stylesheet.
+// On file:// (no network round-trip or connection setup) a preload buys zero
+// parallelism over the stylesheet <link> itself — it's pure parse/lookup
+// overhead and a double declaration. Drop the preloads; keep the stylesheets.
+const preloadCount = (html.match(/<link rel="preload"[^>]*as="style"[^>]*>/g) || []).length;
+html = html.replace(/<link rel="preload"[^>]*as="style"[^>]*>/g, "");
+console.log(`✓ Stripped ${preloadCount} redundant CSS preload hint(s)`);
+
+// ── Neutral boot splash ─────────────────────────────────────────────────────
+// Centered spinner on the app background, injected INSIDE #root so it paints
+// during bundle parse and is cleared automatically when React first renders
+// into #root. Deliberately auth-agnostic: a neutral spinner only — never a
+// main-nav skeleton that could flash a signed-in state before auth resolves.
+// Pairs with the React authLoading splash so there's no visual jump. Uses
+// explicit top/left/right/bottom (not `inset`, which is Chromium 87+).
+const bootSplash =
+  '<div id="tv-boot-splash" style="position:fixed;top:0;left:0;right:0;bottom:0;' +
+  'display:flex;align-items:center;justify-content:center;background:#0A0E1A;z-index:2147483647">' +
+  '<div style="width:48px;height:48px;border:4px solid #28324E;border-top-color:#6C5CE7;' +
+  'border-radius:50%;animation:tvbootspin .8s linear infinite"></div></div>' +
+  '<style>@keyframes tvbootspin{to{transform:rotate(360deg)}}</style>';
+html = html.replace('<div id="root"></div>', '<div id="root">' + bootSplash + '</div>');
 
 fs.writeFileSync(indexPath, html, "utf8");
 console.log("✓ Patched index.html for LG TV");

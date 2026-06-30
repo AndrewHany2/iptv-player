@@ -2,6 +2,7 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { useNavigation } from "@react-navigation/native";
+import { ActivityIndicator } from "react-native";
 import { YStack, XStack, Text } from "../ui/primitives";
 import Icon from "../ui/Icon";
 import { colors, accentAlpha } from "../ui/tokens";
@@ -82,7 +83,13 @@ function MainTabs() {
 
 export default function AppNavigator() {
   const { authUser, authLoading, activeProfileId } = useApp();
-  if (authLoading) return null;
+  // Neutral boot splash while the session resolves — auth-agnostic spinner only,
+  // never an optimistic skeleton. The 8s authLoading ceiling lives in AppContext.
+  if (authLoading) return (
+    <YStack flex={1} alignItems="center" justifyContent="center" backgroundColor={colors.bg}>
+      <ActivityIndicator size="large" color={colors.accent} />
+    </YStack>
+  );
   if (isSupabaseConfigured() && !authUser) return <AuthScreen />;
   if (!activeProfileId) return <ProfilesScreen />;
 

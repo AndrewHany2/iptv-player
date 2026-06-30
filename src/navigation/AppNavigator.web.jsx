@@ -46,6 +46,7 @@ if (typeof document !== "undefined") {
   style.textContent = `
     *, *::before, *::after { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; height: 100%; background: #0A0E1A; color: #EAF0FF; font-family: Inter, -apple-system, "Segoe UI", Roboto, sans-serif; }
+    @keyframes lumen-spin { to { transform: rotate(360deg); } }
     #root, #app, [data-reactroot] { height: 100%; }
     .aurora-grad-bg { background: linear-gradient(100deg, #6C5CE7, #22D3EE) !important; }
     * { scrollbar-width: thin; scrollbar-color: #28324E transparent; }
@@ -544,7 +545,15 @@ export default function AppNavigator() {
     },
   };
 
-  if (authLoading) return null;
+  // Neutral boot splash while the session resolves (paired with the TV
+  // patch-index #root splash so there's no visual jump). Auth-agnostic spinner
+  // only — never an optimistic main-nav skeleton that could flash the wrong
+  // screen. The 8s authLoading ceiling lives in AppContext.
+  if (authLoading) return (
+    <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "#0A0E1A" }}>
+      <div style={{ width: 48, height: 48, border: "4px solid #28324E", borderTopColor: "#6C5CE7", borderRadius: "50%", animation: "lumen-spin 0.8s linear infinite" }} />
+    </div>
+  );
   if (isSupabaseConfigured() && !authUser) return <AuthScreen />;
   if (!activeProfileId) return <ProfilesScreen />;
 
