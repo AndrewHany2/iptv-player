@@ -1,0 +1,48 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: Platform to build
+        type: choice
+        default: all
+        options: [all, android, web, desktop, tv, ios]
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+      is_tag: ${{ steps.ver.outputs.is_tag }}
+      platform: ${{ steps.ver.outputs.platform }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: ver
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+            echo "is_tag=true" >> "$GITHUB_OUTPUT"
+          else
+            APPVER=$(node -p "require('./app.json').expo.version")
+            echo "version=${APPVER}-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+            echo "is_tag=false" >> "$GITHUB_OUTPUT"
+          fi
+          PLAT="${{ github.event.inputs.platform }}"
+          if [[ -z "$PLAT" ]]; then PLAT="all"; fi
+          echo "platform=${PLAT}" >> "$GITHUB_OUTPUT"
+      - name: Show resolved values
+        run: |
+          echo "version=${{ steps.ver.outputs.version }}"
+          echo "is_tag=${{ steps.ver.outputs.is_tag }}"
+          echo "platform=${{ steps.ver.outputs.platform }}"
