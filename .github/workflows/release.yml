@@ -93,3 +93,30 @@ jobs:
           name: android
           path: iptv-player-android-*.apk
           if-no-files-found: error
+
+  desktop:
+    needs: setup
+    if: needs.setup.outputs.platform == 'all' || needs.setup.outputs.platform == 'desktop'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build:electron
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.os }}
+          path: |
+            electron/release/*.dmg
+            electron/release/*.exe
+            electron/release/*.AppImage
+          if-no-files-found: error
