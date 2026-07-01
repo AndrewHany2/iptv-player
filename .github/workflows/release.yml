@@ -120,3 +120,33 @@ jobs:
             electron/release/*.exe
             electron/release/*.AppImage
           if-no-files-found: error
+
+  tv:
+    needs: setup
+    if: needs.setup.outputs.platform == 'all' || needs.setup.outputs.platform == 'tv'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Install webOS CLI
+        run: npm i -g @webosose/ares-cli
+      - name: Build TV bundle
+        run: npm run build:tv
+      - name: Package IPK
+        run: |
+          cp -r tv/dist/* tv/packaging/lg/
+          ares-package tv/packaging/lg -o tv/packaging/lg/out
+      - name: Rename IPK
+        run: |
+          IPK=$(find tv/packaging/lg/out -name '*.ipk' | head -n1)
+          if [[ -z "$IPK" ]]; then echo "No .ipk produced"; exit 1; fi
+          cp "$IPK" "iptv-player-${{ needs.setup.outputs.version }}.ipk"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tv
+          path: iptv-player-*.ipk
+          if-no-files-found: error
