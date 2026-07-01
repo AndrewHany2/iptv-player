@@ -506,31 +506,10 @@ export default function AppNavigator() {
     return () => globalThis.removeEventListener("keydown", handler);
   }, [navFocused]);
 
-  useEffect(() => {
-    if (!showAccounts) return;
-    const handler = (e) => {
-      if (isMacCommand(e)) return; // Mac ⌘ shares keyCode 91 — ignore in the simulator
-      if (e.key === "Escape" || e.keyCode === 461 || e.keyCode === 10009 || e.keyCode === 91) {
-        e.preventDefault();
-        setShowAccounts(false);
-      }
-    };
-    globalThis.addEventListener("keydown", handler);
-    return () => globalThis.removeEventListener("keydown", handler);
-  }, [showAccounts]);
-
-  useEffect(() => {
-    if (!showSettings) return;
-    const handler = (e) => {
-      if (isMacCommand(e)) return; // Mac ⌘ shares keyCode 91 — ignore in the simulator
-      if (e.key === "Escape" || e.keyCode === 461 || e.keyCode === 10009 || e.keyCode === 91) {
-        e.preventDefault();
-        setShowSettings(false);
-      }
-    };
-    globalThis.addEventListener("keydown", handler);
-    return () => globalThis.removeEventListener("keydown", handler);
-  }, [showSettings]);
+  // Accounts and Settings own the remote themselves while open (each drives its
+  // own focus ring in a capture-phase keydown listener that shields the screen
+  // behind it — see AccountsScreen.tv / SettingsScreen.web). AppNavigator only
+  // needs to tell them how to close; no external trap here.
 
   // Exit-confirm prompt owns all keys while open (capture phase + stop
   // propagation) so arrows/Enter never leak to the screen behind it.
@@ -790,7 +769,7 @@ export default function AppNavigator() {
                 <Icon name="close" size={ss(16)} color={colors.text} />
               </button>
             </div>
-            <SettingsScreen />
+            <SettingsScreen onClose={() => setShowSettings(false)} />
           </dialog>
         </div>
       )}

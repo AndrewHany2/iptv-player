@@ -3,6 +3,7 @@ import { useApp } from "../context/AppContext";
 import iptvApi from "../services/iptvApi";
 import Icon from "../ui/Icon";
 import { colors, iconSizes } from "../ui/tokens";
+import { isMacCommand } from "../platform/adapters/input/keys";
 import "../styles/tvl.css";
 import "../styles/tvResponsiveScaling.css";
 import "../styles/tvRemoteFocus.css";
@@ -23,6 +24,8 @@ export default function AccountsScreenTV({ navigation }) {
 
   const [view,         setView]         = useState("list");
   const [focus,        setFocus]        = useState(0);
+  // Column within a focused account row: 0=connect (whole row), 1=Edit, 2=Delete.
+  const [col,          setCol]          = useState(0);
   const [fieldFocus,   setFieldFocus]   = useState(0);
   const [confirmFocus, setConfirmFocus] = useState(1); // 0=cancel 1=delete
   const [loading,      setLoading]      = useState(false);
@@ -33,6 +36,8 @@ export default function AccountsScreenTV({ navigation }) {
   const [showPwd,      setShowPwd]      = useState(false);
 
   const focusRef      = useRef(0);
+  const colRef        = useRef(0);
+  const setColF       = (c) => { colRef.current = c; setCol(c); };
   const fieldFocRef   = useRef(0);
   const confirmFocRef = useRef(1);
   const viewRef       = useRef("list");
@@ -57,18 +62,36 @@ export default function AccountsScreenTV({ navigation }) {
     return el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA");
   };
 
+  // This modal OWNS the remote while mounted: a capture-phase listener that
+  // stopImmediatePropagation()s every nav key so the screen behind the Accounts
+  // overlay never moves its own ring, then drives our index nav. (Replaces the
+  // external useModalKeyTrap that used to wrap this in AppNavigator — that trap
+  // fired in capture and killed this handler, so d-nav did nothing here.)
+  const NAV_KEYS = new Set([KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_DOWN, KEY_ENTER]);
   useEffect(() => {
     const onKey = (e) => {
-      const v = viewRef.current;
+      if (isMacCommand(e)) return; // ⌘ shares keyCode 91 with Back in the sim
       const k = e.keyCode || e.which;
-      if (v === "list")    handleListKey(k, e);
-      else if (v === "form") {
-        if (inputActive()) return; // virtual keyboard is open — let browser handle
-        handleFormKey(k, e);
-      } else if (v === "confirm") handleConfirmKey(k, e);
+      const isNav = NAV_KEYS.has(k) || KEY_BACK.has(k);
+      if (isNav) e.stopImmediatePropagation(); // shield the background screen
+
+      // Virtual keyboard open: arrows drive the caret; Enter/Back blur the field
+      // and hand control back to our ring (matching useTVNavigation/useModalKeyTrap).
+      if (inputActive()) {
+        if (k === KEY_ENTER || KEY_BACK.has(k)) {
+          e.preventDefault();
+          document.activeElement.blur();
+        }
+        return;
+      }
+
+      const v = viewRef.current;
+      if (v === "list")         handleListKey(k, e);
+      else if (v === "form")    handleFormKey(k, e);
+      else if (v === "confirm") handleConfirmKey(k, e);
     };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    document.addEventListener("keydown", onKey, true);
+    return () => document.removeEventListener("keydown", onKey, true);
   }, []);
 
   // ── List keys ──────────────────────────────────────────────────────────────
@@ -79,18 +102,32 @@ export default function AccountsScreenTV({ navigation }) {
         e.preventDefault();
         const n = Math.max(0, focusRef.current - 1);
         focusRef.current = n; setFocus(n);
+        setColF(0); // reset to the connect column when changing rows
         break;
       }
       case KEY_DOWN: {
         e.preventDefault();
         const n = Math.min(list.length - 1, focusRef.current + 1);
         focusRef.current = n; setFocus(n);
+        setColF(0);
+        break;
+      }
+      case KEY_LEFT: {
+        // Move across a row's actions (connect → Edit → Delete). The "add" row
+        // has no columns, so it stays put.
+        if (list[focusRef.current] !== "add") { e.preventDefault(); setColF(Math.max(0, colRef.current - 1)); }
+        break;
+      }
+      case KEY_RIGHT: {
+        if (list[focusRef.current] !== "add") { e.preventDefault(); setColF(Math.min(2, colRef.current + 1)); }
         break;
       }
       case KEY_ENTER: {
         e.preventDefault();
         const row = list[focusRef.current];
-        if (row === "add") openAddForm();
+        if (row === "add") { openAddForm(); break; }
+        if (colRef.current === 1) { const u = users.find((x) => x.id === row); if (u) openEditForm(u); }
+        else if (colRef.current === 2) { setDelId(row); setView("confirm"); }
         else connectUser(row);
         break;
       }
@@ -155,6 +192,7 @@ export default function AccountsScreenTV({ navigation }) {
   useEffect(() => {
     if (view === "form")    { fieldFocRef.current = 1; setFieldFocus(1); } // start on Host
     if (view === "confirm") { confirmFocRef.current = 1; setConfirmFocus(1); }
+    if (view === "list")    setColF(0); // land on the connect column
   }, [view]);
 
   const openAddForm = () => {
@@ -343,8 +381,8 @@ export default function AccountsScreenTV({ navigation }) {
                   {activeUserId === user.id && <div className="tvl-acc-badge"><Icon name="check" size={iconSizes.sm} color={colors.accent2} /><span>Active</span></div>}
                 </div>
                 <div className="tvl-acc-actions">
-                  <button className="tvl-acc-btn" onClick={(e) => { e.stopPropagation(); openEditForm(user); }}>Edit</button>
-                  <button className="tvl-acc-btn tvl-acc-btn-danger" onClick={(e) => { e.stopPropagation(); setDelId(user.id); setView("confirm"); }}>Delete</button>
+                  <button className={isFocused && col === 1 ? "tvl-acc-btn tvl-acc-btn--on" : "tvl-acc-btn"} onClick={(e) => { e.stopPropagation(); openEditForm(user); }}>Edit</button>
+                  <button className={isFocused && col === 2 ? "tvl-acc-btn tvl-acc-btn-danger tvl-acc-btn--on" : "tvl-acc-btn tvl-acc-btn-danger"} onClick={(e) => { e.stopPropagation(); setDelId(user.id); setView("confirm"); }}>Delete</button>
                 </div>
               </div>
             );

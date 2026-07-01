@@ -30,6 +30,11 @@ const FANOUT_CONCURRENCY = 5;
 // fails fast (and stale-while-revalidate can serve the previous value) instead
 // of stalling a screen indefinitely.
 const FETCH_TIMEOUT = 15 * 1000;
+// The "all streams / all series" bulk endpoints return the ENTIRE catalog (can be
+// many MB) and legitimately take much longer than an interactive call. Give them
+// a generous budget so a large-but-working dump isn't aborted into the slower
+// per-category fan-out fallback (which only exists for servers that BLOCK bulk).
+const BULK_FETCH_TIMEOUT = 90 * 1000;
 // Only these (small, slow-changing) keys are persisted to disk. Full stream
 // lists are intentionally NOT persisted — they can be multiple MB and would
 // blow the ~5 MB localStorage quota on web/webOS.
@@ -210,12 +215,12 @@ export class IPTVApi {
     return url.toString();
   }
 
-  async fetch(url, { signal } = {}) {
+  async fetch(url, { signal, timeout = FETCH_TIMEOUT } = {}) {
     // Abort on our own timeout OR when the caller's signal aborts (whichever
     // first). A hung provider then rejects fast instead of stalling forever.
     const controller = new AbortController();
     let timedOut = false;
-    const timer = setTimeout(() => { timedOut = true; controller.abort(); }, FETCH_TIMEOUT);
+    const timer = setTimeout(() => { timedOut = true; controller.abort(); }, timeout);
     const onAbort = () => controller.abort();
     if (signal) {
       if (signal.aborted) controller.abort();
@@ -230,7 +235,7 @@ export class IPTVApi {
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       return await response.json();
     } catch (e) {
-      if (timedOut) throw new Error(`Request timed out after ${FETCH_TIMEOUT}ms`);
+      if (timedOut) throw new Error(`Request timed out after ${timeout}ms`);
       throw e;
     } finally {
       clearTimeout(timer);
@@ -239,9 +244,11 @@ export class IPTVApi {
   }
 
   async _cached(key, ttl, fetcher) {
-    // Ensure this account's persisted entries are loaded before the first read
-    // (cheap no-op after the first await).
-    await this._ensureHydrated();
+    // Only category keys are persisted to disk, so only they need to wait for
+    // hydration. Stream/robust/info keys start fetching immediately — this keeps
+    // the one-time AsyncStorage load off the first "All Movies/All Series" fetch
+    // (which otherwise made the very first open feel slow).
+    if (PERSIST_KEYS.has(key)) await this._ensureHydrated();
     const entry = this._cache.get(key);
     if (entry) {
       if (Date.now() <= entry.expiresAt) return entry.data;        // fresh
@@ -275,16 +282,12 @@ export class IPTVApi {
     );
   }
 
-  getAllVODStreams() {
-    return this._cached('vod_streams_all', TTL.streams, () => this.fetch(this.buildUrl('get_vod_streams')));
-  }
-
   // Tries the "all" endpoint first, falls back to fanning out per-category if
   // the server blocks bulk fetches (e.g. 403). Dedupes by stream_id.
   getAllVODStreamsRobust() {
     return this._cached('vod_streams_robust', TTL.streams, async () => {
       try {
-        const all = await this.fetch(this.buildUrl('get_vod_streams'));
+        const all = await this.fetch(this.buildUrl('get_vod_streams'), { timeout: BULK_FETCH_TIMEOUT });
         if (Array.isArray(all) && all.length > 0) return dedupeById(all, 'stream_id');
       } catch { /* fall through */ }
       const cats = await this.getVODCategories();
@@ -326,16 +329,12 @@ export class IPTVApi {
     );
   }
 
-  getAllSeries() {
-    return this._cached('series_all', TTL.streams, () => this.fetch(this.buildUrl('get_series')));
-  }
-
   // Tries the "all" endpoint first, falls back to fanning out per-category if
   // the server blocks bulk fetches (e.g. 403). Dedupes by series_id.
   getAllSeriesRobust() {
     return this._cached('series_robust', TTL.streams, async () => {
       try {
-        const all = await this.fetch(this.buildUrl('get_series'));
+        const all = await this.fetch(this.buildUrl('get_series'), { timeout: BULK_FETCH_TIMEOUT });
         if (Array.isArray(all) && all.length > 0) return dedupeById(all, 'series_id');
       } catch { /* fall through */ }
       const cats = await this.getSeriesCategories();

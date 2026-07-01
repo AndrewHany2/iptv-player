@@ -7,6 +7,7 @@ import { ss, useScale } from "../utils/scaleSize";
 import iptvApi from "../services/iptvApi";
 import ProxiedImage from "./ProxiedImage";
 import { usePlatform } from "../platform";
+import { useModalKeyTrap } from "../hooks/useModalKeyTrap";
 import Icon from "../ui/Icon";
 
 const FILL = { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 };
@@ -65,16 +66,12 @@ export default function MovieDetail({ item, onBack, onPlay }) {
   const year = (data.releasedate || data.release_date || "").slice(0, 4);
   const trailer = getTrailerUrl(data.youtube_trailer);
 
-  useEffect(() => {
-    const handler = (e) => {
-      if (e.key === "Escape" || e.keyCode === 27) onBack();
-      else if ((e.key === "Enter" || e.keyCode === 13) && !isLoading) {
-        handlePlay(resumeTime > 0 ? resumeTime : 0);
-      }
-    };
-    globalThis.addEventListener("keydown", handler);
-    return () => globalThis.removeEventListener("keydown", handler);
-  }, [resumeTime, isLoading]);
+  useModalKeyTrap(true, {
+    onBack,
+    onEnter: () => {
+      if (!isLoading) handlePlay(resumeTime > 0 ? resumeTime : 0);
+    },
+  });
 
   const handlePlay = (startTime) => {
     const url = iptvApi.buildStreamUrl(

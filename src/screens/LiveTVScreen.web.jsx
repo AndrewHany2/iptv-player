@@ -7,6 +7,7 @@ import Button from "../ui/Button";
 import Icon from "../ui/Icon";
 import { useApp } from "../context/AppContext";
 import { useContentService } from "../domain/hooks/useContentService";
+import { useModalKeyTrap } from "../hooks/useModalKeyTrap";
 import { ss, useScale } from "../utils/scaleSize";
 import iptvApi from "../services/iptvApi";
 import ProxiedImage from "../components/ProxiedImage";
@@ -167,6 +168,16 @@ const SHELF_PAGE =
   typeof window !== "undefined"
     ? Math.ceil(window.innerWidth / ss(270)) + 2
     : 8;
+
+// Max per-category channel fetches in flight at once. Shelves become "visible"
+// (within the observer's 300px margin) faster than they load, so without a cap
+// they all fire together and the provider rate-limits us into 403/503. A small
+// FIFO queue drains them a few at a time, so the shelves already on screen load
+// first and later ones follow as capacity frees up.
+const SHELF_FETCH_CONCURRENCY = 3;
+// Transient failures (esp. 503 under load) are retried a couple of times before
+// the shelf is treated as genuinely empty, so a blip doesn't hide a category.
+const SHELF_FETCH_RETRIES = 2;
 
 /* ─── Live Shelf ─── */
 function LiveShelf({ cat, onVisible, epgCache, fetchEpg, onPress }) {
@@ -356,9 +367,51 @@ export default function LiveTVScreen({ navigation }) {
   const [showAddChannel, setShowAddChannel] = useState(false);
   const [newChannelName, setNewChannelName] = useState("");
   const [newStreamUrl, setNewStreamUrl] = useState("");
+  // Add-Channel sheet remote focus ring (TV): 0=name, 1=url, 2=Cancel, 3=Add.
+  const [sheetFocus, setSheetFocus] = useState(0);
+  const sheetFocusRef = useRef(0);
+  const nameInputRef = useRef(null);
+  const urlInputRef = useRef(null);
+  const setSheetF = (i) => { sheetFocusRef.current = i; setSheetFocus(i); };
   const loadedRef = useRef(new Set());
+  // Bounded FIFO queue for per-category channel fetches. `queueRef` holds
+  // {catId, attempts} waiting for a slot; `activeRef` counts in-flight requests.
+  const queueRef = useRef([]);
+  const activeRef = useRef(0);
   // Re-render this screen (and recompute ss()) when the window resizes.
   useScale();
+  // While the Add-Channel sheet is open, the remote drives ONLY the sheet: it
+  // owns its own focus ring (name → url → Cancel/Add) and shields the shelves
+  // behind it. Directional nav is TV-only; web/desktop keeps mouse + Esc-closes.
+  const isTV = typeof globalThis !== "undefined" && globalThis.__TV__ === true;
+  useModalKeyTrap(showAddChannel, {
+    onBack: () => setShowAddChannel(false),
+    ...(isTV
+      ? {
+          onUp: () => {
+            const i = sheetFocusRef.current;
+            if (i === 1) setSheetF(0);
+            else if (i >= 2) setSheetF(1);
+          },
+          onDown: () => {
+            const i = sheetFocusRef.current;
+            if (i === 0) setSheetF(1);
+            else if (i === 1) setSheetF(2);
+          },
+          onLeft: () => { if (sheetFocusRef.current === 3) setSheetF(2); },
+          onRight: () => { if (sheetFocusRef.current === 2) setSheetF(3); },
+          onEnter: () => {
+            const i = sheetFocusRef.current;
+            if (i === 0) nameInputRef.current?.focus();
+            else if (i === 1) urlInputRef.current?.focus();
+            else if (i === 2) setShowAddChannel(false);
+            else handleAddChannel();
+          },
+        }
+      : {}),
+  });
+  // Reset the ring to the first field each time the sheet opens.
+  useEffect(() => { if (showAddChannel) setSheetF(0); }, [showAddChannel]);
   // Debounced lowercase search term — keeps the filter off the keystroke path.
   const [debouncedQuery, setDebouncedQuery] = useState("");
   useEffect(() => {
@@ -420,9 +473,10 @@ export default function LiveTVScreen({ navigation }) {
     if (activeUserId) loadChannels();
   }, [activeUserId]);
 
-  const handleShelfVisible = useCallback(async (catId) => {
-    if (loadedRef.current.has(catId)) return;
-    loadedRef.current.add(catId);
+  // Fetch one category's channels. On failure, re-queue (up to SHELF_FETCH_RETRIES)
+  // so a transient 503 under load doesn't permanently hide the shelf; only after
+  // the retries are exhausted is it marked empty.
+  const fetchShelf = useCallback(async (catId, attempts) => {
     try {
       const data = await iptvApi.getLiveStreamsByCategory(catId);
       const formatted = (data || []).map((ch) => ({
@@ -437,15 +491,42 @@ export default function LiveTVScreen({ navigation }) {
       setChannelsByCategory((prev) => ({ ...prev, [catId]: formatted }));
       setChannels((prev) => [...prev, ...formatted]);
     } catch {
-      setChannelsByCategory((prev) => ({ ...prev, [catId]: [] }));
+      if (attempts < SHELF_FETCH_RETRIES) {
+        queueRef.current.push({ catId, attempts: attempts + 1 });
+      } else {
+        setChannelsByCategory((prev) => ({ ...prev, [catId]: [] }));
+      }
     }
   }, [setChannels]);
+
+  // Drain the queue up to SHELF_FETCH_CONCURRENCY in flight. Each completing
+  // fetch pumps again, so slots free up in FIFO order — the shelves that became
+  // visible first (already on screen) load ahead of ones scrolled past later.
+  const pumpQueue = useCallback(() => {
+    while (activeRef.current < SHELF_FETCH_CONCURRENCY && queueRef.current.length) {
+      const { catId, attempts } = queueRef.current.shift();
+      activeRef.current += 1;
+      fetchShelf(catId, attempts).finally(() => {
+        activeRef.current -= 1;
+        pumpQueue();
+      });
+    }
+  }, [fetchShelf]);
+
+  const handleShelfVisible = useCallback((catId) => {
+    if (loadedRef.current.has(catId)) return;
+    loadedRef.current.add(catId);
+    queueRef.current.push({ catId, attempts: 0 });
+    pumpQueue();
+  }, [pumpQueue]);
 
   const loadChannels = async () => {
     if (!activeUser) return;
     setLoading(true);
     setError(false);
     loadedRef.current.clear();
+    queueRef.current = [];
+    activeRef.current = 0;
     setCategories([]);
     setChannelsByCategory({});
     try {
@@ -534,7 +615,12 @@ export default function LiveTVScreen({ navigation }) {
       backgroundColor={colors.bg}
       contentContainerStyle={{ paddingBottom: ss(60) }}
     >
-      <YStack maxWidth={MAX_W} width="100%" alignSelf="center">
+      <YStack
+        maxWidth={MAX_W}
+        width="100%"
+        alignSelf="center"
+        {...(showAddChannel ? { inert: "", "aria-hidden": true } : {})}
+      >
       <XStack
         alignItems="center"
         paddingHorizontal={ss(48)}
@@ -624,6 +710,7 @@ export default function LiveTVScreen({ navigation }) {
               Add Custom Channel
             </Text>
             <Input
+              ref={nameInputRef}
               placeholder="Channel name"
               placeholderTextColor={colors.faint}
               value={newChannelName}
@@ -634,11 +721,12 @@ export default function LiveTVScreen({ navigation }) {
               paddingHorizontal={ss(14)}
               paddingVertical={ss(12)}
               fontSize={ss(14)}
-              borderWidth={1}
-              borderColor={colors.border}
+              borderWidth={isTV && sheetFocus === 0 ? 2 : 1}
+              borderColor={isTV && sheetFocus === 0 ? colors.accent2 : colors.border}
               marginBottom={ss(12)}
             />
             <Input
+              ref={urlInputRef}
               placeholder="Stream URL (http://... or rtmp://...)"
               placeholderTextColor={colors.faint}
               value={newStreamUrl}
@@ -650,8 +738,8 @@ export default function LiveTVScreen({ navigation }) {
               paddingHorizontal={ss(14)}
               paddingVertical={ss(12)}
               fontSize={ss(14)}
-              borderWidth={1}
-              borderColor={colors.border}
+              borderWidth={isTV && sheetFocus === 1 ? 2 : 1}
+              borderColor={isTV && sheetFocus === 1 ? colors.accent2 : colors.border}
               marginBottom={ss(12)}
             />
             <Text color={colors.faint} fontSize={ss(12)} marginBottom={ss(20)}>
@@ -661,6 +749,7 @@ export default function LiveTVScreen({ navigation }) {
               <Button
                 variant="secondary"
                 onPress={() => setShowAddChannel(false)}
+                isFocused={isTV && sheetFocus === 2}
                 style={{ flex: 1 }}
               >
                 Cancel
@@ -668,6 +757,7 @@ export default function LiveTVScreen({ navigation }) {
               <Button
                 variant="primary"
                 onPress={handleAddChannel}
+                isFocused={isTV && sheetFocus === 3}
                 style={{ flex: 1 }}
               >
                 Add Channel

@@ -7,6 +7,7 @@ import { ss, useScale } from "../utils/scaleSize";
 import iptvApi from "../services/iptvApi";
 import ProxiedImage from "./ProxiedImage";
 import { usePlatform } from "../platform";
+import { useModalKeyTrap } from "../hooks/useModalKeyTrap";
 import Icon from "../ui/Icon";
 
 const FILL = { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 };
@@ -79,23 +80,17 @@ export default function SeriesDetail({ item, onBack, onPlayEpisode }) {
   const isLoading = info === null;
 
   // TV / keyboard navigation
-  useEffect(() => {
-    const handler = (e) => {
-      if (e.key === "Escape" || e.keyCode === 27) {
-        if (showEpisodes) setShowEpisodes(false);
-        else onBack();
-      } else if (
-        (e.key === "Enter" || e.keyCode === 13) &&
-        !showEpisodes &&
-        !isLoading
-      ) {
-        if (historyEntry) handleContinue();
-        else setShowEpisodes(true);
-      }
-    };
-    globalThis.addEventListener("keydown", handler);
-    return () => globalThis.removeEventListener("keydown", handler);
-  }, [showEpisodes, isLoading, historyEntry]);
+  useModalKeyTrap(true, {
+    onBack: () => {
+      if (showEpisodes) setShowEpisodes(false);
+      else onBack();
+    },
+    onEnter: () => {
+      if (showEpisodes || isLoading) return;
+      if (historyEntry) handleContinue();
+      else setShowEpisodes(true);
+    },
+  });
   const data = info || {};
   const rawBp = data.backdrop_path;
   let backdropFromApi = null;
