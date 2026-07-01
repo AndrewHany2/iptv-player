@@ -4,7 +4,7 @@ import { useVideoPlayer, VideoView } from "expo-video";
 import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake";
 import * as ScreenOrientation from "expo-screen-orientation";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { YStack, XStack, Text, ScrollView } from "../ui/primitives";
+import { YStack, XStack, Text, ScrollView, Spinner } from "../ui/primitives";
 import { colors, accentAlpha, radii, fonts } from "../ui/tokens";
 import Icon from "../ui/Icon";
 import Button from "../ui/Button";
@@ -665,10 +665,34 @@ export default function VideoPlayerScreen({ navigation }) {
         onStartOver={handleStartOver}
       />
 
-      {/* Loading overlay — also shown while recovering (over the frozen frame) */}
+      {/* Busy overlay — initial load, transient buffering, or a genuine
+          reconnect. A translucent scrim (NOT the opaque StatePanel) so the
+          VideoView's retained last frame stays visible with the loader on top,
+          instead of a solid black panel. Ordinary buffering never triggers a
+          reconnect on native (the recovery machine ignores buffering status and
+          only the 6s stall watchdog escalates), so this no longer flashes
+          "reconnecting" on every buffer blip.
+          NOTE: expo-video can't hand us the decoded frame, so across a genuine
+          reconnect (player.replace blanks the view) the backdrop is briefly
+          black; during transient buffering the real last frame shows through. */}
       {(isLoading || isRecovering) && !isFatal && !needsResumeChoice && (
-        <YStack position="absolute" top={0} left={0} right={0} bottom={0} backgroundColor="rgba(0,0,0,0.5)" pointerEvents="none">
-          <StatePanel mode="loading" title="Loading stream..." />
+        <YStack
+          position="absolute"
+          top={0}
+          left={0}
+          right={0}
+          bottom={0}
+          justifyContent="center"
+          alignItems="center"
+          gap={16}
+          backgroundColor="rgba(0,0,0,0.35)"
+          pointerEvents="none"
+          zIndex={35}
+        >
+          <Spinner size="large" color={colors.accent} />
+          <Text color={colors.text} fontFamily={fonts.body} fontSize={16} fontWeight="600">
+            {isRecovering ? "Reconnecting…" : "Loading…"}
+          </Text>
         </YStack>
       )}
 

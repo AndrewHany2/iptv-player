@@ -403,6 +403,16 @@ export default function VideoPlayerScreen() {
   const [tvCurrentTime, setTvCurrentTime] = useState(0);
   const [tvDuration, setTvDuration] = useState(0);
 
+  // Transient buffering (ordinary rebuffering) — surfaced as a spinner over the
+  // last frame, WITHOUT triggering the recovery machine's reconnect/reload. Only
+  // a sustained stall (handled by the driver watchdog) escalates to recovery.
+  const [isBuffering, setIsBuffering] = useState(false);
+  // Frozen last-decoded frame, captured when playback goes busy so a genuine
+  // reconnect (which tears down hls.js and blanks the <video>) still shows the
+  // last image behind the spinner instead of a black screen.
+  const frameCanvasRef = useRef(null);
+  const [hasFrozenFrame, setHasFrozenFrame] = useState(false);
+
   const isLive = currentVideo?.type === "live";
 
   // User-pinned quality ceiling fed to the recovery machine. A manual quality
@@ -566,6 +576,42 @@ export default function VideoPlayerScreen() {
   const isFatal = playback.isFatal;
   const fatalReason = playback.fatalReason;
 
+  // "Busy" = any non-clean-playback state where we show a spinner: initial
+  // load, transient buffering, or a genuine reconnect. Never while fatal (the
+  // error panel owns that).
+  const isBusy = (isLoading || isRecovering || isBuffering) && !isFatal;
+
+  // Snapshot the current <video> frame into the offscreen canvas. Used so the
+  // frozen last image can stay on screen behind the spinner even after a
+  // reconnect tears down hls.js and blanks the element. No-ops (silently) before
+  // the first frame decodes or if the frame is CORS-tainted.
+  const captureFrame = useCallback(() => {
+    const video = videoRef.current;
+    const canvas = frameCanvasRef.current;
+    if (!video || !canvas) return;
+    if (!video.videoWidth || !video.videoHeight) return;
+    try {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      setHasFrozenFrame(true);
+    } catch {
+      /* tainted canvas or not yet drawable — fall back to a black scrim */
+    }
+  }, []);
+
+  // Capture on the rising edge of "busy" (frame is still intact at that point —
+  // a reconnect's reload is scheduled, not immediate) and clear the frozen frame
+  // once we're cleanly playing again.
+  const wasBusyRef = useRef(false);
+  useEffect(() => {
+    if (isBusy && !wasBusyRef.current) captureFrame();
+    if (!isBusy) setHasFrozenFrame(false);
+    wasBusyRef.current = isBusy;
+  }, [isBusy, captureFrame]);
+
   const handleRetry = useCallback(() => {
     playback.retry();
   }, [playback]);
@@ -626,6 +672,8 @@ export default function VideoPlayerScreen() {
     setSelectedSubtitle(-1);
     setTvCurrentTime(0);
     setTvDuration(0);
+    setIsBuffering(false);
+    setHasFrozenFrame(false);
     setShowStats(false);
     setStats({});
     setNowNext({ now: null, next: null });
@@ -893,15 +941,31 @@ export default function VideoPlayerScreen() {
       }
     };
 
+    // Transient buffering: 'waiting' means the element ran out of data and is
+    // rebuffering; 'playing'/'canplay' mean data is flowing again. This drives
+    // only the spinner — NOT the recovery machine — so ordinary rebuffering no
+    // longer flashes "reconnecting" or forces a reload.
+    const onWaiting = () => {
+      if (!video.paused && !video.ended) setIsBuffering(true);
+    };
+    const onPlaying = () => setIsBuffering(false);
+    const onCanPlay = () => setIsBuffering(false);
+
     video.addEventListener("play", onPlay);
     video.addEventListener("pause", onPause);
     video.addEventListener("durationchange", onDurationChange);
     video.addEventListener("timeupdate", onTimeUpdate);
+    video.addEventListener("waiting", onWaiting);
+    video.addEventListener("playing", onPlaying);
+    video.addEventListener("canplay", onCanPlay);
     return () => {
       video.removeEventListener("play", onPlay);
       video.removeEventListener("pause", onPause);
       video.removeEventListener("durationchange", onDurationChange);
       video.removeEventListener("timeupdate", onTimeUpdate);
+      video.removeEventListener("waiting", onWaiting);
+      video.removeEventListener("playing", onPlaying);
+      video.removeEventListener("canplay", onCanPlay);
     };
   }, [currentVideo, updateWatchProgress, isLive]);
 
@@ -1480,10 +1544,31 @@ export default function VideoPlayerScreen() {
   const pct =
     tvDuration > 0 ? Math.min((tvCurrentTime / tvDuration) * 100, 100) : 0;
 
-  // While recovering/buffering, show a centred loading spinner over the
-  // video's frozen last frame (the <video> element holds the last decoded
-  // frame) instead of a "Reconnecting" text pill.
-  const recoveryLoading = isRecovering && !isFatal && (
+  // Offscreen-but-mounted canvas holding the last decoded frame. Kept mounted so
+  // captureFrame() can always draw into it; only painted on top of the (possibly
+  // black, post-teardown) <video> while busy and a frame has been captured.
+  const frozenFrame = (
+    <canvas
+      ref={frameCanvasRef}
+      aria-hidden
+      style={{
+        position: "absolute",
+        inset: 0,
+        width: "100%",
+        height: "100%",
+        objectFit: "contain",
+        backgroundColor: "#000",
+        display: hasFrozenFrame && isBusy ? "block" : "none",
+        zIndex: 12,
+        pointerEvents: "none",
+      }}
+    />
+  );
+
+  // Single busy overlay: spinner over the last frame (or black on first load).
+  // Covers initial load, transient buffering, and genuine reconnects — so
+  // ordinary buffering no longer flashes a "reconnecting" pill or a black frame.
+  const busyOverlay = isBusy && (
     <div
       style={{
         position: "absolute",
@@ -1494,7 +1579,7 @@ export default function VideoPlayerScreen() {
         alignItems: "center",
         justifyContent: "center",
         gap: 18,
-        backgroundColor: "rgba(0,0,0,0.28)",
+        backgroundColor: hasFrozenFrame ? "rgba(0,0,0,0.35)" : "rgba(0,0,0,0.6)",
         pointerEvents: "none",
       }}
     >
@@ -1509,7 +1594,7 @@ export default function VideoPlayerScreen() {
         }}
       />
       <span style={{ color: colors.text, fontFamily: fonts.body, fontSize: 18, fontWeight: 600 }}>
-        Loading…
+        {isRecovering ? "Reconnecting…" : "Loading…"}
       </span>
     </div>
   );
@@ -1573,20 +1658,9 @@ export default function VideoPlayerScreen() {
             )}
           </div>
 
-          {/* Center — play/pause icon */}
+          {/* Center — play/pause icon (spinner is handled by the busy overlay) */}
           <div style={TV.center}>
-            {isLoading ? (
-              <div
-                style={{
-                  width: 64,
-                  height: 64,
-                  border: "5px solid rgba(255,255,255,0.2)",
-                  borderTopColor: colors.accent,
-                  borderRadius: "50%",
-                  animation: "spin 0.8s linear infinite",
-                }}
-              />
-            ) : (
+            {isBusy ? null : (
               <span style={TV.playIcon}>
                 {tvPaused ? (
                   <Icon name="play" size={80} color="rgba(255,255,255,0.9)" />
@@ -1649,7 +1723,8 @@ export default function VideoPlayerScreen() {
           </div>
         )}
 
-        {recoveryLoading}
+        {frozenFrame}
+        {busyOverlay}
 
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
@@ -1931,7 +2006,7 @@ export default function VideoPlayerScreen() {
       <div style={S.videoWrapper}>
         <video
           ref={videoRef}
-          controls={!isLoading}
+          controls={!isBusy}
           autoPlay
           playsInline
           crossOrigin="anonymous"
@@ -1939,6 +2014,7 @@ export default function VideoPlayerScreen() {
         >
           <track kind="captions" />
         </video>
+        {frozenFrame}
         {showStats && <StatsOverlay stats={stats} />}
         {/* Resume prompt (VOD, web). Held until the user chooses. */}
         <ResumePrompt
@@ -1948,11 +2024,6 @@ export default function VideoPlayerScreen() {
           onResume={() => resolveResume("resume")}
           onStartOver={() => resolveResume("startOver")}
         />
-        {isLoading && (
-          <div style={{ ...S.stateOverlay, backgroundColor: "rgba(0,0,0,0.6)" }}>
-            <StatePanel mode="loading" title="Loading stream..." />
-          </div>
-        )}
         {isFatal && (
           <div style={{ ...S.stateOverlay, backgroundColor: "rgba(0,0,0,0.85)", display: "flex", flexDirection: "column" }}>
             <StatePanel
@@ -1968,7 +2039,7 @@ export default function VideoPlayerScreen() {
             </div>
           </div>
         )}
-        {recoveryLoading}
+        {busyOverlay}
       </div>
 
       <div style={S.footer}>

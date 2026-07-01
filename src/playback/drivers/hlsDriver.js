@@ -563,21 +563,18 @@ export function createHlsDriver(videoElOrGetter, opts = {}) {
       }
     }, STALL_POLL_MS);
 
-    // Native buffer-underrun signals — let the machine count them too. The
-    // machine's own buffering streak debounces these into a downgrade.
-    const onWaiting = () => {
-      // Only treat as a stall when we're meant to be playing.
-      if (videoEl && !videoEl.paused && !videoEl.ended) cb();
-    };
-    videoEl.addEventListener('stalled', onWaiting);
-    // Note: 'waiting' is also wired via onStatus(buffering); we count it as a
-    // stall episode here so the recovery machine can react/downgrade.
-    videoEl.addEventListener('waiting', onWaiting);
+    // NOTE: we deliberately do NOT treat the element's 'waiting'/'stalled'
+    // events as stalls. Those fire on ordinary rebuffering (very common on
+    // memory-constrained TVs with small buffers), and escalating them to the
+    // recovery machine forced a needless RELOAD — which tore down + reattached
+    // hls.js, blanking the frame to black and flashing "reconnecting" on every
+    // buffer blip. Ordinary buffering is surfaced by the screen as a transient
+    // spinner instead. Only a genuine stall — currentTime failing to advance
+    // for `stallThresholdMs` while the element believes it is playing (caught by
+    // the watchdog above) — escalates to recovery.
 
     return () => {
       clearInterval(id);
-      videoEl.removeEventListener('stalled', onWaiting);
-      videoEl.removeEventListener('waiting', onWaiting);
     };
   }
 
