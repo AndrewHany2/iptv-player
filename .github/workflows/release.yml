@@ -46,3 +46,23 @@ jobs:
           echo "version=${{ steps.ver.outputs.version }}"
           echo "is_tag=${{ steps.ver.outputs.is_tag }}"
           echo "platform=${{ steps.ver.outputs.platform }}"
+
+  web:
+    needs: setup
+    if: needs.setup.outputs.platform == 'all' || needs.setup.outputs.platform == 'web'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build:web
+      - name: Zip web bundle
+        run: cd dist && zip -r "../iptv-player-web-${{ needs.setup.outputs.version }}.zip" .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web
+          path: iptv-player-web-*.zip
+          if-no-files-found: error
