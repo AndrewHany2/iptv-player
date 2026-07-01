@@ -150,3 +150,62 @@ jobs:
           name: tv
           path: iptv-player-*.ipk
           if-no-files-found: error
+
+  ios:
+    needs: setup
+    if: needs.setup.outputs.platform == 'ios'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Install EAS CLI
+        run: npm i -g eas-cli
+      - name: Build iOS simulator (unsigned)
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          eas build -p ios --profile simulator --non-interactive --wait --json > build.json
+          URL=$(node -e "const b=JSON.parse(require('fs').readFileSync('build.json','utf8'))[0]; const a=b.artifacts||{}; process.stdout.write(a.applicationArchiveUrl||a.buildUrl||'')")
+          if [[ -z "$URL" ]]; then echo "No artifact URL in EAS response"; cat build.json; exit 1; fi
+          curl -L -o "iptv-player-ios-SIMULATOR-${{ needs.setup.outputs.version }}.tar.gz" "$URL"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios-simulator
+          path: iptv-player-ios-SIMULATOR-*.tar.gz
+          if-no-files-found: error
+
+  release:
+    needs: [setup, android, web, desktop, tv]
+    if: always() && needs.setup.outputs.is_tag == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Collect release assets
+        run: |
+          mkdir -p release-assets
+          find artifacts -type f \( \
+            -name '*.apk' -o -name '*.zip' -o -name '*.dmg' \
+            -o -name '*.exe' -o -name '*.AppImage' -o -name '*.ipk' \) \
+            -exec cp {} release-assets/ \;
+          echo "Assets to publish:"; ls -la release-assets
+          if [[ -z "$(ls -A release-assets)" ]]; then
+            echo "No artifacts were produced by any build job"; exit 1
+          fi
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" release-assets/* --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$TAG" release-assets/* \
+              --repo "$GITHUB_REPOSITORY" --title "$TAG" --generate-notes
+          fi
